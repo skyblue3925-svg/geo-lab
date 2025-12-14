@@ -3204,7 +3204,7 @@ def main():
             # 형성과정 애니메이션 (지원 지형만)
             if landform_key in ANIMATED_LANDFORM_GENERATORS:
                 st.markdown("---")
-                st.subheader("🎬 형성 과정 (3D)")
+                st.subheader("🎬 형성 과정")
                 
                 # 단일 슬라이더로 형성 단계 조절
                 stage_value = st.slider(
@@ -3217,22 +3217,44 @@ def main():
                 anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
                 stage_elev = anim_func(gallery_grid_size, stage_value)
                 
-                # 물 생성
-                stage_water = np.maximum(0, -stage_elev + 1.0)
-                stage_water[stage_elev > 2] = 0
-                
-                # 3D 렌더링 (고정 key로 WebGL 컨텍스트 재사용)
-                fig_3d_anim = render_terrain_plotly(
-                    stage_elev,
-                    f"{selected_landform} - {int(stage_value*100)}%",
-                    add_water=True,
-                    water_depth_grid=stage_water,
-                    water_level=-999,
-                    force_camera=True
+                # 2D/3D 토글
+                view_mode = st.radio(
+                    "보기 모드",
+                    ["2D 평면도", "3D 입체도"],
+                    horizontal=True,
+                    key="view_mode_radio"
                 )
                 
-                # 단일 고정 key 사용 → WebGL 컨텍스트 재사용
-                st.plotly_chart(fig_3d_anim, use_container_width=True, key="animation_3d_view")
+                if view_mode == "2D 평면도":
+                    # 2D matplotlib (가벼움, WebGL 사용 안 함)
+                    fig_2d, ax_2d = plt.subplots(figsize=(10, 8))
+                    im = ax_2d.imshow(stage_elev, cmap='terrain', origin='upper')
+                    
+                    # 물 영역
+                    water_mask = stage_elev < 0
+                    if water_mask.any():
+                        water_overlay = np.ma.masked_where(~water_mask, np.ones_like(stage_elev))
+                        ax_2d.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
+                    
+                    ax_2d.set_title(f"{selected_landform} - {int(stage_value*100)}%", fontsize=14)
+                    ax_2d.axis('off')
+                    plt.colorbar(im, ax=ax_2d, shrink=0.6, label='고도 (m)')
+                    st.pyplot(fig_2d)
+                    plt.close(fig_2d)
+                else:
+                    # 3D Plotly (WebGL 1개만 사용)
+                    stage_water = np.maximum(0, -stage_elev + 1.0)
+                    stage_water[stage_elev > 2] = 0
+                    
+                    fig_3d = render_terrain_plotly(
+                        stage_elev,
+                        f"{selected_landform} - {int(stage_value*100)}%",
+                        add_water=True,
+                        water_depth_grid=stage_water,
+                        water_level=-999,
+                        force_camera=True
+                    )
+                    st.plotly_chart(fig_3d, use_container_width=True, key="anim_3d_single")
                 
                 st.caption("💡 슬라이더를 조절하여 형성 단계를 확인하세요. (0% = 시작, 100% = 완성)")
     
