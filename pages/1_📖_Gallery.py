@@ -8,12 +8,12 @@ import matplotlib.pyplot as plt
 import sys
 import os
 
-# 상위 디렉토리를 경로에 추가
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# 상위 디렉토리를 경로에 추가 (HuggingFace 호환)
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, root_dir)
 
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
-from app.components.renderer import render_terrain_plotly
+from renderer import render_terrain_plotly
 
 st.header("📖 이상적 지형 갤러리")
 st.markdown("_교과서적인 지형 형태를 기하학적 모델로 시각화합니다._")
