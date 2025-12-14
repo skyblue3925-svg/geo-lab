@@ -3204,7 +3204,7 @@ def main():
             # 형성과정 애니메이션 (지원 지형만)
             if landform_key in ANIMATED_LANDFORM_GENERATORS:
                 st.markdown("---")
-                st.subheader("🎬 형성 과정")
+                st.subheader("🎬 형성 과정 (3D)")
                 
                 # 단일 슬라이더로 형성 단계 조절
                 stage_value = st.slider(
@@ -3217,24 +3217,22 @@ def main():
                 anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
                 stage_elev = anim_func(gallery_grid_size, stage_value)
                 
-                # 2D 렌더링 (WebGL 사용 안 함)
-                fig_anim, ax_anim = plt.subplots(figsize=(10, 8))
+                # 물 생성
+                stage_water = np.maximum(0, -stage_elev + 1.0)
+                stage_water[stage_elev > 2] = 0
                 
-                # 지형 색상맵
-                im_anim = ax_anim.imshow(stage_elev, cmap='terrain', origin='upper')
+                # 3D 렌더링 (고정 key로 WebGL 컨텍스트 재사용)
+                fig_3d_anim = render_terrain_plotly(
+                    stage_elev,
+                    f"{selected_landform} - {int(stage_value*100)}%",
+                    add_water=True,
+                    water_depth_grid=stage_water,
+                    water_level=-999,
+                    force_camera=True
+                )
                 
-                # 물 영역 표시
-                water_mask = stage_elev < 0
-                if water_mask.any():
-                    water_overlay = np.ma.masked_where(~water_mask, np.ones_like(stage_elev))
-                    ax_anim.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
-                
-                ax_anim.set_title(f"{selected_landform} - {int(stage_value*100)}%", fontsize=14)
-                ax_anim.axis('off')
-                plt.colorbar(im_anim, ax=ax_anim, shrink=0.6, label='고도 (m)')
-                
-                st.pyplot(fig_anim)
-                plt.close(fig_anim)
+                # 단일 고정 key 사용 → WebGL 컨텍스트 재사용
+                st.plotly_chart(fig_3d_anim, use_container_width=True, key="animation_3d_view")
                 
                 st.caption("💡 슬라이더를 조절하여 형성 단계를 확인하세요. (0% = 시작, 100% = 완성)")
     
