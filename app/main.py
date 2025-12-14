@@ -3217,54 +3217,26 @@ def main():
                 anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
                 stage_elev = anim_func(gallery_grid_size, stage_value)
                 
-                # 물 생성
-                stage_water = np.maximum(0, -stage_elev + 1.0)
-                stage_water[stage_elev > 2] = 0
+                # 2D 렌더링 (WebGL 사용 안 함)
+                fig_anim, ax_anim = plt.subplots(figsize=(10, 8))
                 
-                # 특정 지형 물 처리
-                if landform_key == "alluvial_fan":
-                    apex_y = int(gallery_grid_size * 0.15)
-                    center = gallery_grid_size // 2
-                    for r in range(apex_y + 5):
-                        for dc in range(-2, 3):
-                            c = center + dc
-                            if 0 <= c < gallery_grid_size:
-                                stage_water[r, c] = 3.0
+                # 지형 색상맵
+                im_anim = ax_anim.imshow(stage_elev, cmap='terrain', origin='upper')
                 
-                # 단일 3D 렌더링 (WebGL 컨텍스트 절약)
-                fig_stage = render_terrain_plotly(
-                    stage_elev,
-                    f"{selected_landform} - {int(stage_value*100)}%",
-                    add_water=True,
-                    water_depth_grid=stage_water,
-                    water_level=-999,
-                    force_camera=True
-                )
-                st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
+                # 물 영역 표시
+                water_mask = stage_elev < 0
+                if water_mask.any():
+                    water_overlay = np.ma.masked_where(~water_mask, np.ones_like(stage_elev))
+                    ax_anim.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
                 
-                # 자동 재생 버튼
-                if st.button("▶️ 자동 재생 (0%→100%)", key="auto_play"):
-                    stage_container = st.empty()
-                    prog = st.progress(0)
-                    
-                    for i in range(11):
-                        s = i / 10.0
-                        elev = anim_func(gallery_grid_size, s)
-                        water = np.maximum(0, -elev + 1.0)
-                        water[elev > 2] = 0
-                        
-                        fig = render_terrain_plotly(
-                            elev, f"{selected_landform} - {int(s*100)}%",
-                            add_water=True, water_depth_grid=water,
-                            water_level=-999, force_camera=False
-                        )
-                        stage_container.plotly_chart(fig, use_container_width=True)
-                        prog.progress(s)
-                        
-                        import time
-                        time.sleep(0.4)
-                    
-                    st.success("✅ 완료!")
+                ax_anim.set_title(f"{selected_landform} - {int(stage_value*100)}%", fontsize=14)
+                ax_anim.axis('off')
+                plt.colorbar(im_anim, ax=ax_anim, shrink=0.6, label='고도 (m)')
+                
+                st.pyplot(fig_anim)
+                plt.close(fig_anim)
+                
+                st.caption("💡 슬라이더를 조절하여 형성 단계를 확인하세요. (0% = 시작, 100% = 완성)")
     
     # 3. Scenarios Sub-tabs
     with t_scenarios:
