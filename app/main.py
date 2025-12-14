@@ -2587,9 +2587,12 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0, textu
     final_colorscale = realistic_colorscale
     final_cmin = 0
     final_cmax = 3
-    final_colorbar = dict(title="지표 상태", tickvals=[0.37, 1.12, 1.87, 2.62], 
-                          ticktext=["퇴적(土)", "식생(草)", "암석(岩)", "만년설(雪)"],
-                          titlefont=dict(color='white'), tickfont=dict(color='white'))
+    final_colorbar = dict(
+        title=dict(text="지표 상태", font=dict(color='white')), 
+        tickvals=[0.37, 1.12, 1.87, 2.62], 
+        ticktext=["퇴적(土)", "식생(草)", "암석(岩)", "만년설(雪)"],
+        tickfont=dict(color='white')
+    )
 
     if texture_path and os.path.exists(texture_path):
         try:
