@@ -332,58 +332,134 @@ def create_barchan_dune(grid_size: int = 100,
     return elevation
 
 
-def create_coastal_cliff(grid_size: int = 100,
+def create_coastal_cliff(grid_size: int = 100, stage: float = 1.0,
                           cliff_height: float = 30.0,
-                          num_stacks: int = 2) -> np.ndarray:
+                          num_stacks: int = 2,
+                          return_metadata: bool = False) -> np.ndarray:
     """
-    해안 절벽 (Coastal Cliff) + 시스택
+    해안 절벽 (Coastal Cliff) + 파식대 + 시스택
     
-    Args:
-        grid_size: 그리드 크기
-        cliff_height: 절벽 높이
-        num_stacks: 시스택 개수
-        
-    Returns:
-        elevation: 고도 배열
+    Stage 0~0.3: 초기 해안 (절벽 형성 시작)
+      - 파랑의 수압작용(hydraulic action)
+      - 노치(notch) 형성 시작
+    
+    Stage 0.3~0.6: 절벽 발달
+      - 연마작용(abrasion)으로 노치 확대
+      - 오버행(overhang) 형성
+      - 절벽 붕괴 시작
+    
+    Stage 0.6~0.8: 절벽 후퇴
+      - 반복적 붕괴로 절벽이 육지쪽으로 후퇴
+      - 파식대(wave-cut platform) 확장
+    
+    Stage 0.8~1.0: 시스택/해식동 형성
+      - 연약부 차별침식
+      - 해식아치 → 시스택 형성
+    
+    핵심 과정:
+    - 수압작용: 파랑 충격 → 암석 틈새 압축공기
+    - 연마작용: 해빈 자갈/모래가 절벽 깎음
+    - 용식작용: 해수의 화학적 용해 (석회암)
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
+    # 해안선 위치 (stage에 따라 육지쪽으로 후퇴)
+    initial_sea_line = int(h * 0.7)
+    retreat_amount = int(h * 0.2 * stage)
+    sea_line = initial_sea_line - retreat_amount
+    
     # 바다 (하단)
-    sea_line = int(h * 0.6)
-    elevation[sea_line:, :] = -5.0
+    for r in range(sea_line, h):
+        elevation[r, :] = -5.0
+    
+    # 절벽 높이 (stage에 따라 발달)
+    current_cliff_height = cliff_height * (0.5 + 0.5 * stage)
     
     # 육지 + 절벽
+    cliff_width = max(3, int(5 * stage))
     for r in range(sea_line):
         cliff_dist = sea_line - r
-        if cliff_dist < 5:
-            # 절벽면
-            elevation[r, :] = cliff_height * (cliff_dist / 5)
+        if cliff_dist < cliff_width:
+            # 절벽면 (수직에 가까움)
+            t = cliff_dist / cliff_width
+            elevation[r, :] = current_cliff_height * (t ** 0.7)  # 오목한 프로파일
         else:
             # 평탄한 육지
-            elevation[r, :] = cliff_height
-            
-    # 파식대 (Wave-cut Platform)
-    for r in range(sea_line, sea_line + 10):
-        if r < h:
-            elevation[r, :] = -2.0 + (r - sea_line) * 0.2
-            
-    # 시스택 (Sea Stacks)
-    for i in range(num_stacks):
-        sx = w // 3 + i * (w // 3)
-        sy = sea_line + 5 + i * 3
+            elevation[r, :] = current_cliff_height
+    
+    # 노치 (Notch) - stage > 0.3에서 형성
+    if stage > 0.3:
+        notch_depth = int(3 * (stage - 0.3) / 0.7)
+        notch_height = 2  # 파랑대 높이
         
-        stack_height = cliff_height * 0.7
+        for r in range(sea_line - notch_height, sea_line):
+            for c in range(w):
+                if 0 <= r < h:
+                    # 노치 깊이만큼 파임
+                    elevation[r, c] = min(elevation[r, c], 
+                                         elevation[r, c] - notch_depth * (1 - abs(r - (sea_line - 1)) / notch_height))
+    
+    # 파식대 (Wave-cut Platform) - stage > 0.4에서 확장
+    platform_width = int(10 + 15 * max(0, (stage - 0.4) / 0.6))
+    for r in range(sea_line, min(sea_line + platform_width, h)):
+        platform_depth = -1.0 - (r - sea_line) * 0.3
+        elevation[r, :] = max(platform_depth, -5.0)
+    
+    # 시스택 (Sea Stacks) - stage > 0.7에서 형성
+    stacks_formed = []
+    if stage > 0.7:
+        stack_progress = (stage - 0.7) / 0.3
+        visible_stacks = int(num_stacks * stack_progress) + 1
         
-        for dr in range(-3, 4):
-            for dc in range(-3, 4):
-                r, c = sy + dr, sx + dc
-                if 0 <= r < h and 0 <= c < w:
-                    dist = np.sqrt(dr**2 + dc**2)
-                    if dist < 3:
-                        elevation[r, c] = stack_height * (1 - dist / 4)
-                        
+        for i in range(min(visible_stacks, num_stacks)):
+            sx = w // 4 + i * (w // 2)
+            sy = sea_line + 8 + i * 4
+            
+            stack_height = current_cliff_height * 0.6 * stack_progress
+            stack_radius = 4
+            
+            for dr in range(-stack_radius, stack_radius + 1):
+                for dc in range(-stack_radius, stack_radius + 1):
+                    r_pos, c_pos = sy + dr, sx + dc
+                    if 0 <= r_pos < h and 0 <= c_pos < w:
+                        dist = np.sqrt(dr**2 + dc**2)
+                        if dist < stack_radius:
+                            z = stack_height * (1 - (dist / stack_radius) ** 2)
+                            elevation[r_pos, c_pos] = max(elevation[r_pos, c_pos], z)
+            
+            stacks_formed.append((sy, sx))
+    
+    if return_metadata:
+        return elevation, {
+            'sea_line': sea_line,
+            'cliff_height': current_cliff_height,
+            'retreat_amount': retreat_amount,
+            'platform_width': platform_width,
+            'stacks_formed': stacks_formed,
+            'erosion_processes': {
+                'hydraulic_action': '파랑 충격 → 암석 틈새 압축공기',
+                'abrasion': '해빈 자갈/모래가 절벽 연마',
+                'corrosion': '해수의 화학적 용해 (석회암)'
+            },
+            'stage_description': _get_cliff_stage_desc(stage)
+        }
+    
     return elevation
+
+
+def _get_cliff_stage_desc(stage: float) -> str:
+    """해안절벽 단계별 설명"""
+    if stage < 0.2:
+        return "🌊 초기 해안: 파랑 침식 시작"
+    elif stage < 0.4:
+        return "⛏️ 노치 형성: 수압작용으로 파랑대 침식"
+    elif stage < 0.6:
+        return "🏔️ 절벽 발달: 오버행 형성 → 붕괴"
+    elif stage < 0.8:
+        return "📉 절벽 후퇴: 파식대 노출"
+    else:
+        return "🪨 시스택 형성: 차별침식으로 고립 암석"
 
 
 # ============================================
@@ -446,10 +522,22 @@ def create_delta_animated(grid_size: int, stage: float,
 
 
 def create_alluvial_fan_animated(grid_size: int, stage: float,
-                                  cone_angle: float = 90.0, max_height: float = 50.0) -> np.ndarray:
-    """선상지 형성과정 애니메이션"""
+                                  cone_angle: float = 90.0, max_height: float = 50.0,
+                                  return_metadata: bool = False) -> np.ndarray:
+    """선상지 형성과정 애니메이션
+    
+    Stage 0~0.3: 선정(Apex) 형성 - 협곡 출구, 역 퇴적
+    Stage 0.3~0.7: 선앙(Mid-fan) 확장 - 분기 수로, 사질 퇴적
+    Stage 0.7~1.0: 선단(Toe) 완성 - 말단부, 니질 퇴적
+    
+    세부 구조:
+    - 선정: 경사 5-15°, 역(Gravel) 퇴적, 단일 주수로
+    - 선앙: 경사 2-5°, 사(Sand) 퇴적, 분기 수로
+    - 선단: 경사 <2°, 니(Silt) 퇴적, 망상/시상 수로
+    """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
+    zone_mask = np.zeros((h, w), dtype=int)  # 0: 없음, 1: 선정, 2: 선앙, 3: 선단
     
     apex_y = int(h * 0.15)
     center_x = w // 2
@@ -469,17 +557,60 @@ def create_alluvial_fan_animated(grid_size: int, stage: float,
     max_reach = int((h - apex_y) * stage)
     half_angle = np.radians(cone_angle / 2) * (0.5 + 0.5 * stage)
     
-    for r in range(apex_y, min(apex_y + max_reach, h)):  # h 범위 체크 추가
+    # 존 경계 계산
+    apex_end = apex_y + max(1, int(max_reach * 0.2))      # 선정: 0~20%
+    mid_end = apex_y + max(1, int(max_reach * 0.6))       # 선앙: 20~60%
+    # 선단: 60~100%
+    
+    for r in range(apex_y, min(apex_y + max_reach, h)):
         dist = r - apex_y
+        
+        # 존 결정
+        if r < apex_end:
+            current_zone = 1  # 선정
+        elif r < mid_end:
+            current_zone = 2  # 선앙
+        else:
+            current_zone = 3  # 선단
+        
         for c in range(w):
             dx = c - center_x
             if abs(np.arctan2(dx, max(dist, 1))) < half_angle:
                 radial = np.sqrt(dx**2 + dist**2)
-                z = max_height * (1 - radial / (max_reach * 1.5 + 0.001)) * stage  # divide by zero 방지
+                z = max_height * (1 - radial / (max_reach * 1.5 + 0.001)) * stage
                 lateral_decay = 1 - abs(dx) / (w // 2)
-                elevation[r, c] = max(0, z * lateral_decay)
+                new_elevation = max(0, z * lateral_decay)
                 
+                if new_elevation > 0:
+                    elevation[r, c] = new_elevation
+                    zone_mask[r, c] = current_zone
+    
+    if return_metadata:
+        return elevation, {
+            'zone_mask': zone_mask,
+            'apex_boundary': apex_end,
+            'mid_boundary': mid_end,
+            'stage_description': _get_fan_stage_desc(stage),
+            'zone_info': {
+                1: {'name': '선정 (Apex)', 'slope': '5-15°', 'sediment': '역 (Gravel)'},
+                2: {'name': '선앙 (Mid-fan)', 'slope': '2-5°', 'sediment': '사 (Sand)'},
+                3: {'name': '선단 (Toe)', 'slope': '<2°', 'sediment': '니 (Silt)'}
+            }
+        }
+    
     return elevation
+
+
+def _get_fan_stage_desc(stage: float) -> str:
+    """선상지 단계별 설명"""
+    if stage < 0.3:
+        return "🏔️ 선정 형성: 협곡 출구에서 유속 급감, 역 퇴적 시작"
+    elif stage < 0.6:
+        return "📊 선앙 확장: 수로 분기, 사질 퇴적물 확산"
+    elif stage < 0.8:
+        return "🌊 선단 발달: 세립질 퇴적, 말단부 완만해짐"
+    else:
+        return "✅ 선상지 완성: 선정-선앙-선단 분화 완료"
 
 
 def create_meander_animated(grid_size: int, stage: float,
@@ -841,9 +972,14 @@ def create_barchan_animated(grid_size: int, stage: float,
 # ============================================
 
 def create_incised_meander(grid_size: int = 100, stage: float = 1.0,
-                           valley_depth: float = 80.0, num_terraces: int = 3) -> np.ndarray:
+                           valley_depth: float = 80.0, num_terraces: int = 3,
+                           return_metadata: bool = False) -> np.ndarray:
     """
     감입곡류 (Incised Meander) + 하안단구 (River Terraces)
+    
+    Stage 0~0.3: 자유곡류 (범람원 위, 침식기준면 높음)
+    Stage 0.3~0.7: 융기 시작 → 하방침식 강화
+    Stage 0.7~1.0: 깊은 협곡 + 하안단구 노출
     
     융기 환경에서 곡류가 암반을 파고 들어가면서 형성
     """
@@ -851,12 +987,26 @@ def create_incised_meander(grid_size: int = 100, stage: float = 1.0,
     elevation = np.zeros((h, w))
     
     center_x = w // 2
-    amplitude = w * 0.25 * stage
-    wl = h / 3  # 3 bends
+    wl = h / 3  # 3개 굽이
     channel_width = max(3, w // 25)
     
-    # 기반 고원
-    elevation[:, :] = valley_depth
+    # 침식기준면 (stage에 따라 하강)
+    # Stage 0: 기준면 높음 (자유곡류)
+    # Stage 1: 기준면 낮음 (감입)
+    base_level = valley_depth * (1 - stage * 0.9)  # 90% 하강
+    
+    # 곡류 진폭 (stage에 따라 고정화)
+    if stage < 0.3:
+        amplitude = w * 0.25 * (stage / 0.3)  # 사행 발달
+    else:
+        amplitude = w * 0.25  # 곡류 패턴 고정
+    
+    # 기반 고원 높이
+    plateau_height = valley_depth
+    elevation[:, :] = plateau_height
+    
+    # 현재 침식 깊이 (stage에 따라 증가)
+    current_depth = (plateau_height - base_level) * min(1.0, (stage - 0.2) / 0.8) if stage > 0.2 else 0
     
     # 감입 곡류 파기
     for r in range(h):
@@ -866,119 +1016,293 @@ def create_incised_meander(grid_size: int = 100, stage: float = 1.0,
         for c in range(w):
             dist = abs(c - meander_x)
             
+            # 하도 바닥 (침식기준면까지)
+            river_bottom = plateau_height - current_depth
+            
             if dist < channel_width:
                 # 하도 (가장 깊음)
-                elevation[r, c] = 5.0
-            elif dist < channel_width * 2:
-                # 급경사 측벽
-                t = (dist - channel_width) / channel_width
-                elevation[r, c] = 5.0 + (valley_depth - 5.0) * t
-                
-    # 하안단구 (계단)
-    terrace_heights = [valley_depth * (0.3 + 0.2 * i) for i in range(num_terraces)]
+                elevation[r, c] = max(base_level, river_bottom)
+            elif dist < channel_width * 3:
+                # 협곡 측벽 (V자형)
+                t = (dist - channel_width) / (channel_width * 2)
+                elevation[r, c] = river_bottom + current_depth * t
     
-    for terrace_h in terrace_heights:
-        for r in range(h):
-            theta = 2 * np.pi * r / wl
-            meander_x = center_x + amplitude * np.sin(theta) * 0.8
+    # 하안단구 (stage > 0.5에서 형성)
+    if stage > 0.5:
+        terrace_progress = (stage - 0.5) / 0.5
+        num_visible_terraces = int(num_terraces * terrace_progress) + 1
+        
+        for t_idx in range(min(num_visible_terraces, num_terraces)):
+            terrace_height = plateau_height - current_depth * (0.3 + 0.25 * t_idx)
+            terrace_width_start = channel_width * (3 + t_idx)
+            terrace_width_end = channel_width * (4 + t_idx)
             
-            for c in range(w):
-                dist = abs(c - meander_x)
-                if channel_width * 3 < dist < channel_width * 4:
-                    if elevation[r, c] > terrace_h:
-                        elevation[r, c] = terrace_h
-                        
+            for r in range(h):
+                theta = 2 * np.pi * r / wl
+                meander_x = center_x + amplitude * np.sin(theta) * (0.9 - 0.1 * t_idx)
+                
+                for c in range(w):
+                    dist = abs(c - meander_x)
+                    if terrace_width_start < dist < terrace_width_end:
+                        if elevation[r, c] > terrace_height:
+                            elevation[r, c] = terrace_height
+    
+    if return_metadata:
+        return elevation, {
+            'base_level': base_level,
+            'current_depth': current_depth,
+            'stage_description': _get_incised_stage_desc(stage)
+        }
+    
     return elevation
 
 
+def _get_incised_stage_desc(stage: float) -> str:
+    """감입곡류 단계별 설명"""
+    if stage < 0.3:
+        return "🌊 자유곡류 단계: 범람원 위를 자유롭게 사행"
+    elif stage < 0.5:
+        return "⬆️ 융기 시작: 침식기준면 하강, 하방침식 시작"
+    elif stage < 0.7:
+        return "⛏️ 감입 진행: 곡류 패턴 고정, 협곡 깊어짐"
+    else:
+        return "🏔️ 감입곡류 완성: 하안단구 형성, 과거 하상 노출"
+
+
 def create_free_meander(grid_size: int = 100, stage: float = 1.0,
-                        num_bends: int = 4) -> np.ndarray:
+                        num_bends: int = 4, return_metadata: bool = False) -> np.ndarray:
     """
     자유곡류 (Free Meander) + 범람원 (Floodplain) + 자연제방 (Natural Levee)
     
-    충적 평야 위를 자유롭게 사행
+    Stage 0~0.2: 직선 하천 (초기 하도)
+    Stage 0.2~0.5: 사행 발달 (헬리컬 흐름에 의한 공격사면 침식)
+    Stage 0.5~0.7: 곡류 진폭 증가 (사행도 > 1.5)
+    Stage 0.7~0.9: 곡류 목 절단 (Neck Cutoff) → 우각호 형성
+    Stage 0.9~1.0: 자연제방 완성 + 배후습지 분화
+    
+    헬리컬 흐름 (Helical Flow):
+    - 곡류부 외측: 원심력 → 수면 상승 → 바닥에서 내측으로 횡류
+    - 공격사면(Cut Bank): 침식
+    - 활주사면(Point Bar): 퇴적
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
     # 범람원 기반
-    elevation[:, :] = 10.0
+    base_height = 10.0
+    elevation[:, :] = base_height
     
     center_x = w // 2
-    amplitude = w * 0.3 * stage
-    wl = h / num_bends
     channel_width = max(3, w // 20)
+    wl = h / num_bends
+    
+    # Stage에 따른 사행 진폭
+    if stage < 0.2:
+        amplitude = w * 0.05  # 거의 직선
+    else:
+        amplitude = w * 0.3 * min(1.0, (stage - 0.1) / 0.4)
+    
+    # 사행도 계산
+    sinuosity = 1.0 + amplitude / (h / num_bends) * 2
+    
+    # 공격사면/활주사면 위치 저장
+    cutbank_positions = []
+    pointbar_positions = []
     
     for r in range(h):
         theta = 2 * np.pi * r / wl
         meander_x = center_x + amplitude * np.sin(theta)
         
+        # 곡률 방향 (공격사면 결정용)
+        curvature = np.cos(theta)  # +: 오른쪽 공격사면, -: 왼쪽 공격사면
+        
         for c in range(w):
-            dist = abs(c - meander_x)
+            dist = c - meander_x
+            abs_dist = abs(dist)
             
-            if dist < channel_width:
-                # 하도
-                elevation[r, c] = 5.0 - (channel_width - dist) * 0.2
-            elif dist < channel_width * 2:
-                # 자연제방 (Levee) - 하도보다 약간 높음
-                elevation[r, c] = 11.0
-            elif dist < channel_width * 4:
-                # 배후습지 (Backswamp) - 약간 낮음
-                elevation[r, c] = 9.5
+            if abs_dist < channel_width:
+                # 하도 (비대칭 단면 - stage 후반에)
+                if stage > 0.3:
+                    # 공격사면 쪽은 더 깊음
+                    if (curvature > 0 and dist > 0) or (curvature < 0 and dist < 0):
+                        depth_factor = 1.2  # 공격사면
+                        if r % 20 == 0:
+                            cutbank_positions.append((r, c))
+                    else:
+                        depth_factor = 0.7  # 활주사면
+                        if r % 20 == 0:
+                            pointbar_positions.append((r, c))
+                else:
+                    depth_factor = 1.0
+                elevation[r, c] = 5.0 - (channel_width - abs_dist) * 0.2 * depth_factor
                 
-    # 우각호 (Oxbow Lake)
+            elif abs_dist < channel_width * 2 and stage > 0.5:
+                # 자연제방 (Levee) - stage 후반에 발달
+                levee_height = base_height + 1.5 * ((stage - 0.5) / 0.5)
+                elevation[r, c] = levee_height
+                
+            elif abs_dist < channel_width * 5 and stage > 0.7:
+                # 배후습지 (Backswamp) - 자연제방보다 낮음
+                elevation[r, c] = base_height - 0.5
+    
+    # 우각호 (Oxbow Lake) - Stage 0.7 이후
+    oxbow_formed = False
     if stage > 0.7:
+        oxbow_progress = (stage - 0.7) / 0.3
         oxbow_y = h // 2
+        oxbow_amplitude = amplitude * 1.4
+        
         for dy in range(-int(wl/4), int(wl/4)):
             r = oxbow_y + dy
             if 0 <= r < h:
                 theta = 2 * np.pi * dy / (wl/2)
-                ox_x = center_x + amplitude * 1.3 * np.sin(theta)
-                for dc in range(-channel_width, channel_width + 1):
+                ox_x = center_x + oxbow_amplitude * np.sin(theta)
+                
+                for dc in range(-channel_width-2, channel_width + 3):
                     c = int(ox_x + dc)
                     if 0 <= c < w:
-                        elevation[r, c] = 4.5
-                        
+                        # 우각호 (고립된 호수)
+                        elevation[r, c] = 4.0
+                        oxbow_formed = True
+    
+    if return_metadata:
+        return elevation, {
+            'sinuosity': sinuosity,
+            'amplitude': amplitude,
+            'cutbank_positions': cutbank_positions[:5],  # 상위 5개
+            'pointbar_positions': pointbar_positions[:5],
+            'oxbow_formed': oxbow_formed,
+            'stage_description': _get_meander_stage_desc(stage)
+        }
+    
     return elevation
 
 
-def create_bird_foot_delta(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
-    """조족상 삼각주 (Bird-foot Delta) - 미시시피강형"""
+def _get_meander_stage_desc(stage: float) -> str:
+    """자유곡류 단계별 설명"""
+    if stage < 0.2:
+        return "📏 초기 하도: 거의 직선 흐름"
+    elif stage < 0.4:
+        return "🌀 사행 시작: 헬리컬 흐름으로 공격사면 침식 시작"
+    elif stage < 0.6:
+        return "🔄 곡류 발달: 사행도 증가, 활주사면 퇴적"
+    elif stage < 0.8:
+        return "✂️ 목 절단: 곡류 목 근접, 우각호 형성 시작"
+    else:
+        return "🏞️ 성숙 곡류: 자연제방 + 배후습지 + 우각호 완성"
+
+
+def create_bird_foot_delta(grid_size: int = 100, stage: float = 1.0,
+                           return_metadata: bool = False) -> np.ndarray:
+    """조족상 삼각주 (Bird-foot Delta) - 미시시피강형
+    
+    Stage 0~0.3: 주 수로 형성
+      - 단일 하도가 바다로 진입
+      - 초기 퇴적 시작
+    
+    Stage 0.3~0.6: 분배수로 발달
+      - 수로 분기 시작
+      - 각 수로 양옆에 자연제방 형성
+    
+    Stage 0.6~1.0: 조족상 완성
+      - 다수의 분배수로가 새발 모양으로 돌출
+      - 각 finger 끝에서 퇴적 활발
+    
+    형성 조건:
+    - 파랑 에너지 약함 (만 또는 내해)
+    - 조석 영향 적음
+    - 퇴적물 공급 풍부
+    
+    대표 사례: 미시시피강 삼각주
+    """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     elevation[:, :] = -5.0  # 바다
     
-    apex_y = int(h * 0.15)
+    apex_y = int(h * 0.12)
     center_x = w // 2
     
-    # 가늘고 긴 분배수로들
-    num_fingers = 5
-    max_length = int((h - apex_y) * stage)
+    # Stage에 따른 분배수로 개수
+    if stage < 0.3:
+        num_fingers = 1
+    elif stage < 0.5:
+        num_fingers = 3
+    else:
+        num_fingers = min(7, 3 + int(4 * (stage - 0.5) / 0.5))
+    
+    max_length = int((h - apex_y) * stage * 0.9)
+    finger_width = max(3, int(4 * (1 - stage * 0.3)))  # 시간이 갈수록 좁아짐
+    
+    distributary_info = []
     
     for i in range(num_fingers):
-        angle = np.radians(-30 + 15 * i)  # -30 to +30 degrees
+        # 각도 분포 (중앙에서 양쪽으로)
+        if num_fingers == 1:
+            angle = 0
+        else:
+            angle = np.radians(-35 + 70 * i / (num_fingers - 1))
+        
+        finger_length = 0
         
         for d in range(max_length):
             r = apex_y + int(d * np.cos(angle))
             c = center_x + int(d * np.sin(angle))
             
             if 0 <= r < h and 0 <= c < w:
-                # 좁은 finger 형태
-                for dc in range(-3, 4):
+                finger_length = d
+                
+                # 분배수로 + 자연제방
+                for dc in range(-finger_width, finger_width + 1):
                     for dr in range(-2, 3):
                         nr, nc = r + dr, c + dc
                         if 0 <= nr < h and 0 <= nc < w:
                             dist = np.sqrt(dr**2 + dc**2)
-                            z = 8.0 * (1 - d / max_length) * (1 - dist / 4) * stage
-                            elevation[nr, nc] = max(elevation[nr, nc], z)
                             
-    # 하천
+                            # 중앙: 수로 (낮음), 양쪽: 자연제방 (높음)
+                            if abs(dc) < 2:
+                                # 수로
+                                z = 2.0 * (1 - d / max_length) * stage
+                            else:
+                                # 자연제방
+                                z = 6.0 * (1 - d / max_length) * (1 - (abs(dc) - 2) / finger_width) * stage
+                            
+                            elevation[nr, nc] = max(elevation[nr, nc], z)
+        
+        distributary_info.append({
+            'angle_deg': np.degrees(angle),
+            'length': finger_length
+        })
+    
+    # 상류 하천
     for r in range(apex_y):
-        for dc in range(-3, 4):
+        for dc in range(-4, 5):
             if 0 <= center_x + dc < w:
-                elevation[r, center_x + dc] = 6.0
-                
+                channel_depth = 3.0 * (1 - abs(dc) / 5)
+                elevation[r, center_x + dc] = 5.0 + channel_depth
+    
+    if return_metadata:
+        return elevation, {
+            'num_distributaries': num_fingers,
+            'max_length': max_length,
+            'distributary_info': distributary_info,
+            'stage_description': _get_bird_foot_stage_desc(stage)
+        }
+    
     return elevation
+
+
+def _get_bird_foot_stage_desc(stage: float) -> str:
+    """조족상 삼각주 단계별 설명"""
+    if stage < 0.2:
+        return "🏞️ 초기: 단일 하도가 바다로 진입"
+    elif stage < 0.4:
+        return "🌊 퇴적 시작: 하구에서 퇴적물 축적"
+    elif stage < 0.6:
+        return "🔀 분기 발생: 수로가 여러 갈래로 나뉨"
+    elif stage < 0.8:
+        return "🦶 조족상 발달: 각 finger에 자연제방 형성"
+    else:
+        return "🦆 조족상 완성: 새발 모양 삼각주"
 
 
 def create_arcuate_delta(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
@@ -1050,18 +1374,49 @@ def create_cuspate_delta(grid_size: int = 100, stage: float = 1.0) -> np.ndarray
 
 
 def create_cirque(grid_size: int = 100, stage: float = 1.0,
-                  depth: float = 50.0) -> np.ndarray:
-    """권곡 (Cirque) - 빙하 시작점"""
+                  depth: float = 50.0, return_metadata: bool = False) -> np.ndarray:
+    """권곡 (Cirque) - 빙하 시작점
+    
+    Stage 0~0.3: 니발 침식 (Nivation)
+      - 만년설의 동결풍화로 얕은 움푹 형성
+      - 암설(rock debris) 축적 시작
+    
+    Stage 0.3~0.6: 빙하화 (Glacierization)
+      - 피른(firn) → 빙하 얼음 압밀
+      - 플러킹(plucking)과 마식(abrasion) 시작
+      - 후벽(headwall) 발달
+    
+    Stage 0.6~0.8: 권곡 확장
+      - 베르그슈런트(bergschrund) 동결풍화
+      - 바닥과 벽 침식 확대
+    
+    Stage 0.8~1.0: 빙하 소멸 + 턴(Tarn) 형성
+      - 빙하 융해
+      - 빙하호(tarn) 형성
+    """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
     # 산악 배경
-    elevation[:, :] = depth + 30.0
+    mountain_height = depth + 40.0
+    elevation[:, :] = mountain_height
     
     # 권곡 위치 (상단 중앙)
-    cirque_y = int(h * 0.3)
+    cirque_y = int(h * 0.35)
     cirque_x = w // 2
-    cirque_radius = int(w * 0.25 * (0.5 + 0.5 * stage))
+    
+    # Stage에 따른 권곡 크기
+    if stage < 0.3:
+        # 니발 침식: 작은 움푹
+        cirque_radius = int(w * 0.15 * (stage / 0.3))
+        bowl_depth = depth * 0.3 * (stage / 0.3)
+    else:
+        # 빙하화 이후: 급격히 확장
+        cirque_radius = int(w * 0.15 + w * 0.15 * ((stage - 0.3) / 0.7))
+        bowl_depth = depth * (0.3 + 0.7 * ((stage - 0.3) / 0.7))
+    
+    # 후벽 경사도 (stage에 따라 급해짐)
+    headwall_steepness = 0.3 + 0.7 * min(1.0, stage / 0.6)
     
     for r in range(h):
         for c in range(w):
@@ -1070,51 +1425,183 @@ def create_cirque(grid_size: int = 100, stage: float = 1.0,
             dist = np.sqrt(dy**2 + dx**2)
             
             if dist < cirque_radius:
-                # 반원형 움푹한 형태
-                # 바닥은 평탄, 후벽(headwall)은 급경사
-                if dy < 0:  # 후벽
-                    z = depth * (1 - dist / cirque_radius) * 0.3
-                else:  # 바닥
-                    z = depth * 0.1
-                elevation[r, c] = z
-                
+                # 방향에 따른 높이 변화
+                if dy < 0:
+                    # 후벽 (Headwall) - 급경사
+                    wall_height = bowl_depth * headwall_steepness * (1 - dist / cirque_radius)
+                    elevation[r, c] = mountain_height - bowl_depth + wall_height
+                else:
+                    # 바닥 - 평탄하거나 약간 오목
+                    floor_depth = bowl_depth * (1 - (dist / cirque_radius) ** 2) * 0.8
+                    elevation[r, c] = mountain_height - floor_depth
+                    
+            # 빙하 유출구 (하류 방향)
+            if cirque_y < r < cirque_y + cirque_radius * 0.5:
+                if abs(c - cirque_x) < cirque_radius * 0.3:
+                    outlet_depth = bowl_depth * 0.5 * (1 - (r - cirque_y) / (cirque_radius * 0.5))
+                    elevation[r, c] = min(elevation[r, c], mountain_height - outlet_depth)
+    
+    # 턴(Tarn) 호수 - stage > 0.8
+    tarn_present = False
+    tarn_depth = 0
+    if stage > 0.8:
+        tarn_present = True
+        tarn_progress = (stage - 0.8) / 0.2
+        tarn_radius = int(cirque_radius * 0.5 * tarn_progress)
+        tarn_depth = bowl_depth * 0.3 * tarn_progress
+        
+        for r in range(cirque_y - tarn_radius, cirque_y + tarn_radius):
+            for c in range(cirque_x - tarn_radius, cirque_x + tarn_radius):
+                if 0 <= r < h and 0 <= c < w:
+                    dist = np.sqrt((r - cirque_y)**2 + (c - cirque_x)**2)
+                    if dist < tarn_radius:
+                        # 호수 바닥
+                        elevation[r, c] = mountain_height - bowl_depth - tarn_depth * (1 - dist / tarn_radius)
+    
+    if return_metadata:
+        return elevation, {
+            'cirque_radius': cirque_radius,
+            'bowl_depth': bowl_depth,
+            'headwall_steepness': headwall_steepness,
+            'tarn_present': tarn_present,
+            'tarn_depth': tarn_depth if tarn_present else 0,
+            'stage_description': _get_cirque_stage_desc(stage)
+        }
+    
     return elevation
 
 
-def create_horn(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
-    """호른 (Horn) - 피라미드형 봉우리"""
+def _get_cirque_stage_desc(stage: float) -> str:
+    """권곡 단계별 설명"""
+    if stage < 0.2:
+        return "❄️ 니발 초기: 만년설 아래 동결풍화 시작"
+    elif stage < 0.4:
+        return "🏔️ 니발 후기: 얕은 움푹, 암설 축적"
+    elif stage < 0.6:
+        return "🧊 빙하화: 피른→빙하, 플러킹+마식 시작"
+    elif stage < 0.8:
+        return "⛏️ 권곡 확장: 베르그슈런트 동결풍화"
+    else:
+        return "💧 턴 형성: 빙하 소멸, 빙하호 형성"
+
+
+def create_horn(grid_size: int = 100, stage: float = 1.0,
+                num_cirques: int = 4, return_metadata: bool = False) -> np.ndarray:
+    """호른 (Horn) - 피라미드형 봉우리
+    
+    Stage 0~0.3: 초기 권곡 형성
+      - 여러 방향에서 권곡 발달 시작
+      - 능선 형태 유지
+    
+    Stage 0.3~0.6: 권곡 확장
+      - 두부침식으로 권곡 깊어짐
+      - 아레트(arête) 발달
+    
+    Stage 0.6~0.9: 호른 형성
+      - 권곡들의 만남
+      - 피라미드형 봉우리 돌출
+    
+    Stage 0.9~1.0: 성숙 호른
+      - 날카로운 정상
+      - 마터호른 형태
+    
+    대표 사례: 마터호른 (스위스), K2
+    """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
     center = (h // 2, w // 2)
-    peak_height = 100.0 * stage
+    max_peak_height = 120.0
     
-    # 4방향 권곡에 의한 호른 형성
-    num_cirques = 4
-    cirque_radius = int(w * 0.3)
+    # Stage에 따른 봉우리 높이와 권곡 깊이
+    if stage < 0.3:
+        peak_height = max_peak_height * 0.6
+        cirque_depth = 30.0 * (stage / 0.3)
+    else:
+        peak_height = max_peak_height * (0.6 + 0.4 * ((stage - 0.3) / 0.7))
+        cirque_depth = 30.0 + 40.0 * ((stage - 0.3) / 0.7)
     
+    cirque_radius = int(w * 0.28 * (0.6 + 0.4 * stage))
+    
+    # 기본 원뿔형 산체
     for r in range(h):
         for c in range(w):
             dy = r - center[0]
             dx = c - center[1]
             dist = np.sqrt(dy**2 + dx**2)
             
-            # 기본 피라미드 형태
-            elevation[r, c] = peak_height * max(0, 1 - dist / (w // 2))
-            
-            # 4방향 권곡 파기
-            for i in range(num_cirques):
-                angle = i * np.pi / 2
-                cx = center[1] + int(cirque_radius * 0.8 * np.cos(angle))
-                cy = center[0] + int(cirque_radius * 0.8 * np.sin(angle))
-                
+            # 원뿔형 기본 형태
+            elevation[r, c] = peak_height * max(0, 1 - dist / (w * 0.45))
+    
+    # 다방향 권곡 파기
+    cirque_centers = []
+    arete_count = 0
+    
+    for i in range(num_cirques):
+        angle = i * 2 * np.pi / num_cirques + np.pi / num_cirques  # 약간 회전
+        cx = center[1] + int(cirque_radius * 0.7 * np.cos(angle))
+        cy = center[0] + int(cirque_radius * 0.7 * np.sin(angle))
+        cirque_centers.append((cy, cx))
+        
+        for r in range(h):
+            for c in range(w):
                 cdist = np.sqrt((r - cy)**2 + (c - cx)**2)
+                
                 if cdist < cirque_radius * 0.6:
-                    # 권곡 파기
-                    elevation[r, c] = min(elevation[r, c], 
-                                         20.0 + 30.0 * (cdist / (cirque_radius * 0.6)))
+                    # 권곡 파기 (반그릇 형태)
+                    floor_height = 20.0 + cirque_depth * (cdist / (cirque_radius * 0.6)) ** 0.5
                     
+                    # 후벽 방향 (중심쪽)으로 더 급경사
+                    dir_to_center = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                    if dir_to_center < cirque_radius * 0.5:
+                        floor_height += 20.0 * (1 - dir_to_center / (cirque_radius * 0.5))
+                    
+                    elevation[r, c] = min(elevation[r, c], floor_height)
+    
+    # 아레트 강화 (인접 권곡 사이 능선)
+    for i in range(num_cirques):
+        next_i = (i + 1) % num_cirques
+        cy1, cx1 = cirque_centers[i]
+        cy2, cx2 = cirque_centers[next_i]
+        
+        # 두 권곡 중간점
+        mid_y, mid_x = (cy1 + cy2) // 2, (cx1 + cx2) // 2
+        
+        for r in range(h):
+            for c in range(w):
+                # 능선 방향에 가까운 픽셀은 높이 유지
+                dist_to_mid = np.sqrt((r - mid_y)**2 + (c - mid_x)**2)
+                if dist_to_mid < cirque_radius * 0.3:
+                    dist_to_center = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                    if dist_to_center < cirque_radius * 0.5:
+                        ridge_boost = 15.0 * stage * (1 - dist_to_mid / (cirque_radius * 0.3))
+                        elevation[r, c] = min(elevation[r, c] + ridge_boost, peak_height)
+    
+    if return_metadata:
+        return elevation, {
+            'peak_height': peak_height,
+            'num_cirques': num_cirques,
+            'cirque_depth': cirque_depth,
+            'cirque_radius': cirque_radius,
+            'cirque_centers': cirque_centers,
+            'stage_description': _get_horn_stage_desc(stage)
+        }
+    
     return elevation
+
+
+def _get_horn_stage_desc(stage: float) -> str:
+    """호른 단계별 설명"""
+    if stage < 0.2:
+        return "🏔️ 초기 산체: 원뿔형 산, 권곡 형성 시작"
+    elif stage < 0.4:
+        return "❄️ 권곡 발달: 여러 방향에서 빙하 침식"
+    elif stage < 0.6:
+        return "⛏️ 두부침식: 권곡 깊어짐, 아레트 형성"
+    elif stage < 0.8:
+        return "🗻 호른 형성: 권곡 만남, 피라미드 돌출"
+    else:
+        return "⛰️ 성숙 호른: 날카로운 정상 (마터호른형)"
 
 
 def create_shield_volcano(grid_size: int = 100, stage: float = 1.0,
@@ -1272,15 +1759,29 @@ def create_spit_lagoon(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
 # 추가 지형 (Additional Landforms)
 # ============================================
 
-def create_fjord(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
+def create_fjord(grid_size: int = 100, stage: float = 1.0,
+                 return_metadata: bool = False) -> np.ndarray:
     """피오르드 (Fjord) - 빙하 후퇴 후 바다 유입
     
     Stage 0.0~0.4: 빙하가 U자곡을 채움 (빙하기)
-    Stage 0.4~0.7: 빙하 후퇴 시작 (바다 유입 시작)
-    Stage 0.7~1.0: 빙하 완전 후퇴 (피오르드 완성)
+      - 계곡빙하(Valley Glacier)가 U자곡 점유
+      - 플러킹(Plucking)과 마식(Abrasion)으로 바닥 침식
+      - 빙하 두께 수백m → 해수면 이하까지 침식
+    
+    Stage 0.4~0.7: 빙하 후퇴 시작 (간빙기)
+      - 기후 온난화로 빙하 융해
+      - 빙하 말단이 상류로 후퇴
+      - 해수가 빙하 뒤를 따라 유입
+    
+    Stage 0.7~1.0: 피오르드 완성
+      - 빙하 완전 소멸
+      - 깊고 좁은 만 형성 (수심 최대 1,300m)
+      - 상류로 갈수록 수심 감소
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
+    glacier_surface = None
+    sea_surface = None
     
     # 산악 지형 (높은 산)
     elevation[:, :] = 100.0
@@ -1289,70 +1790,101 @@ def create_fjord(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
     valley_width = int(w * 0.25)
     valley_depth = 60.0
     
-    # U자곡 형성
+    # U자곡 형성 (기저)
     for r in range(h):
         for c in range(w):
             dx = abs(c - center)
             
             if dx < valley_width:
-                # U자 바닥
-                base_height = 10.0
-                elevation[r, c] = base_height
+                # U자 바닥 (빙하 침식으로 깊어짐)
+                # stage에 따라 침식 깊이 증가
+                erosion_depth = 10.0 - 50.0 * min(stage / 0.7, 1.0)
+                elevation[r, c] = erosion_depth
             elif dx < valley_width + 15:
-                # U자 측벽 (수직에 가까움)
+                # U자 측벽 (급경사)
                 t = (dx - valley_width) / 15
-                elevation[r, c] = 10.0 + 90.0 * (t ** 0.5)  # 급경사
+                base = 10.0 - 50.0 * min(stage / 0.7, 1.0) if dx == valley_width else 0
+                elevation[r, c] = base + 100.0 * (t ** 0.5)
     
     # 빙하 / 바다 상태
     if stage < 0.4:
         # 빙하기: U자곡에 빙하 채움
-        glacier_extent = int(h * 0.9)  # 거의 전체 채움
-        glacier_thickness = 40.0
+        glacier_extent = int(h * (0.95 - stage * 0.5))
+        glacier_thickness = 60.0 * (1 - stage * 0.3)
+        
+        glacier_surface = np.full((h, w), np.nan)
         
         for r in range(glacier_extent):
             for c in range(w):
                 dx = abs(c - center)
                 if dx < valley_width:
-                    # 빙하 표면 (볼록)
+                    # 빙하 표면 (볼록, 중앙 두꺼움)
                     cross_profile = glacier_thickness * (1 - (dx / valley_width) ** 2)
-                    elevation[r, c] = 10.0 + cross_profile
+                    glacier_surface[r, c] = elevation[r, c] + cross_profile
                     
     elif stage < 0.7:
-        # 빙하 후퇴 중: 일부 빙하 + 바다 유입
+        # 빙하 후퇴 중
         retreat_factor = (stage - 0.4) / 0.3
         
         # 빙하 잔류 (상류에만)
-        glacier_end = int(h * (0.9 - 0.6 * retreat_factor))
-        glacier_thickness = 40.0 * (1 - retreat_factor * 0.5)
+        glacier_end = int(h * (0.8 - 0.6 * retreat_factor))
+        glacier_thickness = 50.0 * (1 - retreat_factor * 0.7)
+        
+        glacier_surface = np.full((h, w), np.nan)
+        sea_surface = np.full((h, w), np.nan)
         
         for r in range(glacier_end):
             for c in range(w):
                 dx = abs(c - center)
                 if dx < valley_width:
                     cross_profile = glacier_thickness * (1 - (dx / valley_width) ** 2)
-                    elevation[r, c] = 10.0 + cross_profile
+                    glacier_surface[r, c] = elevation[r, c] + cross_profile
         
         # 바다 유입 (하류부터)
-        sea_start = glacier_end
-        for r in range(sea_start, h):
+        for r in range(glacier_end, h):
             for c in range(w):
                 dx = abs(c - center)
                 if dx < valley_width:
-                    # 깊은 바다
-                    elevation[r, c] = -30.0 * retreat_factor
+                    sea_surface[r, c] = 0  # 해수면
+                    
     else:
-        # 피오르드 완성: 깊은 바다만
-        sea_depth = -50.0  # 깊은 피오르드
+        # 피오르드 완성
+        sea_surface = np.full((h, w), np.nan)
         
         for r in range(h):
             for c in range(w):
                 dx = abs(c - center)
                 if dx < valley_width:
-                    # 상류로 갈수록 얕아짐
-                    depth_gradient = 1 - (r / h) * 0.3
-                    elevation[r, c] = sea_depth * depth_gradient
-                    
+                    sea_surface[r, c] = 0  # 해수면
+    
+    if return_metadata:
+        return elevation, {
+            'glacier_surface': glacier_surface,
+            'sea_surface': sea_surface,
+            'stage_description': _get_fjord_stage_desc(stage),
+            'glacier_extent': glacier_extent if stage < 0.4 else (glacier_end if stage < 0.7 else 0),
+            'process_info': {
+                'plucking': '빙하가 기반암에 동결 부착 후 떼어냄',
+                'abrasion': '빙하 바닥의 암석 파편이 기반암을 깎음',
+                'overdeepening': '빙하 침식이 해수면 아래까지 진행'
+            }
+        }
+    
     return elevation
+
+
+def _get_fjord_stage_desc(stage: float) -> str:
+    """피오르드 단계별 설명"""
+    if stage < 0.2:
+        return "❄️ 빙하기 초기: 빙하가 U자곡을 채우기 시작"
+    elif stage < 0.4:
+        return "🏔️ 빙하기 최성기: 플러킹과 마식으로 바닥 깊어짐"
+    elif stage < 0.55:
+        return "🌡️ 간빙기 시작: 온난화로 빙하 융해 시작"
+    elif stage < 0.7:
+        return "🌊 해침 진행: 빙하 후퇴, 해수 유입"
+    else:
+        return "🌅 피오르드 완성: 깊고 좁은 만 형성"
 
 
 def create_drumlin(grid_size: int = 100, stage: float = 1.0,
@@ -1475,81 +2007,119 @@ def create_braided_river(grid_size: int = 100, stage: float = 1.0) -> np.ndarray
 
 
 def create_waterfall(grid_size: int = 100, stage: float = 1.0,
-                     drop_height: float = 50.0) -> np.ndarray:
+                     drop_height: float = 50.0, return_metadata: bool = False) -> np.ndarray:
     """폭포 (Waterfall) - 두부침식으로 후퇴
     
-    Stage 0.0: 폭포가 하류에 위치
-    Stage 1.0: 폭포가 상류로 후퇴 (두부침식)
-    - 경암층과 연암층의 차별침식
-    - 플런지풀(폭호) 발달
-    - 후퇴하면서 협곡 형성
+    Stage 0.0~0.3: 폭포 형성 (하류에서 시작)
+    Stage 0.3~0.7: 두부침식 진행 (상류로 후퇴)
+    Stage 0.7~1.0: 협곡 발달 (깊은 곡저)
+    
+    차별침식 (Differential Erosion):
+    - 경암층(hard rock): 침식에 강함 → 폭포 절벽 형성
+    - 연암층(soft rock): 침식에 약함 → 언더컷팅 → 붕괴
+    
+    플런지풀(Plunge Pool):
+    - 낙하수의 충격으로 바닥 침식
+    - 와류(vortex)에 의한 포트홀 형성
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     center = w // 2
     
     # 폭포 위치 (stage에 따라 상류로 후퇴)
-    # stage 0: 하류(h*0.7), stage 1: 상류(h*0.3)
-    initial_fall = int(h * 0.7)
-    final_fall = int(h * 0.3)
-    fall_r = int(initial_fall - (initial_fall - final_fall) * stage)
+    initial_fall = int(h * 0.75)
+    final_fall = int(h * 0.25)
+    retreat_distance = (initial_fall - final_fall) * stage
+    fall_r = int(initial_fall - retreat_distance)
     
-    # 상류 (높은 경암층)
+    # 상류 (높은 고원 - 경암층)
     hard_rock_height = drop_height + 30.0
+    
     for r in range(fall_r):
         for c in range(w):
             # 상류로 갈수록 높아짐
             upstream_rise = (fall_r - r) * 0.3
             elevation[r, c] = hard_rock_height + upstream_rise
     
-    # 폭포 절벽 (급경사)
-    cliff_width = 5
+    # 폭포 절벽 (거의 수직)
+    cliff_width = max(3, int(5 * stage))
     for r in range(fall_r, min(fall_r + cliff_width, h)):
         for c in range(w):
             t = (r - fall_r) / cliff_width
-            # 수직 낙하
-            elevation[r, c] = hard_rock_height * (1 - t) + 10.0 * t
+            # 수직에 가까운 낙하
+            elevation[r, c] = hard_rock_height * (1 - t**0.5) + 10.0 * t**0.5
     
-    # 하류 (연암층 침식됨)
+    # 하류 (연암층 - 침식됨)
     for r in range(fall_r + cliff_width, h):
         for c in range(w):
-            # 하류로 갈수록 낮아짐
-            downstream_drop = (r - fall_r - cliff_width) * 0.2
+            downstream_drop = (r - fall_r - cliff_width) * 0.15
             elevation[r, c] = 10.0 - downstream_drop
     
-    # 협곡 (폭포 후퇴 경로)
+    # 협곡 (폭포 후퇴 경로) - stage에 따라 발달
     gorge_start = fall_r + cliff_width
-    gorge_end = initial_fall + 10  # 원래 폭포 위치까지
-    gorge_depth = 8.0
+    gorge_end = initial_fall + 10
+    gorge_depth = 10.0 * stage
+    gorge_width = int(6 + 4 * stage)
     
     for r in range(gorge_start, min(gorge_end, h)):
-        for dc in range(-6, 7):
+        for dc in range(-gorge_width, gorge_width + 1):
             c = center + dc
             if 0 <= c < w:
                 # V자 협곡 단면
-                depth = gorge_depth * (1 - abs(dc) / 6)
+                depth = gorge_depth * (1 - abs(dc) / gorge_width)
                 elevation[r, c] -= depth
     
     # 하천 수로
+    channel_width = 4
     for r in range(h):
-        for dc in range(-4, 5):
+        for dc in range(-channel_width, channel_width + 1):
             c = center + dc
             if 0 <= c < w:
-                elevation[r, c] -= 3.0
+                channel_depth = 3.0 * (1 - abs(dc) / channel_width)
+                elevation[r, c] -= channel_depth
     
-    # 플런지풀 (폭호) - 폭포 바로 아래
-    pool_r = fall_r + cliff_width + 2
-    pool_depth = 15.0
-    for dr in range(-6, 7):
-        for dc in range(-7, 8):
-            r, c = pool_r + dr, center + dc
-            if 0 <= r < h and 0 <= c < w:
+    # 플런지풀 (폭호)
+    pool_r = fall_r + cliff_width + 3
+    pool_depth = 12.0 + 5.0 * stage
+    pool_radius = 8
+    
+    for dr in range(-pool_radius, pool_radius + 1):
+        for dc in range(-pool_radius, pool_radius + 1):
+            r_pos, c_pos = pool_r + dr, center + dc
+            if 0 <= r_pos < h and 0 <= c_pos < w:
                 dist = np.sqrt(dr**2 + dc**2)
-                if dist < 7:
-                    pool_effect = pool_depth * (1 - dist / 7)
-                    elevation[r, c] = min(elevation[r, c], 5.0 - pool_effect)
+                if dist < pool_radius:
+                    pool_effect = pool_depth * (1 - (dist / pool_radius)**2)
+                    elevation[r_pos, c_pos] = min(elevation[r_pos, c_pos], 5.0 - pool_effect)
+    
+    if return_metadata:
+        return elevation, {
+            'waterfall_position': fall_r,
+            'retreat_distance': retreat_distance,
+            'gorge_length': gorge_end - gorge_start if stage > 0.3 else 0,
+            'plunge_pool_depth': pool_depth,
+            'layer_info': {
+                'hard_rock': {'height': hard_rock_height, 'description': '경암층 (저항성 높음)'},
+                'soft_rock': {'height': 20, 'description': '연암층 (침식에 약함)'}
+            },
+            'stage_description': _get_waterfall_stage_desc(stage)
+        }
     
     return elevation
+
+
+def _get_waterfall_stage_desc(stage: float) -> str:
+    """폭포 단계별 설명"""
+    if stage < 0.2:
+        return "🏞️ 폭포 형성: 경암-연암 경계에서 차별침식 시작"
+    elif stage < 0.4:
+        return "💧 플런지풀 발달: 낙하수 충격으로 폭호 형성"
+    elif stage < 0.6:
+        return "⛏️ 두부침식 진행: 연암 언더컷팅 → 경암 붕괴"
+    elif stage < 0.8:
+        return "🏔️ 폭포 후퇴: 상류로 이동, 협곡 연장"
+    else:
+        return "🗻 성숙 폭포: 깊은 협곡 + 넓은 플런지풀"
 
 
 def create_karst_doline(grid_size: int = 100, stage: float = 1.0,

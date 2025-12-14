@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
-from app.main import render_terrain_plotly
+from app.components.renderer import render_terrain_plotly
 
 st.header("📖 이상적 지형 갤러리")
 st.markdown("_교과서적인 지형 형태를 기하학적 모델로 시각화합니다._")
@@ -225,7 +225,75 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
         )
     
     anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
-    stage_elev = anim_func(gallery_grid_size, stage_value)
+    
+    # 메타데이터 지원 지형 확인
+    supported_metadata = [
+        'incised_meander', 'alluvial_fan', 'fjord',  # 기존
+        'free_meander', 'waterfall', 'cirque', 'horn', 'coastal_cliff',  # 신규
+        'bird_foot_delta'  # 추가
+    ]
+    
+    if landform_key in supported_metadata:
+        try:
+            stage_elev, metadata = anim_func(gallery_grid_size, stage_value, return_metadata=True)
+            # 단계별 설명 표시
+            st.success(metadata.get('stage_description', ''))
+            
+            # 선상지 존 정보
+            if landform_key == 'alluvial_fan' and 'zone_info' in metadata:
+                with st.expander("📊 세부 구조 보기"):
+                    for zone_id, info in metadata['zone_info'].items():
+                        st.markdown(f"**{info['name']}**: 경사 {info['slope']}, {info['sediment']}")
+            
+            # 피오르드 프로세스 정보
+            if landform_key == 'fjord' and 'process_info' in metadata:
+                with st.expander("🧊 빙하 작용 보기"):
+                    for process, desc in metadata['process_info'].items():
+                        st.markdown(f"- **{process}**: {desc}")
+            
+            # 자유곡류 정보
+            if landform_key == 'free_meander':
+                with st.expander("🌀 곡류 정보 보기"):
+                    st.markdown(f"**사행도**: {metadata.get('sinuosity', 1):.2f}")
+                    st.markdown(f"**우각호 형성**: {'✅ 예' if metadata.get('oxbow_formed', False) else '❌ 아니오'}")
+            
+            # 폭포 정보
+            if landform_key == 'waterfall' and 'layer_info' in metadata:
+                with st.expander("⛰️ 차별침식 보기"):
+                    for layer, info in metadata['layer_info'].items():
+                        st.markdown(f"- **{layer}**: {info['description']}")
+                    st.markdown(f"**후퇴 거리**: {metadata.get('retreat_distance', 0):.0f}m")
+            
+            # 권곡 정보
+            if landform_key == 'cirque':
+                with st.expander("❄️ 빙하 침식 보기"):
+                    st.markdown(f"**권곡 반경**: {metadata.get('cirque_radius', 0)}m")
+                    st.markdown(f"**턴(호수) 형성**: {'✅ 예' if metadata.get('tarn_present', False) else '❌ 아니오'}")
+            
+            # 호른 정보
+            if landform_key == 'horn':
+                with st.expander("🗻 다중 권곡 보기"):
+                    st.markdown(f"**권곡 개수**: {metadata.get('num_cirques', 0)}개")
+                    st.markdown(f"**정상 높이**: {metadata.get('peak_height', 0):.0f}m")
+            
+            # 해안절벽 정보
+            if landform_key == 'coastal_cliff' and 'erosion_processes' in metadata:
+                with st.expander("🌊 파랑 침식 보기"):
+                    for process, desc in metadata['erosion_processes'].items():
+                        st.markdown(f"- **{process}**: {desc}")
+                    st.markdown(f"**후퇴량**: {metadata.get('retreat_amount', 0)}m")
+            
+            # 조족상 삼각주 정보
+            if landform_key == 'bird_foot_delta':
+                with st.expander("🦶 분배수로 보기"):
+                    st.markdown(f"**분배수로 개수**: {metadata.get('num_distributaries', 0)}개")
+                    st.markdown(f"**최대 길이**: {metadata.get('max_length', 0)}m")
+                        
+        except TypeError:
+            # return_metadata 지원 안 하는 경우
+            stage_elev = anim_func(gallery_grid_size, stage_value)
+    else:
+        stage_elev = anim_func(gallery_grid_size, stage_value)
     
     # 물 생성
     stage_water = np.maximum(0, -stage_elev + 1.0)
