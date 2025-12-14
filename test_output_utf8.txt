@@ -1,0 +1,49 @@
+﻿Testing Project Genesis Alluvial Fan Mechanism...
+Initial Max Sediment: 0.0
+Step 1:
+  Max Sediment: 100.000000
+  Max Discharge: 15000.000000
+  Max Elev: 118.748726
+Step 2:
+  Max Sediment: 200.000000
+  Max Discharge: 14000.000000
+  Max Elev: 218.499719
+Step 3:
+  Max Sediment: 300.000000
+  Max Discharge: 9000.000000
+  Max Elev: 318.499457
+Step 4:
+  Max Sediment: 400.000000
+  Max Discharge: 8000.000000
+  Max Elev: 418.499156
+Step 5:
+  Max Sediment: 500.000000
+  Max Discharge: 6000.000000
+  Max Elev: 518.498855
+Step 6:
+  Max Sediment: 600.000000
+  Max Discharge: 6000.000000
+  Max Elev: 618.498553
+Step 7:
+  Max Sediment: 700.000000
+  Max Discharge: 6000.000000
+  Max Elev: 718.498251
+Step 8:
+  Max Sediment: 800.000000
+  Max Discharge: 6000.000000
+  Max Elev: 818.497948
+Step 9:
+  Max Sediment: 900.000000
+  Max Discharge: 6000.000000
+  Max Elev: 918.497645
+Step 10:
+  Max Sediment: 1000.000000
+  Max Discharge: 6000.000000
+  Max Elev: 1018.497341
+SUCCESS: Sediment is depositing.
+Sample Sediment Grid (Center):
+[[   0.        0.        0.        0.        0.    ]
+ [   0.       96.5074  117.8841   95.8834    0.    ]
+ [   0.      114.3015  231.8663  314.5868  149.3519]
+ [ 122.0122 1000.     1000.       92.9524  143.3686]
+ [  78.2318    0.       16.1131   71.1148   78.2681]]

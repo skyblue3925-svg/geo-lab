@@ -1,0 +1,9 @@
+Testing Sediment Transport...
+Initial Elev Row 4 (Slope Base): 7.0
+Initial Elev Row 7 (Flat Land): 5.0
+Post Elev Row 4: 6.8
+Post Elev Row 7: 5.0
+Sediment Array (Column 0):
+[0.  0.  0.  0.  0.  3.8 0.  0.  0.  0. ]
+Total Sediment on Flat/Sea: 5.0
+Sediment Transport OK

@@ -1,0 +1,9 @@
+[tool.poetry]
+name = "geo-lab-ai"
+version = "1.0.0"
+description = "교육용 지형 시뮬레이션 - 하천 지형 모듈"
+authors = ["Geo-Lab Team"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"

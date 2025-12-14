@@ -1,0 +1,160 @@
+🌊 [Chapter 1. 하천 지형 (River Landforms)]
+필수 이미지 (5장)
+
+1. V자곡과 협곡 (V-shaped Valley)
+   Filename: v_shaped_valley_diagram.jpg
+   Point: 강바닥이 깊게 파이고 양옆이 경사진 단면도가 포함된 그림.
+
+2. 선상지 (Alluvial Fan)
+   Filename: alluvial_fan_structure.jpg
+   Point: 부채꼴 모양의 평면도 + 땅속(선정/선앙/선단) 입자 크기가 묘사된 그림.
+
+3. 곡류 하천 단면 (Meander Cross-section)
+   Filename: meander_cross_section.jpg
+   Point: 공격사면(깎임)은 절벽, 퇴적사면(쌓임)은 완만하게 비대칭으로 그려진 단면도. (가장 중요!)
+
+4. 하안단구 (River Terrace)
+   Filename: river_terrace_formation.jpg
+   Point: 강 옆에 계단식으로 평평한 땅이 층층이 있는 그림.
+
+5. 삼각주 유형 (Delta Types)
+   Filename: delta_classification.jpg
+   Point: 새발 모양(미시시피), 부채 모양(나일), 첨각상(티베르) 3가지가 비교된 그림.
+
+---
+
+🏖️ [Chapter 2. 해안 지형 (Coastal Landforms)]
+필수 이미지 (4장)
+
+1. 해식애와 파식대 (Sea Cliff & Wave-cut Platform)
+   Filename: sea_cliff_erosion.jpg
+   Point: 절벽 밑이 파여 있고(Notch), 절벽 앞바다 바닥이 평평한(Platform) 그림.
+
+2. 시스택 형성 과정 (Sea Stack Evolution)
+   Filename: sea_stack_formation.jpg
+   Point: 동굴 → 아치 → 시스택 → 시스텀프 순서가 한 장에 그려진 그림.
+
+3. 해안 퇴적 지형 (Coastal Deposition)
+   Filename: sand_spit_bar_tombolo.jpg
+   Point: 사취(Spit), 사주(Bar), 육계사주(Tombolo), 석호(Lagoon)가 그려진 지도형 그림.
+
+4. 갯벌 단면 (Mudflat Profile)
+   Filename: tidal_flat_zonation.jpg
+   Point: 밀물/썰물 수위 표시(High/Low tide)와 갯벌의 경사가 그려진 단면도.
+
+---
+
+🦇 [Chapter 3. 카르스트 지형 (Karst Landforms)]
+필수 이미지 (4장)
+
+1. 탄산칼슘 용식 반응 (Chemical Weathering Reaction)
+   Filename: chemical_weathering_reaction.png
+   Point: CaCO₃ + H₂O + CO₂ ↔ Ca(HCO₃)₂ 화학식 및 모식도.
+
+2. 돌리네-우발라-폴리에 변화 (Doline Progression)
+   Filename: doline_uvala_polje_progression.jpg
+   Point: 돌리네에서 폴리에로 커지는 단계별 지도.
+
+3. 석회 동굴 내부 구조 (Cave Interior)
+   Filename: cave_interior_structure.jpg
+   Point: 종유석, 석순, 석주가 있는 동굴 내부 단면도.
+
+4. 탑 카르스트 (Tower Karst)
+   Filename: tower_karst_landscape.jpg
+   Point: 탑 카르스트의 지형적 특징 (하롱베이, 구이린 스타일).
+
+---
+
+🌋 [Chapter 4. 화산 지형 (Volcanic Landforms)]
+필수 이미지 (4장)
+
+1. 화산 형태 비교 (Volcano Shape by Viscosity)
+   Filename: volcano_shape_viscosity.png
+   Point: 순상 vs 성층 vs 종상 화산의 단면 비교도.
+
+2. 칼데라 형성 과정 (Caldera Formation)
+   Filename: caldera_formation_steps.gif
+   Point: 마그마 방 비움 → 붕괴 → 호수 형성 3단계.
+
+3. 주상절리 (Columnar Jointing)
+   Filename: columnar_jointing_hex.jpg
+   Point: 주상절리의 육각형 단면 및 측면 기둥 구조.
+
+4. 한국 화산 지형 지도 (Korea Volcanic Map)
+   Filename: korea_volcanic_map.png
+   Point: 백두산, 제주도, 울릉도, 철원 용암대지 위치 지도.
+
+---
+
+❄️ [Chapter 5. 빙하 지형 (Glacial Landforms)]
+필수 이미지 (4장)
+
+1. V자곡에서 U자곡으로 변형 (Valley Transformation)
+   Filename: valley_transformation_V_to_U.gif
+   Point: V자곡에서 U자곡으로 변형되는 3D 모델.
+
+2. 피오르 단면 (Fjord Cross-section)
+   Filename: fjord_cross_section.jpg
+   Point: 바닷물에 잠긴 U자곡 단면도.
+
+3. 빙퇴석 분급 불량 (Glacial Till Unsorted)
+   Filename: glacial_till_unsorted.png
+   Point: 빙퇴석의 뒤섞인 자갈 단면 - 분급 불량 예시.
+
+4. 드럼린과 빙하 이동 방향 (Drumlin Ice Flow)
+   Filename: drumlin_ice_flow.jpg
+   Point: 드럼린의 형태와 빙하 이동 방향 관계도.
+
+---
+
+🏜️ [Chapter 6. 건조 지형 (Arid Landforms)]
+필수 이미지 (4장)
+
+1. 바르한 사구와 바람 방향 (Barchan Dune)
+   Filename: barchan_dune_wind_direction.jpg
+   Point: 바르한 사구의 형태와 바람 방향 화살표.
+
+2. 선상지 구조 (Alluvial Fan in Arid)
+   Filename: alluvial_fan_structure.png
+   Point: 선상지의 선정, 선앙, 선단 단면도 및 입자 크기 분포.
+
+3. 메사-뷰트 침식 단계 (Mesa-Butte Evolution)
+   Filename: mesa_butte_evolution.jpg
+   Point: 고원 → 메사 → 뷰트 → 스파이어 침식 단계.
+
+4. 버섯바위 형성 (Mushroom Rock)
+   Filename: mushroom_rock_formation.gif
+   Point: 모래바람에 의한 하단부 침식 애니메이션.
+
+---
+
+🌾 [Chapter 7. 평야 지형 (Plain Landforms)]
+필수 이미지 (4장)
+
+1. 곡류 하천 진화 (Meandering River Evolution)
+   Filename: meandering_river_evolution.gif
+   Point: 곡류 하천이 우각호로 변하는 4단계 과정.
+
+2. 범람원 단면 (Floodplain Cross-section)
+   Filename: floodplain_cross_section.png
+   Point: 하도 - 자연제방 - 배후습지 단면도 및 토지 이용.
+
+3. 삼각주 유형 위성 사진 (Delta Types Satellite)
+   Filename: delta_types_satellite.jpg
+   Point: 나일강, 미시시피강, 갠지스강 삼각주 위성 사진 비교.
+
+4. 자연제방 vs 배후습지 토양 (Levee vs Backswamp Soil)
+   Filename: levee_vs_backswamp_soil.jpg
+   Point: 자연제방의 모래 vs 배후습지의 점토 입자 비교.
+
+---
+
+📊 [총계]
+- 하천 지형: 5장
+- 해안 지형: 4장
+- 카르스트 지형: 4장
+- 화산 지형: 4장
+- 빙하 지형: 4장
+- 건조 지형: 4장
+- 평야 지형: 4장
+- **총합: 29장**

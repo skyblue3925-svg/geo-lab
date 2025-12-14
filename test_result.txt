@@ -1,0 +1,9 @@
+test_basic_arithmetic (__main__.TestScriptEngine.test_basic_arithmetic) ... ok
+test_elevation_sync (__main__.TestScriptEngine.test_elevation_sync) ... ok
+test_numpy_usage (__main__.TestScriptEngine.test_numpy_usage) ... ok
+test_security_check (__main__.TestScriptEngine.test_security_check) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.001s
+
+OK
