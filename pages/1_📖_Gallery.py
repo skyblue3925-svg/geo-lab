@@ -12,8 +12,21 @@ import os
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, root_dir)
 
-from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
-from renderer import render_terrain_plotly
+try:
+    from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
+    from renderer import render_terrain_plotly
+    IMPORT_OK = True
+except Exception as e:
+    st.error(f"Import Error: {e}")
+    IMPORT_OK = False
+    IDEAL_LANDFORM_GENERATORS = {}
+    ANIMATED_LANDFORM_GENERATORS = {}
+
+# 세션 상태 초기화 (auto_playing 상태 확인)
+if 'auto_playing' not in st.session_state:
+    st.session_state['auto_playing'] = False
+if 'auto_stage' not in st.session_state:
+    st.session_state['auto_stage'] = 0.0
 
 st.header("📖 이상적 지형 갤러리")
 st.markdown("_교과서적인 지형 형태를 기하학적 모델로 시각화합니다._")
