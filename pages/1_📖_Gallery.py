@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
-from app.main import render_terrain_plotly
+from app.components.renderer import render_terrain_plotly
 
 st.header("📖 이상적 지형 갤러리")
 st.markdown("_교과서적인 지형 형태를 기하학적 모델로 시각화합니다._")
