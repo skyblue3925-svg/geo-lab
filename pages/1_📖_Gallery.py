@@ -249,16 +249,22 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
                     stage_water[r, c] = 3.0
     
     # 3D 렌더링
-    fig_stage = render_terrain_plotly(
-        stage_elev,
-        f"{selected_landform} - {int(stage_value*100)}%",
-        add_water=True,
-        water_depth_grid=stage_water,
-        water_level=-999,
-        force_camera=False,  # 카메라 이동 허용
-        landform_type=landform_type
-    )
-    st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
+    st.write(f"🔍 Debug: stage_elev shape = {stage_elev.shape}, min={stage_elev.min():.1f}, max={stage_elev.max():.1f}")
+    
+    try:
+        fig_stage = render_terrain_plotly(
+            stage_elev,
+            f"{selected_landform} - {int(stage_value*100)}%",
+            add_water=True,
+            water_depth_grid=stage_water,
+            water_level=-999,
+            force_camera=False,  # 카메라 이동 허용
+            landform_type=landform_type
+        )
+        st.write("✅ Debug: render_terrain_plotly 성공!")
+        st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
+    except Exception as e:
+        st.error(f"❌ Render Error: {e}")
     
     # 자동 재생 (세션 상태 활용)
     col_play, col_step = st.columns(2)
