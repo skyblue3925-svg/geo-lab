@@ -8,25 +8,12 @@ import matplotlib.pyplot as plt
 import sys
 import os
 
-# 상위 디렉토리를 경로에 추가 (HuggingFace 호환)
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, root_dir)
+# 상위 디렉토리를 경로에 추가
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-try:
-    from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
-    from renderer import render_terrain_plotly
-    IMPORT_OK = True
-except Exception as e:
-    st.error(f"Import Error: {e}")
-    IMPORT_OK = False
-    IDEAL_LANDFORM_GENERATORS = {}
-    ANIMATED_LANDFORM_GENERATORS = {}
-
-# 세션 상태 초기화 (auto_playing 상태 확인)
-if 'auto_playing' not in st.session_state:
-    st.session_state['auto_playing'] = False
-if 'auto_stage' not in st.session_state:
-    st.session_state['auto_stage'] = 0.0
+from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
+from app.main import render_terrain_plotly
 
 st.header("📖 이상적 지형 갤러리")
 st.markdown("_교과서적인 지형 형태를 기하학적 모델로 시각화합니다._")
@@ -67,6 +54,7 @@ if category == "🌊 하천 지형":
         "🏔️ V자곡 (V-Valley)": "v_valley",
         "🌊 망상하천 (Braided River)": "braided_river",
         "💧 폭포 (Waterfall)": "waterfall",
+        "🚧 천정천 (Perched River)": "perched_river",
     }
 elif category == "🔺 삼각주 유형":
     landform_options = {
@@ -74,6 +62,7 @@ elif category == "🔺 삼각주 유형":
         "🦶 조족상 삼각주 (Bird-foot)": "bird_foot_delta",
         "🌙 호상 삼각주 (Arcuate)": "arcuate_delta",
         "📍 첨두상 삼각주 (Cuspate)": "cuspate_delta",
+        "🌊 에스추어리 (Estuary)": "estuary",
     }
 elif category == "❄️ 빙하 지형":
     landform_options = {
@@ -83,6 +72,7 @@ elif category == "❄️ 빙하 지형":
         "🌊 피오르드 (Fjord)": "fjord",
         "🥚 드럼린 (Drumlin)": "drumlin",
         "🪨 빙퇴석 (Moraine)": "moraine",
+        "🗡️ 아레트 (Arête)": "arete",
     }
 elif category == "🌋 화산 지형":
     landform_options = {
@@ -105,6 +95,9 @@ elif category == "🏜️ 건조 지형":
         "🟰 횡사구 (Transverse Dune)": "transverse_dune",
         "⭐ 성사구 (Star Dune)": "star_dune",
         "🗿 메사/뷰트 (Mesa/Butte)": "mesa_butte",
+        "🏜️ 와디 (Wadi)": "wadi",
+        "🪶 플라야 (Playa)": "playa",
+        "🍄 버섯바위 (Pedestal Rock)": "pedestal_rock",
     }
 else:  # 해안 지형
     landform_options = {
@@ -220,14 +213,14 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
         stage_value = st.session_state.get('auto_stage', 0.0)
         st.slider(
             "형성 단계 (자동 재생 중...)", 
-            0.0, 1.0, stage_value, 0.05, 
+            0.0, 1.0, stage_value, 0.02, 
             key="gallery_stage_slider",
             disabled=True
         )
     else:
         stage_value = st.slider(
             "형성 단계 (0% = 시작, 100% = 완성)", 
-            0.0, 1.0, 1.0, 0.05, 
+            0.0, 1.0, 1.0, 0.02, 
             key="gallery_stage_slider"
         )
     
@@ -249,50 +242,37 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
                     stage_water[r, c] = 3.0
     
     # 3D 렌더링
-    st.write(f"🔍 Debug: stage_elev shape = {stage_elev.shape}, min={stage_elev.min():.1f}, max={stage_elev.max():.1f}")
+    fig_stage = render_terrain_plotly(
+        stage_elev,
+        f"{selected_landform} - {int(stage_value*100)}%",
+        add_water=True,
+        water_depth_grid=stage_water,
+        water_level=-999,
+        force_camera=False,  # 카메라 이동 허용
+        landform_type=landform_type
+    )
+    st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
     
-    try:
-        fig_stage = render_terrain_plotly(
-            stage_elev,
-            f"{selected_landform} - {int(stage_value*100)}%",
-            add_water=True,
-            water_depth_grid=stage_water,
-            water_level=-999,
-            force_camera=False,  # 카메라 이동 허용
-            landform_type=landform_type
-        )
-        st.write("✅ Debug: render_terrain_plotly 성공!")
-        st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
-    except Exception as e:
-        st.error(f"❌ Render Error: {e}")
+    # 자동 재생 (세션 상태 활용)
+    col_play, col_step = st.columns(2)
+    with col_play:
+        if st.button("▶️ 자동 재생 시작", key="auto_play"):
+            st.session_state['auto_playing'] = True
+            st.session_state['auto_stage'] = 0.0
+    with col_step:
+        if st.button("⏹️ 정지", key="stop_play"):
+            st.session_state['auto_playing'] = False
     
-    # 환경 감지: HuggingFace에서는 SPACE_ID 환경변수가 있음
-    is_huggingface = os.environ.get('SPACE_ID') is not None
+    # 자동 재생 중이면 stage 자동 증가
+    if st.session_state.get('auto_playing', False):
+        current_stage = st.session_state.get('auto_stage', 0.0)
+        if current_stage < 1.0:
+            st.session_state['auto_stage'] = current_stage + 0.04
+            import time
+            time.sleep(0.15)
+            st.rerun()
+        else:
+            st.session_state['auto_playing'] = False
+            st.success("✅ 완료!")
     
-    if not is_huggingface:
-        # 로컬 환경: 자동 재생 기능 활성화
-        col_play, col_step = st.columns(2)
-        with col_play:
-            if st.button("▶️ 자동 재생 시작", key="auto_play"):
-                st.session_state['auto_playing'] = True
-                st.session_state['auto_stage'] = 0.0
-        with col_step:
-            if st.button("⏹️ 정지", key="stop_play"):
-                st.session_state['auto_playing'] = False
-        
-        if st.session_state.get('auto_playing', False):
-            current_stage = st.session_state.get('auto_stage', 0.0)
-            if current_stage < 1.0:
-                st.session_state['auto_stage'] = current_stage + 0.1
-                import time
-                time.sleep(0.5)
-                st.rerun()
-            else:
-                st.session_state['auto_playing'] = False
-                st.success("✅ 완료!")
-        
-        st.caption("💡 **Tip:** 카메라 각도를 먼저 조정한 후 자동 재생하면 유지됩니다.")
-    else:
-        # HuggingFace: 슬라이더만 사용
-        st.caption("💡 **Tip:** 슬라이더를 드래그해서 형성 과정을 확인하세요. 마우스로 3D 회전 가능!")
-
+    st.caption("💡 **Tip:** 카메라 각도를 먼저 조정한 후 자동 재생하면 유지됩니다.")

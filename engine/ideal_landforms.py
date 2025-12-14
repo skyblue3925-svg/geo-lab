@@ -2063,7 +2063,281 @@ def create_star_dune(grid_size: int = 100, stage: float = 1.0,
     return elevation
 
 
+# ============================================
+# 추가 확장 지형들 (Additional Expansion)
+# ============================================
+
+def create_perched_river(grid_size: int = 100, stage: float = 1.0):
+    """천정천 (Perched River) - 자연제방 발달로 하상이 주변보다 높음
+    
+    Stage 0~0.5: 범람원 형성 + 자연제방 발달
+    Stage 0.5~1.0: 하상 퇴적으로 주변보다 높아짐 (천정천)
+    """
+    h, w = grid_size, grid_size
+    elevation = np.zeros((h, w))
+    
+    # 범람원 기본 높이
+    base_height = 10.0
+    elevation[:] = base_height
+    
+    # 하천 중심선
+    center = w // 2
+    
+    # 자연제방 발달 (stage에 따라)
+    levee_height = 8.0 * stage
+    levee_width = int(w * 0.15)
+    
+    for c in range(w):
+        dist_from_center = abs(c - center)
+        
+        if dist_from_center < levee_width:
+            # 하상 (하천 바닥) - 주변보다 높아짐
+            if dist_from_center < 5:
+                river_bed_height = base_height + levee_height * 0.8 * stage
+                elevation[:, c] = river_bed_height
+            else:
+                # 자연제방 (제방)
+                decay = 1 - (dist_from_center - 5) / (levee_width - 5)
+                elevation[:, c] = base_height + levee_height * decay * stage
+        else:
+            # 배후습지 (낮은 곳)
+            backswamp_depth = 3.0 * stage
+            elevation[:, c] = base_height - backswamp_depth
+    
+    return elevation
+
+
+def create_arete(grid_size: int = 100, stage: float = 1.0):
+    """아레트 (Arête) - 빙하에 의해 형성된 날카로운 능선
+    
+    두 권곡 사이의 날카로운 능선
+    """
+    h, w = grid_size, grid_size
+    elevation = np.zeros((h, w))
+    
+    # 기본 고산 지형
+    base_height = 100.0
+    elevation[:] = base_height
+    
+    center = w // 2
+    
+    # 양쪽에 권곡 형성
+    cirque_depth = 60.0 * stage
+    cirque_radius = int(w * 0.35)
+    
+    for r in range(h):
+        for c in range(w):
+            # 왼쪽 권곡
+            left_cx = center - int(w * 0.25)
+            left_cy = int(h * 0.5)
+            dist_left = np.sqrt((r - left_cy)**2 + (c - left_cx)**2)
+            
+            # 오른쪽 권곡
+            right_cx = center + int(w * 0.25)
+            right_cy = int(h * 0.5)
+            dist_right = np.sqrt((r - right_cy)**2 + (c - right_cx)**2)
+            
+            if dist_left < cirque_radius:
+                bowl_depth = cirque_depth * (1 - (dist_left / cirque_radius)**2)
+                elevation[r, c] = min(elevation[r, c], base_height - bowl_depth)
+            
+            if dist_right < cirque_radius:
+                bowl_depth = cirque_depth * (1 - (dist_right / cirque_radius)**2)
+                elevation[r, c] = min(elevation[r, c], base_height - bowl_depth)
+    
+    # 중앙 능선 (아레트) 강조
+    ridge_width = 5
+    for c in range(center - ridge_width, center + ridge_width):
+        if 0 <= c < w:
+            sharpness = 1 - abs(c - center) / ridge_width
+            elevation[:, c] = base_height + 10.0 * sharpness * stage
+    
+    return elevation
+
+
+def create_wadi(grid_size: int = 100, stage: float = 1.0):
+    """와디 (Wadi) - 건조지역 일시적 하천 계곡
+    
+    평상시 건조, 우기에만 물이 흐르는 계곡
+    """
+    h, w = grid_size, grid_size
+    elevation = np.zeros((h, w))
+    
+    # 건조 고원
+    base_height = 50.0
+    elevation[:] = base_height
+    
+    # 와디 계곡 생성 (구불구불)
+    center = w // 2
+    valley_depth = 25.0 * stage
+    valley_width = int(w * 0.2)
+    
+    for r in range(h):
+        # 구불구불한 계곡 중심
+        offset = int(15 * np.sin(r * 0.08))
+        valley_center = center + offset
+        
+        for c in range(w):
+            dist = abs(c - valley_center)
+            if dist < valley_width:
+                # V자형 계곡
+                depth = valley_depth * (1 - dist / valley_width)
+                elevation[r, c] = base_height - depth
+    
+    # 모래/자갈 바닥 (평탄)
+    for r in range(h):
+        offset = int(15 * np.sin(r * 0.08))
+        valley_center = center + offset
+        for c in range(valley_center - 3, valley_center + 3):
+            if 0 <= c < w:
+                elevation[r, c] = base_height - valley_depth + 2  # 평탄한 바닥
+    
+    return elevation
+
+
+def create_playa(grid_size: int = 100, stage: float = 1.0):
+    """플라야 (Playa) - 건조 호수 바닥
+    
+    건조지역에서 물이 증발하고 남은 평탄한 호수 바닥
+    """
+    h, w = grid_size, grid_size
+    elevation = np.zeros((h, w))
+    
+    # 분지 지형
+    center_r, center_c = h // 2, w // 2
+    basin_radius = int(min(h, w) * 0.4)
+    
+    for r in range(h):
+        for c in range(w):
+            dist = np.sqrt((r - center_r)**2 + (c - center_c)**2)
+            
+            if dist < basin_radius:
+                # 분지 내부 (플라야)
+                # 매우 평탄한 호수 바닥
+                elevation[r, c] = 10.0 + np.random.uniform(0, 0.5)  # 거의 평탄
+            else:
+                # 분지 외부 (산지)
+                rim_height = 50.0 * (1 - basin_radius / (dist + 1))
+                elevation[r, c] = 30.0 + rim_height * stage
+    
+    # 소금 결정 패턴 (다각형)
+    if stage > 0.7:
+        for i in range(10):
+            poly_r = center_r + np.random.randint(-basin_radius//2, basin_radius//2)
+            poly_c = center_c + np.random.randint(-basin_radius//2, basin_radius//2)
+            poly_size = np.random.randint(5, 15)
+            for dr in range(-poly_size, poly_size):
+                for dc in range(-poly_size, poly_size):
+                    if 0 <= poly_r+dr < h and 0 <= poly_c+dc < w:
+                        if abs(dr) + abs(dc) == poly_size - 1:  # 테두리
+                            elevation[poly_r+dr, poly_c+dc] += 0.3
+    
+    return elevation
+
+
+def create_pedestal_rock(grid_size: int = 100, stage: float = 1.0):
+    """버섯바위 (Pedestal Rock) - 바람에 의한 차별풍화 지형
+    
+    Stage 0~0.3: 원래 암석 기둥
+    Stage 0.3~0.7: 바람에 의한 하부 침식 (연마작용)
+    Stage 0.7~1.0: 버섯 모양 완성 (줄기가 매우 얇아짐)
+    
+    바람에 실려온 모래가 하부를 깎아냄 (지표 가까울수록 모래 농도 높음)
+    """
+    h, w = grid_size, grid_size
+    elevation = np.zeros((h, w))
+    
+    # 사막 평원
+    base_height = 5.0
+    elevation[:] = base_height
+    
+    # 버섯바위 여러 개
+    num_rocks = 3
+    np.random.seed(42)
+    
+    for i in range(num_rocks):
+        # 위치
+        rock_r = np.random.randint(h // 4, 3 * h // 4)
+        rock_c = np.random.randint(w // 4, 3 * w // 4)
+        
+        # 원래 바위 크기 (stage 0에서의 크기)
+        original_radius = np.random.randint(10, 16)
+        rock_height = np.random.uniform(25, 40)
+        
+        # stage에 따른 침식 정도 (stage 높을수록 하부 더 깎임)
+        erosion_factor = stage  # 0~1
+        
+        for r in range(h):
+            for c in range(w):
+                dist = np.sqrt((r - rock_r)**2 + (c - rock_c)**2)
+                
+                if dist < original_radius:
+                    # 바위 내부 - 높이에 따라 반경이 다름
+                    # 상부: 원래 반경 유지
+                    # 하부: stage에 따라 깎임
+                    
+                    # 각 높이에서의 유효 반경 계산
+                    for z_level in range(int(rock_height)):
+                        # 지표에서의 높이 비율 (0=바닥, 1=꼭대기)
+                        height_ratio = z_level / rock_height
+                        
+                        # 하부일수록 바람 침식 심함 (지표 가까울수록)
+                        if height_ratio < 0.5:
+                            # 하부: 침식으로 반경 감소
+                            erosion_at_height = erosion_factor * (1 - height_ratio * 2)  # 바닥에서 최대
+                            current_radius = original_radius * (1 - erosion_at_height * 0.7)
+                        else:
+                            # 상부: 원래 반경 유지 (모자 부분)
+                            current_radius = original_radius
+                        
+                        if dist < current_radius:
+                            elevation[r, c] = max(elevation[r, c], base_height + z_level)
+    
+    return elevation
+
+
+def create_estuary(grid_size: int = 100, stage: float = 1.0):
+    """에스추어리 (Estuary) - 삼각강, 조석 영향
+    
+    조석의 영향을 받는 넓은 하구
+    """
+    h, w = grid_size, grid_size
+    elevation = np.zeros((h, w))
+    
+    # 육지 기본
+    land_height = 20.0
+    elevation[:] = land_height
+    
+    # 에스추어리 (깔때기 모양)
+    apex_row = int(h * 0.1)
+    center = w // 2
+    
+    for r in range(h):
+        # 하류로 갈수록 넓어짐
+        progress = (r - apex_row) / (h - apex_row) if r > apex_row else 0
+        estuary_width = int(5 + 40 * progress * stage)
+        
+        for c in range(w):
+            dist = abs(c - center)
+            
+            if r < apex_row:
+                # 상류 하천 (좁음)
+                if dist < 5:
+                    elevation[r, c] = -5.0
+            elif dist < estuary_width:
+                # 에스추어리 영역
+                depth = 10.0 * (1 - dist / estuary_width) * (0.5 + 0.5 * progress)
+                elevation[r, c] = -depth
+            
+            # 조간대 (tide flat)
+            if dist >= estuary_width - 10 and dist < estuary_width and r > apex_row:
+                elevation[r, c] = max(elevation[r, c], -1.0)  # 조간대 (얕음)
+    
+    return elevation
+
+
 # 애니메이션 생성기 매핑
+
 ANIMATED_LANDFORM_GENERATORS = {
     'delta': create_delta_animated,
     'alluvial_fan': create_alluvial_fan_animated,
@@ -2104,6 +2378,13 @@ ANIMATED_LANDFORM_GENERATORS = {
     'karren': create_karren,
     'transverse_dune': create_transverse_dune,
     'star_dune': create_star_dune,
+    # 추가 확장 지형
+    'perched_river': create_perched_river,
+    'arete': create_arete,
+    'wadi': create_wadi,
+    'playa': create_playa,
+    'pedestal_rock': create_pedestal_rock,
+    'estuary': create_estuary,
 }
 
 # 지형 생성 함수 매핑
@@ -2147,5 +2428,12 @@ IDEAL_LANDFORM_GENERATORS = {
     'karren': lambda gs: create_karren(gs, 1.0),
     'transverse_dune': lambda gs: create_transverse_dune(gs, 1.0),
     'star_dune': lambda gs: create_star_dune(gs, 1.0),
+    # 추가 확장 지형
+    'perched_river': lambda gs: create_perched_river(gs, 1.0),
+    'arete': lambda gs: create_arete(gs, 1.0),
+    'wadi': lambda gs: create_wadi(gs, 1.0),
+    'playa': lambda gs: create_playa(gs, 1.0),
+    'pedestal_rock': lambda gs: create_pedestal_rock(gs, 1.0),
+    'estuary': lambda gs: create_estuary(gs, 1.0),
 }
 

@@ -54,6 +54,7 @@ if category == "🌊 하천 지형":
         "🏔️ V자곡 (V-Valley)": "v_valley",
         "🌊 망상하천 (Braided River)": "braided_river",
         "💧 폭포 (Waterfall)": "waterfall",
+        "🚧 천정천 (Perched River)": "perched_river",
     }
 elif category == "🔺 삼각주 유형":
     landform_options = {
@@ -61,6 +62,7 @@ elif category == "🔺 삼각주 유형":
         "🦶 조족상 삼각주 (Bird-foot)": "bird_foot_delta",
         "🌙 호상 삼각주 (Arcuate)": "arcuate_delta",
         "📍 첨두상 삼각주 (Cuspate)": "cuspate_delta",
+        "🌊 에스추어리 (Estuary)": "estuary",
     }
 elif category == "❄️ 빙하 지형":
     landform_options = {
@@ -70,6 +72,7 @@ elif category == "❄️ 빙하 지형":
         "🌊 피오르드 (Fjord)": "fjord",
         "🥚 드럼린 (Drumlin)": "drumlin",
         "🪨 빙퇴석 (Moraine)": "moraine",
+        "🗡️ 아레트 (Arête)": "arete",
     }
 elif category == "🌋 화산 지형":
     landform_options = {
@@ -92,6 +95,9 @@ elif category == "🏜️ 건조 지형":
         "🟰 횡사구 (Transverse Dune)": "transverse_dune",
         "⭐ 성사구 (Star Dune)": "star_dune",
         "🗿 메사/뷰트 (Mesa/Butte)": "mesa_butte",
+        "🏜️ 와디 (Wadi)": "wadi",
+        "🪶 플라야 (Playa)": "playa",
+        "🍄 버섯바위 (Pedestal Rock)": "pedestal_rock",
     }
 else:  # 해안 지형
     landform_options = {
