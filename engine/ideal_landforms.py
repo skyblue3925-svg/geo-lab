@@ -469,13 +469,13 @@ def create_alluvial_fan_animated(grid_size: int, stage: float,
     max_reach = int((h - apex_y) * stage)
     half_angle = np.radians(cone_angle / 2) * (0.5 + 0.5 * stage)
     
-    for r in range(apex_y, apex_y + max_reach):
+    for r in range(apex_y, min(apex_y + max_reach, h)):  # h 범위 체크 추가
         dist = r - apex_y
         for c in range(w):
             dx = c - center_x
             if abs(np.arctan2(dx, max(dist, 1))) < half_angle:
                 radial = np.sqrt(dx**2 + dist**2)
-                z = max_height * (1 - radial / (max_reach * 1.5)) * stage
+                z = max_height * (1 - radial / (max_reach * 1.5 + 0.001)) * stage  # divide by zero 방지
                 lateral_decay = 1 - abs(dx) / (w // 2)
                 elevation[r, c] = max(0, z * lateral_decay)
                 
