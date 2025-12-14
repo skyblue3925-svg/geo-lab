@@ -1,0 +1,474 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>지형 형성 작용 | Geo Lab</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap");
+
+    :root {
+      --ink: #e7eef9;
+      --muted: #a5b8d4;
+      --panel: #0f1c32;
+      --panel-2: #0c1628;
+      --stroke: #1f2c46;
+      --accent: #f59e0b;
+      --accent-2: #7dd3fc;
+      --accent-3: #34d399;
+      --glow: rgba(126, 200, 255, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Noto Sans KR", "Space Grotesk", system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 20%, #192742 0%, #0b1220 35%),
+        radial-gradient(circle at 80% 0%, #13233f 0%, transparent 30%),
+        linear-gradient(120deg, #0c1424 0%, #0b1220 70%);
+      overflow-x: hidden;
+    }
+
+    .canvas {
+      position: relative;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 48px 22px 64px;
+    }
+
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(var(--glow) 1px, transparent 1px),
+        linear-gradient(90deg, var(--glow) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(circle at 60% 40%, #000 0%, rgba(0, 0, 0, 0.12) 50%, transparent 70%);
+    }
+
+    header.hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--stroke);
+      font-size: 13px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    h1 {
+      margin: 10px 0 12px;
+      font-family: "Space Grotesk", "Noto Sans KR", sans-serif;
+      font-size: clamp(30px, 4vw, 42px);
+      letter-spacing: -0.5px;
+    }
+
+    .lede {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .tag {
+      padding: 7px 11px;
+      border-radius: 10px;
+      border: 1px solid var(--stroke);
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 13px;
+    }
+
+    .panel {
+      background: linear-gradient(140deg, var(--panel) 0%, var(--panel-2) 100%);
+      border: 1px solid var(--stroke);
+      border-radius: 18px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.04), transparent 35%);
+      pointer-events: none;
+    }
+
+    .panel h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+      letter-spacing: -0.2px;
+    }
+
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .process-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin: 18px 0 32px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--ink);
+      border: 1px solid var(--stroke);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .pill.accent {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.5);
+      color: #ffd58f;
+    }
+
+    .pill.cool {
+      background: rgba(125, 211, 252, 0.12);
+      border-color: rgba(125, 211, 252, 0.5);
+      color: #c8f1ff;
+    }
+
+    .pill.green {
+      background: rgba(52, 211, 153, 0.12);
+      border-color: rgba(52, 211, 153, 0.5);
+      color: #c1ffe3;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 10px 0;
+    }
+
+    .step {
+      border-left: 2px solid var(--stroke);
+      padding-left: 14px;
+      position: relative;
+    }
+
+    .step::before {
+      content: "";
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      border: 2px solid #081020;
+      left: -6px;
+      top: 6px;
+      box-shadow: 0 0 12px rgba(125, 211, 252, 0.5);
+    }
+
+    .step strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      letter-spacing: -0.2px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .legend b {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 4px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    details {
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.02);
+      transition: border-color 150ms ease, background 150ms ease;
+    }
+
+    details[open] {
+      border-color: rgba(125, 211, 252, 0.6);
+      background: rgba(125, 211, 252, 0.04);
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .note {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      header.hero {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="canvas">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">Geomorph · Process Map</div>
+        <h1>지형 형성 작용의 흐름을 한눈에</h1>
+        <p class="lede">
+          내적(판구조·화산) 에너지와 외적(기후·중력) 에너지가 상호작용하며 지표를 깎고 쌓고 들어올립니다.
+          주요 단계와 지형 결과를 빠르게 훑어볼 수 있는 요약 HTML입니다.
+        </p>
+        <div class="tags">
+          <div class="tag">내적 에너지: 판구조, 융기, 화산</div>
+          <div class="tag">외적 에너지: 풍화, 중력, 침식·운반·퇴적</div>
+          <div class="tag">시간 스케일: 단발성(사면 붕괴) ⇄ 장기(융기·평준화)</div>
+        </div>
+      </div>
+      <div class="panel stack">
+        <div class="pill accent">핵심 맥락</div>
+        <h3>지형을 만드는 세 힘</h3>
+        <p>
+          1) 지구 내부 에너지(판구조 운동, 마그마)로 지표가 융기·변형된다.
+          2) 기후가 지배하는 풍화·침식·운반·퇴적이 높이를 깎고 메운다.
+          3) 중력은 사면 안정성을 통제하며 돌발적 붕괴로 균형을 재조정한다.
+        </p>
+        <div class="legend">
+          <span><b style="background: var(--accent);"></b> 내적 작용</span>
+          <span><b style="background: var(--accent-2);"></b> 외적 작용</span>
+          <span><b style="background: var(--accent-3);"></b> 결과 지형</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="process-grid">
+      <div class="panel">
+        <div class="pill accent">내적 · 에너지 공급</div>
+        <h3>판구조 운동 & 융기</h3>
+        <p>
+          압축·인장·횡이동에 따라 지각이 접힘·단층·융기하며 고도 대비를 만든다.
+          높은 위치에 놓인 암체는 이후 외적 작용의 표적이 된다.
+        </p>
+      </div>
+      <div class="panel">
+        <div class="pill accent">내적 · 물질 공급</div>
+        <h3>화산 활동 / 관입</h3>
+        <p>
+          마그마 분출·관입으로 새로운 암석이 쌓이고 열변형이 일어난다.
+          용암대지, 순상·복합화산, 화산돔, 응회환 등이 형성된다.
+        </p>
+      </div>
+      <div class="panel">
+        <div class="pill cool">외적 · 재료 약화</div>
+        <h3>풍화 (물리·화학)</h3>
+        <p>
+          동결융해·박리·塩정·탄산·산화 등이 암석을 분쇄/용해해 입도를 줄이고
+          사면을 느슨하게 만들어 침식과 붕괴를 준비한다.
+        </p>
+      </div>
+      <div class="panel">
+        <div class="pill cool">외적 · 중력</div>
+        <h3>사면 붕괴 / 질량 이동</h3>
+        <p>
+          낙석, 사태, 지흘림, 포행 등으로 고도차가 급격히 완만해진다.
+          강우·지진·풍화 심화가 방아쇠 역할을 한다.
+        </p>
+      </div>
+      <div class="panel">
+        <div class="pill cool">외적 · 침식·운반</div>
+        <h3>물 · 바람 · 얼음</h3>
+        <p>
+          하천(수식), 해안(파식), 빙하(설마찰), 사막(풍식)이 재료를 깎고 먼 곳으로 운반한다.
+          소용돌이·난류·빙압이 주요 메커니즘이다.
+        </p>
+      </div>
+      <div class="panel">
+        <div class="pill cool">외적 · 축적</div>
+        <h3>퇴적 & 고결</h3>
+        <p>
+          에너지가 낮아지는 지점(삼각주, 충적선상지, 빙퇴석, 사구, 호안)에 입자가 쌓여
+          층리가 발달하고 시간이 지나면 고결·교결된다.
+        </p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="pill green">단계별 흐름</div>
+      <h3>지형 형성 타임라인</h3>
+      <div class="timeline">
+        <div class="step">
+          <strong>1. 에너지 부여 (내적)</strong>
+          판구조 변형·융기·화산 분출로 고도 대비가 커지고 새로운 암석이 노출된다.
+        </div>
+        <div class="step">
+          <strong>2. 약화 (풍화)</strong>
+          동결융해, 열팽창, 화학 용해가 균열을 넓혀 암체 강도를 낮춘다.
+        </div>
+        <div class="step">
+          <strong>3. 중력 불안정</strong>
+          사면 경사와 지하수 상승이 임계 상태를 만들고 붕괴·활강이 발생한다.
+        </div>
+        <div class="step">
+          <strong>4. 침식 · 운반</strong>
+          하천·빙하·파랑·바람이 입자를 떼어내어 하류나 해안으로 이동시킨다.
+        </div>
+        <div class="step">
+          <strong>5. 퇴적 · 축적</strong>
+          유속/풍속이 감소하는 완사면·곡류 안쪽·하구·호안·빙하 말단에 재료가 쌓인다.
+        </div>
+        <div class="step">
+          <strong>6. 재균형</strong>
+          장기적으로 융기와 침식이 맞물려 평준화가 진행되며, 새로운 융기가 시작되면 주기가 반복된다.
+        </div>
+      </div>
+    </section>
+
+    <section class="flow">
+      <div class="panel stack">
+        <div class="pill accent">내적 작용 → 결과 지형</div>
+        <details>
+          <summary>지각 수축·인장</summary>
+          <p class="note">
+            조산대: 습곡산맥, 충상단층, 습곡 곡정. <br />
+            인장대: 그랩벤(륵), 호르스트, 리프트 계곡. <br />
+            전단대: 사교단층, 편마암 편리 발달.
+          </p>
+        </details>
+        <details>
+          <summary>화산 / 열수 활동</summary>
+          <p class="note">
+            용암대지, 순상·복합·응회화산, 칼데라, 화산돔, 열수 온천 테라스.
+          </p>
+        </details>
+      </div>
+
+      <div class="panel stack">
+        <div class="pill cool">외적 작용 → 결과 지형</div>
+        <details open>
+          <summary>풍화 + 중력</summary>
+          <p class="note">
+            절리 발달 암괴류, 토르, 타프니(차별풍화), 탤러스 사면, 스크리 콘.
+          </p>
+        </details>
+        <details>
+          <summary>하천 · 호수</summary>
+          <p class="note">
+            수식곡, V자곡, 포트홀, 곡류·우각호, 범람원, 하천단구, 삼각주/선상지.
+          </p>
+        </details>
+        <details>
+          <summary>해안</summary>
+          <p class="note">
+            해식애·해식대, 파식대지, 해식동/주상절리 절벽, 시스택·아치,
+            사빈·석호·사취·톰볼로.
+          </p>
+        </details>
+        <details>
+          <summary>빙하</summary>
+          <p class="note">
+            U자곡, 서킷·아레트·혼, 현무암주상 및 로슈무톤네,
+            모레인(종·단·측·퇴석성), 드럼린, 에스커, 케임.
+          </p>
+        </details>
+        <details>
+          <summary>건조 · 풍식</summary>
+          <p class="note">
+            포트홀형 사막포트, 버터말크, 사구(바르한·파라볼릭·스타), 데플레이션 설,
+            벤치형 페데스탈, 메사·뷰트.
+          </p>
+        </details>
+      </div>
+
+      <div class="panel stack">
+        <div class="pill green">변수와 관점</div>
+        <details open>
+          <summary>기후</summary>
+          <p class="note">
+            수분·온도 진폭이 풍화 양식을 결정하고, 몬순/폭우는 사면 파괴와 하천
+            에너지를 증폭시킨다.
+          </p>
+        </details>
+        <details>
+          <summary>암석학</summary>
+          <p class="note">
+            암석 강도·균질성·절리 간격이 침식 저항을 좌우하며 차별침식 지형을 만든다.
+          </p>
+        </details>
+        <details>
+          <summary>시간 스케일</summary>
+          <p class="note">
+            순간: 낙석·사태·화산 분출. <br />
+            수~수만 년: 곡류 발달, 빙하 전진·후퇴. <br />
+            백만 년+: 융기·평준화(페니플레인) 사이클.
+          </p>
+        </details>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

@@ -66,27 +66,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ============ 이미지 안전 로드 헬퍼 ============
-def safe_image(path, caption="", use_column_width=True):
-    """이미지 파일이 없어도 에러 없이 처리"""
-    if os.path.exists(path):
-        st.image(path, caption=caption, use_column_width=use_column_width)
-    else:
-        st.info(f"📷 {caption} (이미지 미포함)")
-
-
-# ============ 서버사이드 3D 렌더링 (WebGL 없이) ============
-def render_3d_as_image(fig_plotly, width=800, height=600):
-    """Plotly 3D figure를 서버사이드에서 PNG 이미지로 렌더링 (WebGL 불필요)"""
-    import io
-    try:
-        img_bytes = fig_plotly.to_image(format="png", width=width, height=height, engine="kaleido")
-        return img_bytes
-    except Exception as e:
-        st.error(f"3D 렌더링 오류: {e}")
-        return None
-
-
 # ============ 이론 정의 ============
 
 V_VALLEY_THEORIES = {
@@ -2547,8 +2526,14 @@ def render_terrain_3d(elevation, title, add_water=True, water_level=0, view_elev
     return fig
 
 
-def render_terrain_plotly(elevation, title, add_water=True, water_level=0, texture_path=None, force_camera=True, water_depth_grid=None, sediment_grid=None):
-    """Plotly 인터랙티브 3D Surface - 사실적 텍스처(Biome) 또는 위성 이미지 적용"""
+def render_terrain_plotly(elevation, title, add_water=True, water_level=0, texture_path=None, force_camera=True, water_depth_grid=None, sediment_grid=None, landform_type=None):
+    """Plotly 인터랙티브 3D Surface - 사실적 텍스처(Biome) 또는 위성 이미지 적용
+    
+    Args:
+        landform_type: 'river', 'coastal', 'glacial', 'volcanic', 'karst', 'arid' 중 하나.
+                       None이면 기존 로직 사용.
+                       'glacial'만 만년설 표시, 나머지는 물/풀/암석만
+    """
     h, w = elevation.shape
     x = np.arange(w)
     y = np.arange(h)
@@ -2581,27 +2566,70 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0, textu
     biome[is_deposit] = 0
     
     # 암석 (경사가 급한 곳) - 절벽
-    # 고도차 1.5m/grid 이상이면 급경사로 간주 (실험적 수치)
-    biome[slope > 1.2] = 2 # Threshold lowered to show more rock detail
+    biome[slope > 1.2] = 2
     
-    # 눈 (높은 산) - 고도 250m 이상
-    biome[elevation > 220] = 3
+    # 지형 유형별 처리
+    if landform_type == 'glacial':
+        # 빙하 지형: 전체적으로 빙하/눈 표시 (높은 곳 + U자곡 바닥도)
+        biome[elevation > 50] = 3  # 빙하 지형은 전체에 눈/빙하
+        biome[slope > 1.5] = 2  # 가파른 절벽만 암석
+    elif landform_type in ['river', 'coastal']:
+        # 하천/해안: 물 영역 명시적 표시 (biome=0을 물색으로)
+        if water_depth_grid is not None:
+            is_water = water_depth_grid > 0.5
+            biome[is_water] = 0  # 물 영역
+        # 음수 고도 = 바다/호수
+        biome[elevation < 0] = 0
+    elif landform_type == 'arid':
+        # 건조: 전체 모래색
+        biome[slope < 0.8] = 0  # 평탄한 곳은 모래
+    # else: 기본 (화산, 카르스트) - 만년설 없음, 풀/암석만
     
     # 조금 더 자연스럽게: 노이즈 추가 (경계면 블렌딩 효과 흉내)
     noise = np.random.normal(0, 0.2, elevation.shape)
     biome_noisy = np.clip(biome + noise, 0, 3).round(2)
     
     # 커스텀 컬러스케일 (Discrete)
-    # 0: Soil/Sand (Yellowish), 1: Grass (Green), 2: Rock (Gray), 3: Snow (White)
-    realistic_colorscale = [
-        [0.0, '#E6C288'], [0.25, '#E6C288'], # Sand/Soil
-        [0.25, '#556B2F'], [0.5, '#556B2F'], # Grass (Darker Green)
-        [0.5, '#808080'], [0.75, '#808080'], # Rock (Gray)
-        [0.75, '#FFFFFF'], [1.0, '#FFFFFF']  # Snow
-    ]
+    # 0: Soil/Sand (Yellowish), 1: Grass (Green), 2: Rock (Gray), 3: Snow/Water
+    if landform_type == 'glacial':
+        # 빙하 지형: 눈/빙하 표시
+        realistic_colorscale = [
+            [0.0, '#E6C288'], [0.25, '#E6C288'],  # Sand/Soil
+            [0.25, '#556B2F'], [0.5, '#556B2F'],  # Grass
+            [0.5, '#808080'], [0.75, '#808080'],  # Rock
+            [0.75, '#E0FFFF'], [1.0, '#FFFFFF']   # Ice/Snow (밝은 청백색)
+        ]
+        colorbar_labels = ["퇴적(土)", "식생(草)", "암석(岩)", "빙하(氷)"]
+    elif landform_type in ['river', 'coastal']:
+        # 하천/해안: 물 표시 (파란색)
+        realistic_colorscale = [
+            [0.0, '#4682B4'], [0.25, '#4682B4'],  # Water (Steel Blue)
+            [0.25, '#556B2F'], [0.5, '#556B2F'],  # Grass
+            [0.5, '#808080'], [0.75, '#808080'],  # Rock
+            [0.75, '#D2B48C'], [1.0, '#D2B48C']   # Sand (밝은 갈색)
+        ]
+        colorbar_labels = ["수역(水)", "식생(草)", "암석(岩)", "사질(砂)"]
+    elif landform_type == 'arid':
+        # 건조 지형: 사막 표시 (갈색/주황)
+        realistic_colorscale = [
+            [0.0, '#EDC9AF'], [0.25, '#EDC9AF'],  # Desert Sand
+            [0.25, '#CD853F'], [0.5, '#CD853F'],  # Brown
+            [0.5, '#808080'], [0.75, '#808080'],  # Rock
+            [0.75, '#DAA520'], [1.0, '#DAA520']   # Gold Sand
+        ]
+        colorbar_labels = ["사막(砂)", "암질(巖)", "암석(岩)", "모래(沙)"]
+    else:
+        # 기본 (화산, 카르스트 등)
+        realistic_colorscale = [
+            [0.0, '#E6C288'], [0.25, '#E6C288'],
+            [0.25, '#556B2F'], [0.5, '#556B2F'],
+            [0.5, '#808080'], [0.75, '#808080'],
+            [0.75, '#A0522D'], [1.0, '#A0522D']   # 갈색 (만년설 제거)
+        ]
+        colorbar_labels = ["퇴적(土)", "식생(草)", "암석(岩)", "표토(土)"]
     
     # 지형 노이즈 (Fractal Roughness) - 시각적 디테일 추가
-    visual_z = (elevation + np.random.normal(0, 0.2, elevation.shape)).round(2) # Reduced noise
+    visual_z = (elevation + np.random.normal(0, 0.2, elevation.shape)).round(2)
 
     # 텍스처 로직 (이미지 매핑)
     final_surface_color = biome_noisy
@@ -2611,7 +2639,7 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0, textu
     final_colorbar = dict(
         title=dict(text="지표 상태", font=dict(color='white')), 
         tickvals=[0.37, 1.12, 1.87, 2.62], 
-        ticktext=["퇴적(土)", "식생(草)", "암석(岩)", "만년설(雪)"],
+        ticktext=colorbar_labels,
         tickfont=dict(color='white')
     )
 
@@ -3131,41 +3159,44 @@ def main():
                 elevation = np.zeros((gallery_grid_size, gallery_grid_size))
                 
         with col_view:
-            # 2D/3D 선택 (서버사이드 렌더링으로 WebGL 문제 해결)
-            view_mode = st.radio("보기 모드", ["2D 평면도", "3D 입체도 (서버 렌더링)"], horizontal=True, key="gallery_view_mode")
+            # 기본: 2D 평면도 (matplotlib) - WebGL 컨텍스트 사용 안 함
+            import matplotlib.pyplot as plt
+            import matplotlib.colors as mcolors
             
-            if view_mode == "2D 평면도":
-                # 2D matplotlib
-                import matplotlib.pyplot as plt
-                fig_2d, ax = plt.subplots(figsize=(8, 8))
-                cmap = plt.cm.terrain
-                water_mask = elevation < 0
-                im = ax.imshow(elevation, cmap=cmap, origin='upper')
-                if water_mask.any():
-                    water_overlay = np.ma.masked_where(~water_mask, np.ones_like(elevation))
-                    ax.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
-                ax.set_title(f"{selected_landform}", fontsize=14)
-                ax.axis('off')
-                plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
-                st.pyplot(fig_2d)
-                plt.close(fig_2d)
-            else:
-                # 3D 서버사이드 렌더링 (WebGL 사용 안 함!)
-                with st.spinner("3D 렌더링 중..."):
-                    fig_3d = render_terrain_plotly(
-                        elevation, 
-                        f"{selected_landform} - 3D",
-                        add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
-                        water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
-                        force_camera=True
-                    )
-                    img_bytes = render_3d_as_image(fig_3d, width=800, height=600)
-                    if img_bytes:
-                        st.image(img_bytes, caption=f"{selected_landform} - 3D (서버 렌더링)", use_column_width=True)
-                    else:
-                        st.error("3D 렌더링에 실패했습니다.")
+            fig_2d, ax = plt.subplots(figsize=(8, 8))
             
-            st.caption("💡 3D 입체도는 서버에서 렌더링되어 WebGL 없이 표시됩니다.")
+            # 지형 색상 맵
+            cmap = plt.cm.terrain
+            
+            # 물이 있는 지형은 파란색 오버레이
+            water_mask = elevation < 0
+            
+            im = ax.imshow(elevation, cmap=cmap, origin='upper')
+            
+            # 물 영역 표시
+            if water_mask.any():
+                water_overlay = np.ma.masked_where(~water_mask, np.ones_like(elevation))
+                ax.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
+            
+            ax.set_title(f"{selected_landform}", fontsize=14)
+            ax.axis('off')
+            
+            # 컬러바
+            cbar = plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
+            
+            st.pyplot(fig_2d)
+            plt.close(fig_2d)
+            
+            # 3D 보기 (버튼 클릭 시에만)
+            if st.button("🔲 3D 뷰 보기", key="show_3d_view"):
+                fig_3d = render_terrain_plotly(
+                    elevation, 
+                    f"{selected_landform} - 3D",
+                    add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
+                    water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
+                    force_camera=True
+                )
+                st.plotly_chart(fig_3d, use_container_width=True)
             
             # Educational Description
             descriptions = {
@@ -3226,42 +3257,54 @@ def main():
                 anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
                 stage_elev = anim_func(gallery_grid_size, stage_value)
                 
-                # 2D/3D 토글 (서버사이드 렌더링)
-                anim_view_mode = st.radio("보기 모드", ["2D 평면도", "3D 입체도"], horizontal=True, key="anim_view_mode")
+                # 물 생성
+                stage_water = np.maximum(0, -stage_elev + 1.0)
+                stage_water[stage_elev > 2] = 0
                 
-                if anim_view_mode == "2D 평면도":
-                    # 2D matplotlib
-                    fig_2d, ax_2d = plt.subplots(figsize=(10, 8))
-                    im = ax_2d.imshow(stage_elev, cmap='terrain', origin='upper')
-                    water_mask = stage_elev < 0
-                    if water_mask.any():
-                        water_overlay = np.ma.masked_where(~water_mask, np.ones_like(stage_elev))
-                        ax_2d.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
-                    ax_2d.set_title(f"{selected_landform} - {int(stage_value*100)}%", fontsize=14)
-                    ax_2d.axis('off')
-                    plt.colorbar(im, ax=ax_2d, shrink=0.6, label='고도 (m)')
-                    st.pyplot(fig_2d)
-                    plt.close(fig_2d)
-                else:
-                    # 3D 서버사이드 렌더링 (WebGL 사용 안 함!)
-                    with st.spinner("3D 렌더링 중..."):
-                        stage_water = np.maximum(0, -stage_elev + 1.0)
-                        stage_water[stage_elev > 2] = 0
-                        fig_3d = render_terrain_plotly(
-                            stage_elev,
-                            f"{selected_landform} - {int(stage_value*100)}%",
-                            add_water=True,
-                            water_depth_grid=stage_water,
-                            water_level=-999,
-                            force_camera=True
+                # 특정 지형 물 처리
+                if landform_key == "alluvial_fan":
+                    apex_y = int(gallery_grid_size * 0.15)
+                    center = gallery_grid_size // 2
+                    for r in range(apex_y + 5):
+                        for dc in range(-2, 3):
+                            c = center + dc
+                            if 0 <= c < gallery_grid_size:
+                                stage_water[r, c] = 3.0
+                
+                # 단일 3D 렌더링 (WebGL 컨텍스트 절약)
+                fig_stage = render_terrain_plotly(
+                    stage_elev,
+                    f"{selected_landform} - {int(stage_value*100)}%",
+                    add_water=True,
+                    water_depth_grid=stage_water,
+                    water_level=-999,
+                    force_camera=True
+                )
+                st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
+                
+                # 자동 재생 버튼
+                if st.button("▶️ 자동 재생 (0%→100%)", key="auto_play"):
+                    stage_container = st.empty()
+                    prog = st.progress(0)
+                    
+                    for i in range(11):
+                        s = i / 10.0
+                        elev = anim_func(gallery_grid_size, s)
+                        water = np.maximum(0, -elev + 1.0)
+                        water[elev > 2] = 0
+                        
+                        fig = render_terrain_plotly(
+                            elev, f"{selected_landform} - {int(s*100)}%",
+                            add_water=True, water_depth_grid=water,
+                            water_level=-999, force_camera=False
                         )
-                        img_bytes = render_3d_as_image(fig_3d, width=800, height=600)
-                        if img_bytes:
-                            st.image(img_bytes, caption=f"{selected_landform} - {int(stage_value*100)}% (3D)", use_column_width=True)
-                        else:
-                            st.error("3D 렌더링에 실패했습니다.")
-                
-                st.caption("💡 슬라이더를 조절하여 형성 단계를 확인하세요. (0% = 시작, 100% = 완성)")
+                        stage_container.plotly_chart(fig, use_container_width=True)
+                        prog.progress(s)
+                        
+                        import time
+                        time.sleep(0.4)
+                    
+                    st.success("✅ 완료!")
     
     # 3. Scenarios Sub-tabs
     with t_scenarios:
@@ -3337,7 +3380,7 @@ def main():
                             fig_step = render_terrain_plotly(r_step['elevation'], 
                                                            f"V자곡 ({t:,}년)", 
                                                            add_water=True, water_level=r_step['elevation'].min() + 3,
-                                                           texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/v_valley_texture.png", force_camera=False, water_depth_grid=r_step.get('water_depth'))
+                                                           texture_path="assets/reference/v_valley_texture.png", force_camera=False, water_depth_grid=r_step.get('water_depth'))
                             plot_container.plotly_chart(fig_step, use_container_width=True, key="v_plot_shared")
                             anim_prog.progress(min(1.0, t / v_time))
                             time.sleep(0.1)
@@ -3358,12 +3401,12 @@ def main():
                         result['elevation'], 
                         f"V자곡 | 깊이: {result['depth']:.0f}m | {v_time:,}년",
                         add_water=True, water_level=result['elevation'].min() + 3,
-                        texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/v_valley_texture.png",
+                        texture_path="assets/reference/v_valley_texture.png",
                         water_depth_grid=result.get('water_depth')
                     )
                     plot_container.plotly_chart(plotly_fig, use_container_width=True, key="v_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/v_valley_satellite_1765437288622.png",
+                    st.image("assets/reference/v_valley_satellite_1765437288622.png",
                              caption="V자곡 - Google Earth 스타일 (AI 생성)",
                              use_column_width=True)
         
@@ -3425,7 +3468,7 @@ def main():
                                 r_step['elevation'], 
                                 f"자유 곡류 ({t:,}년)",
                                 water_depth_grid=r_step['water_depth'],
-                                texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/meander_texture.png"
+                                texture_path="assets/reference/meander_texture.png"
                             )
                             anim_chart.plotly_chart(fig_step, use_container_width=True, key=f"m_anim_{t}")
                             
@@ -3440,11 +3483,11 @@ def main():
                         result['elevation'], 
                         f"자유 곡류 - {MEANDER_THEORIES[m_theory].get('description', '')[:20]}...",
                         water_depth_grid=result['water_depth'],
-                        texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/meander_texture.png"
+                        texture_path="assets/reference/meander_texture.png"
                     )
                     st.plotly_chart(fig, use_container_width=True, key="m_plot")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/meander_satellite_1765437309640.png",
+                    st.image("assets/reference/meander_satellite_1765437309640.png",
                              caption="곡류 하천 - Google Earth 스타일 (AI 생성)",
                              use_column_width=True)
         
@@ -3515,7 +3558,7 @@ def main():
                             fig_step = render_terrain_plotly(r_step['elevation'], 
                                                            f"{r_step['delta_type']} ({t:,}년)", 
                                                            add_water=True, water_level=0, 
-                                                           texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/delta_texture.png", force_camera=False)
+                                                           texture_path="assets/reference/delta_texture.png", force_camera=False)
                             plot_container.plotly_chart(fig_step, use_container_width=True, key="d_plot_shared")
                             anim_prog.progress(min(1.0, t / d_time))
                             # time.sleep(0.1) 
@@ -3538,12 +3581,12 @@ def main():
                         result['elevation'], 
                         f"{result['delta_type']} | 면적: {result['area']:.2f} km² | {d_time:,}년",
                         add_water=True, water_level=0,
-                        texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/delta_texture.png",
+                        texture_path="assets/reference/delta_texture.png",
                         water_depth_grid=result.get('water_depth')
                     )
                     plot_container.plotly_chart(plotly_fig, use_container_width=True, key="d_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/delta_satellite_1765437326499.png",
+                    st.image("assets/reference/delta_satellite_1765437326499.png",
                              caption="조족상 삼각주 - Google Earth 스타일 (AI 생성)",
                              use_column_width=True)
         
@@ -3615,7 +3658,7 @@ def main():
                     plt.close()
                 else:
                     st.caption("🖱️ **마우스 드래그로 회전, 스크롤로 줌**")
-                    plotly_fig = render_terrain_plotly(result['elevation'], f"선상지 | 면적: {result['area']:.2f}km² | {af_time:,}년", add_water=False, texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/alluvial_fan_texture.png", water_depth_grid=result.get('water_depth'))
+                    plotly_fig = render_terrain_plotly(result['elevation'], f"선상지 | 면적: {result['area']:.2f}km² | {af_time:,}년", add_water=False, texture_path="assets/reference/alluvial_fan_texture.png", water_depth_grid=result.get('water_depth'))
                     plot_container.plotly_chart(plotly_fig, use_container_width=True, key="af_plot_shared")
         
         # 하안단구
@@ -3769,7 +3812,7 @@ def main():
                     plotly_fig = render_terrain_plotly(result['elevation'], f"{result['type']} | 깊이: {result['depth']:.0f}m | {em_time:,}년", add_water=True, water_level=result['elevation'].min()+2, water_depth_grid=result.get('water_depth'))
                     plot_container.plotly_chart(plotly_fig, use_container_width=True, key="em_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/entrenched_meander_ref_1765496053723.png", caption="감입 곡류 (Entrenched Meander) - AI 생성", use_column_width=True)
+                    st.image("assets/reference/entrenched_meander_ref_1765496053723.png", caption="감입 곡류 (Entrenched Meander) - AI 생성", use_column_width=True)
         
         # 망상하천
         with river_sub[7]:
@@ -3801,10 +3844,10 @@ def main():
                 
                 v_mode = st.radio("보기 모드", ["🎮 인터랙티브 3D", "🛰️ 참고 사진"], horizontal=True, key="bs_v")
                 if "3D" in v_mode:
-                    fig = render_terrain_plotly(result['elevation'], f"망상하천 ({bs_time}년)", add_water=True, water_level=result['elevation'].min()+0.5, texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/braided_river_texture.png", water_depth_grid=result.get('water_depth'))
+                    fig = render_terrain_plotly(result['elevation'], f"망상하천 ({bs_time}년)", add_water=True, water_level=result['elevation'].min()+0.5, texture_path="assets/reference/braided_river_texture.png", water_depth_grid=result.get('water_depth'))
                     plot_container.plotly_chart(fig, use_container_width=True, key="bs_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/braided_river_1765410638302.png", caption="망상 하천 (AI 생성)", use_column_width=True)
+                    st.image("assets/reference/braided_river_1765410638302.png", caption="망상 하천 (AI 생성)", use_column_width=True)
 
         # 폭포
         with river_sub[8]:
@@ -3837,7 +3880,7 @@ def main():
                     fig = render_terrain_plotly(result['elevation'], f"폭포 ({wf_time}년)", add_water=True, water_level=90, water_depth_grid=result.get('water_depth'))
                     plot_container.plotly_chart(fig, use_container_width=True, key="wf_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/waterfall_gorge_formation_1765410495876.png", caption="폭포 및 협곡 (AI 생성)", use_column_width=True)
+                    st.image("assets/reference/waterfall_gorge_formation_1765410495876.png", caption="폭포 및 협곡 (AI 생성)", use_column_width=True)
 
         # 범람원 상세
         with river_sub[9]:
@@ -3870,7 +3913,7 @@ def main():
                     fig = render_terrain_plotly(result['elevation'], f"범람원 상세 ({lv_time}년)", add_water=True, water_level=42, water_depth_grid=result.get('water_depth'))
                     plot_container.plotly_chart(fig, use_container_width=True, key="lv_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/floodplain_landforms_1765436731483.png", caption="범람원 - 자연제방과 배후습지 (AI 생성)", use_column_width=True)
+                    st.image("assets/reference/floodplain_landforms_1765436731483.png", caption="범람원 - 자연제방과 배후습지 (AI 생성)", use_column_width=True)
     
     # ===== 해안 지형 =====
     with tab_coast:
@@ -4009,9 +4052,9 @@ def main():
                 plot_container.plotly_chart(plotly_fig, use_container_width=True, key="co_plot_shared")
             else:
                 if theory_key == "cliff_retreat":
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/sea_stack_arch_ref_1765495979396.png", caption="시스택 & 해식아치 - AI 생성", use_column_width=True)
+                    st.image("assets/reference/sea_stack_arch_ref_1765495979396.png", caption="시스택 & 해식아치 - AI 생성", use_column_width=True)
                 elif theory_key in ["tombolo", "spit"]:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/tombolo_sandbar_ref_1765495999194.png", caption="육계도 & 사취 - AI 생성", use_column_width=True)
+                    st.image("assets/reference/tombolo_sandbar_ref_1765495999194.png", caption="육계도 & 사취 - AI 생성", use_column_width=True)
                 else:
                     st.info("이 지형에 대한 참고 사진이 아직 없습니다.")
     
@@ -4057,7 +4100,7 @@ def main():
                     f = render_terrain_plotly(result['elevation'], f"돌리네 | {ka_time:,}년", add_water=False)
                     plot_container.plotly_chart(f, use_container_width=True, key="ka_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/doline_sinkhole_1765436375545.png", caption="돌리네 (AI 생성)", use_column_width=True)
+                    st.image("assets/reference/doline_sinkhole_1765436375545.png", caption="돌리네 (AI 생성)", use_column_width=True)
 
         # 탑 카르스트
         with ka_subs[1]:
@@ -4090,10 +4133,10 @@ def main():
                      plot_container.plotly_chart(f, use_container_width=True, key="tk_plot_shared")
                 elif "3D" in v_mode:
                      st.caption("🖱️ **마우스 드래그로 회전/줌**")
-                     f = render_terrain_plotly(result['elevation'], f"탑 카르스트 | {tk_time:,}년", add_water=False, texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/tower_karst_texture.png")
+                     f = render_terrain_plotly(result['elevation'], f"탑 카르스트 | {tk_time:,}년", add_water=False, texture_path="assets/reference/tower_karst_texture.png")
                      plot_container.plotly_chart(f, use_container_width=True, key="tk_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/tower_karst_ref.png", caption="탑 카르스트 (Guilin) - AI 생성", use_column_width=True)
+                    st.image("assets/reference/tower_karst_ref.png", caption="탑 카르스트 (Guilin) - AI 생성", use_column_width=True)
 
         # 석회동굴
         with ka_subs[2]:
@@ -4129,7 +4172,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"석회동굴 | {cv_time:,}년", add_water=False)
                      plot_container.plotly_chart(f, use_container_width=True, key="cv_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/cave_ref.png", caption="석회동굴 내부 - AI 생성", use_column_width=True)
+                    st.image("assets/reference/cave_ref.png", caption="석회동굴 내부 - AI 생성", use_column_width=True)
     
     # ===== 화산 =====
     with tab_volcano:
@@ -4161,19 +4204,19 @@ def main():
                     for _ in range(n_reps):
                         for t in range(0, vo_time+1, max(1, vo_time//20)):
                             r = simulate_volcanic(VOLCANIC_THEORIES[vo_theory]['key'], t, params, grid_size=grid_size)
-                            f = render_terrain_plotly(r['elevation'], f"{r['type']} ({t:,}년)", add_water=False, texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/volcano_texture.png", force_camera=False)
+                            f = render_terrain_plotly(r['elevation'], f"{r['type']} ({t:,}년)", add_water=False, texture_path="assets/reference/volcano_texture.png", force_camera=False)
                             plot_container.plotly_chart(f, use_container_width=True, key="vo_plot_shared")
                             time.sleep(0.1)
                 v_mode = st.radio("보기 모드", ["🎮 인터랙티브 3D", "🛰️ 참고 사진"], horizontal=True, key="vo_v")
                 if "3D" in v_mode:
-                    f = render_terrain_plotly(result['elevation'], f"{result['type']} ({vo_time:,}년)", add_water=False, texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/volcano_texture.png")
+                    f = render_terrain_plotly(result['elevation'], f"{result['type']} ({vo_time:,}년)", add_water=False, texture_path="assets/reference/volcano_texture.png")
                     plot_container.plotly_chart(f, use_container_width=True, key="vo_plot_shared")
                 else:
                     # 화산 유형에 따라 다른 이미지
                     if "shield" in VOLCANIC_THEORIES[vo_theory]['key']:
-                        safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/shield_vs_stratovolcano_1765436448576.png", caption="순상 화산 (AI 생성)", use_column_width=True)
+                        st.image("assets/reference/shield_vs_stratovolcano_1765436448576.png", caption="순상 화산 (AI 생성)", use_column_width=True)
                     else:
-                        safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/caldera_formation_1765436466778.png", caption="칼데라 (AI 생성)", use_column_width=True)
+                        st.image("assets/reference/caldera_formation_1765436466778.png", caption="칼데라 (AI 생성)", use_column_width=True)
 
         # 용암 대지
         with vo_subs[1]:
@@ -4209,7 +4252,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"용암대지 | {lp_time:,}년", add_water=False)
                      plot_container.plotly_chart(f, use_container_width=True, key="lp_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/lava_plateau_ref.png", caption="용암대지 (Iceland) - AI 생성", use_column_width=True)
+                    st.image("assets/reference/lava_plateau_ref.png", caption="용암대지 (Iceland) - AI 생성", use_column_width=True)
 
         # 주상절리
         with vo_subs[2]:
@@ -4245,7 +4288,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"주상절리 | {cj_time:,}년", add_water=True, water_level=80)
                      plot_container.plotly_chart(f, use_container_width=True, key="cj_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/columnar_ref.png", caption="주상절리 (Basalt Columns) - AI 생성", use_column_width=True)
+                    st.image("assets/reference/columnar_ref.png", caption="주상절리 (Basalt Columns) - AI 생성", use_column_width=True)
     
     # ===== 빙하 =====
     with tab_glacial:
@@ -4275,18 +4318,18 @@ def main():
                     for _ in range(n_reps):
                         for t in range(0, gl_time+1, max(1, gl_time//20)):
                             r = simulate_glacial(key, t, {'ice_thickness': gl_ice}, grid_size=grid_size)
-                            tex_path = "https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/fjord_texture.png" if key == "fjord" else None
+                            tex_path = "assets/reference/fjord_texture.png" if key == "fjord" else None
                             f = render_terrain_plotly(r['elevation'], f"{gl_type} ({t:,}년)", add_water=(key=="fjord"), water_level=100 if key=="fjord" else 0, texture_path=tex_path, force_camera=False)
                             plot_container.plotly_chart(f, use_container_width=True, key="gl_plot_shared")
                             time.sleep(0.1)
                 
-                tex_path = "https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/fjord_texture.png" if key == "fjord" else None
+                tex_path = "assets/reference/fjord_texture.png" if key == "fjord" else None
                 f = render_terrain_plotly(result['elevation'], f"{gl_type} ({gl_time:,}년)", add_water=(key=="fjord"), water_level=100 if key=="fjord" else 0, texture_path=tex_path)
                 v_mode = st.radio("보기 모드", ["🎮 인터랙티브 3D", "🛰️ 참고 사진"], horizontal=True, key="gl_v")
                 if "3D" in v_mode:
                     plot_container.plotly_chart(f, use_container_width=True, key="gl_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/fjord_valley_ref_1765495963491.png", caption="피오르 (Fjord) - AI 생성", use_column_width=True)
+                    st.image("assets/reference/fjord_valley_ref_1765495963491.png", caption="피오르 (Fjord) - AI 생성", use_column_width=True)
 
         # 권곡
         with gl_subs[1]:
@@ -4319,10 +4362,10 @@ def main():
                      plot_container.plotly_chart(f, use_container_width=True, key="cq_plot_shared")
                 elif "3D" in v_mode:
                      st.caption("🖱️ **마우스 드래그로 회전/줌**")
-                     f = render_terrain_plotly(result['elevation'], f"권곡 | {cq_time:,}년", add_water=False, texture_path="https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/cirque_texture.png")
+                     f = render_terrain_plotly(result['elevation'], f"권곡 | {cq_time:,}년", add_water=False, texture_path="assets/reference/cirque_texture.png")
                      plot_container.plotly_chart(f, use_container_width=True, key="cq_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/cirque_ref.png", caption="권곡 (Glacial Cirque) - AI 생성", use_column_width=True)
+                    st.image("assets/reference/cirque_ref.png", caption="권곡 (Glacial Cirque) - AI 생성", use_column_width=True)
 
         # 모레인
         with gl_subs[2]:
@@ -4358,7 +4401,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"모레인 | {mo_time:,}년", add_water=False)
                      plot_container.plotly_chart(f, use_container_width=True, key="mo_plot_shared")
                 else:
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/moraine_ref.png", caption="모레인 (Moraine) - AI 생성", use_column_width=True)
+                    st.image("assets/reference/moraine_ref.png", caption="모레인 (Moraine) - AI 생성", use_column_width=True)
     
     # ===== 건조 =====
     with tab_arid:
@@ -4419,7 +4462,7 @@ def main():
                 # 바르한 사구인 경우 텍스처 적용
                 tex_path = None
                 if ARID_THEORIES[ar_theory]['key'] == "barchan":
-                    tex_path = "https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/barchan_dune_texture_topdown_1765496401371.png"
+                    tex_path = "assets/reference/barchan_dune_texture_topdown_1765496401371.png"
                 
                 plotly_fig = render_terrain_plotly(result['elevation'], 
                                                  f"{result['type']} | {ar_time:,}년", 
@@ -4430,9 +4473,9 @@ def main():
                 # 이론 키에 따라 이미지 분기
                 tk = ARID_THEORIES[ar_theory]['key']
                 if tk == "barchan":
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/barchan_dune_ref_1765496023768.png", caption="바르한 사구 - AI 생성", use_column_width=True)
+                    st.image("assets/reference/barchan_dune_ref_1765496023768.png", caption="바르한 사구 - AI 생성", use_column_width=True)
                 elif tk == "mesa":
-                    safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/mesa_butte_ref_1765496038880.png", caption="메사 & 뷰트 - AI 생성", use_column_width=True)
+                    st.image("assets/reference/mesa_butte_ref_1765496038880.png", caption="메사 & 뷰트 - AI 생성", use_column_width=True)
                 else:
                     st.info("준비 중입니다.")
     
@@ -4584,7 +4627,7 @@ for i in range(steps):
                 st.session_state['script_grid'] = WorldGrid(100, 100, 10.0)
                 st.experimental_rerun()
             else:
-                 safe_image("https://raw.githubusercontent.com/skyblue3925-svg/geo-lab-images/main/peneplain_erosion_cycle_1765436750353.png", caption="평야 - 준평원화 과정 (AI 생성)", use_column_width=True)
+                 st.image("assets/reference/peneplain_erosion_cycle_1765436750353.png", caption="평야 - 준평원화 과정 (AI 생성)", use_column_width=True)
     
     # ===== Project Genesis (Unified Engine) =====
     with tab_genesis:
