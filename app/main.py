@@ -75,6 +75,18 @@ def safe_image(path, caption="", use_column_width=True):
         st.info(f"📷 {caption} (이미지 미포함)")
 
 
+# ============ 서버사이드 3D 렌더링 (WebGL 없이) ============
+def render_3d_as_image(fig_plotly, width=800, height=600):
+    """Plotly 3D figure를 서버사이드에서 PNG 이미지로 렌더링 (WebGL 불필요)"""
+    import io
+    try:
+        img_bytes = fig_plotly.to_image(format="png", width=width, height=height, engine="kaleido")
+        return img_bytes
+    except Exception as e:
+        st.error(f"3D 렌더링 오류: {e}")
+        return None
+
+
 # ============ 이론 정의 ============
 
 V_VALLEY_THEORIES = {
@@ -3119,35 +3131,41 @@ def main():
                 elevation = np.zeros((gallery_grid_size, gallery_grid_size))
                 
         with col_view:
-            # 기본: 2D 평면도 (matplotlib) - WebGL 컨텍스트 사용 안 함
-            import matplotlib.pyplot as plt
-            import matplotlib.colors as mcolors
+            # 2D/3D 선택 (서버사이드 렌더링으로 WebGL 문제 해결)
+            view_mode = st.radio("보기 모드", ["2D 평면도", "3D 입체도 (서버 렌더링)"], horizontal=True, key="gallery_view_mode")
             
-            fig_2d, ax = plt.subplots(figsize=(8, 8))
+            if view_mode == "2D 평면도":
+                # 2D matplotlib
+                import matplotlib.pyplot as plt
+                fig_2d, ax = plt.subplots(figsize=(8, 8))
+                cmap = plt.cm.terrain
+                water_mask = elevation < 0
+                im = ax.imshow(elevation, cmap=cmap, origin='upper')
+                if water_mask.any():
+                    water_overlay = np.ma.masked_where(~water_mask, np.ones_like(elevation))
+                    ax.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
+                ax.set_title(f"{selected_landform}", fontsize=14)
+                ax.axis('off')
+                plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
+                st.pyplot(fig_2d)
+                plt.close(fig_2d)
+            else:
+                # 3D 서버사이드 렌더링 (WebGL 사용 안 함!)
+                with st.spinner("3D 렌더링 중..."):
+                    fig_3d = render_terrain_plotly(
+                        elevation, 
+                        f"{selected_landform} - 3D",
+                        add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
+                        water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
+                        force_camera=True
+                    )
+                    img_bytes = render_3d_as_image(fig_3d, width=800, height=600)
+                    if img_bytes:
+                        st.image(img_bytes, caption=f"{selected_landform} - 3D (서버 렌더링)", use_column_width=True)
+                    else:
+                        st.error("3D 렌더링에 실패했습니다.")
             
-            # 지형 색상 맵
-            cmap = plt.cm.terrain
-            
-            # 물이 있는 지형은 파란색 오버레이
-            water_mask = elevation < 0
-            
-            im = ax.imshow(elevation, cmap=cmap, origin='upper')
-            
-            # 물 영역 표시
-            if water_mask.any():
-                water_overlay = np.ma.masked_where(~water_mask, np.ones_like(elevation))
-                ax.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
-            
-            ax.set_title(f"{selected_landform}", fontsize=14)
-            ax.axis('off')
-            
-            # 컬러바
-            cbar = plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
-            
-            st.pyplot(fig_2d)
-            plt.close(fig_2d)
-            
-            st.caption("💡 2D 평면도로 지형을 확인하세요. 아래 형성 과정에서 슬라이더로 변화를 관찰할 수 있습니다.")
+            st.caption("💡 3D 입체도는 서버에서 렌더링되어 WebGL 없이 표시됩니다.")
             
             # Educational Description
             descriptions = {
@@ -3208,21 +3226,40 @@ def main():
                 anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
                 stage_elev = anim_func(gallery_grid_size, stage_value)
                 
-                # 2D matplotlib만 사용 (WebGL 문제 방지)
-                fig_2d, ax_2d = plt.subplots(figsize=(10, 8))
-                im = ax_2d.imshow(stage_elev, cmap='terrain', origin='upper')
+                # 2D/3D 토글 (서버사이드 렌더링)
+                anim_view_mode = st.radio("보기 모드", ["2D 평면도", "3D 입체도"], horizontal=True, key="anim_view_mode")
                 
-                # 물 영역
-                water_mask = stage_elev < 0
-                if water_mask.any():
-                    water_overlay = np.ma.masked_where(~water_mask, np.ones_like(stage_elev))
-                    ax_2d.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
-                
-                ax_2d.set_title(f"{selected_landform} - {int(stage_value*100)}%", fontsize=14)
-                ax_2d.axis('off')
-                plt.colorbar(im, ax=ax_2d, shrink=0.6, label='고도 (m)')
-                st.pyplot(fig_2d)
-                plt.close(fig_2d)
+                if anim_view_mode == "2D 평면도":
+                    # 2D matplotlib
+                    fig_2d, ax_2d = plt.subplots(figsize=(10, 8))
+                    im = ax_2d.imshow(stage_elev, cmap='terrain', origin='upper')
+                    water_mask = stage_elev < 0
+                    if water_mask.any():
+                        water_overlay = np.ma.masked_where(~water_mask, np.ones_like(stage_elev))
+                        ax_2d.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
+                    ax_2d.set_title(f"{selected_landform} - {int(stage_value*100)}%", fontsize=14)
+                    ax_2d.axis('off')
+                    plt.colorbar(im, ax=ax_2d, shrink=0.6, label='고도 (m)')
+                    st.pyplot(fig_2d)
+                    plt.close(fig_2d)
+                else:
+                    # 3D 서버사이드 렌더링 (WebGL 사용 안 함!)
+                    with st.spinner("3D 렌더링 중..."):
+                        stage_water = np.maximum(0, -stage_elev + 1.0)
+                        stage_water[stage_elev > 2] = 0
+                        fig_3d = render_terrain_plotly(
+                            stage_elev,
+                            f"{selected_landform} - {int(stage_value*100)}%",
+                            add_water=True,
+                            water_depth_grid=stage_water,
+                            water_level=-999,
+                            force_camera=True
+                        )
+                        img_bytes = render_3d_as_image(fig_3d, width=800, height=600)
+                        if img_bytes:
+                            st.image(img_bytes, caption=f"{selected_landform} - {int(stage_value*100)}% (3D)", use_column_width=True)
+                        else:
+                            st.error("3D 렌더링에 실패했습니다.")
                 
                 st.caption("💡 슬라이더를 조절하여 형성 단계를 확인하세요. (0% = 시작, 100% = 완성)")
     
