@@ -266,26 +266,4 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
     except Exception as e:
         st.error(f"❌ Render Error: {e}")
     
-    # 자동 재생 (세션 상태 활용)
-    col_play, col_step = st.columns(2)
-    with col_play:
-        if st.button("▶️ 자동 재생 시작", key="auto_play"):
-            st.session_state['auto_playing'] = True
-            st.session_state['auto_stage'] = 0.0
-    with col_step:
-        if st.button("⏹️ 정지", key="stop_play"):
-            st.session_state['auto_playing'] = False
-    
-    # 자동 재생 중이면 stage 자동 증가
-    if st.session_state.get('auto_playing', False):
-        current_stage = st.session_state.get('auto_stage', 0.0)
-        if current_stage < 1.0:
-            st.session_state['auto_stage'] = current_stage + 0.1
-            import time
-            time.sleep(0.5)
-            st.rerun()
-        else:
-            st.session_state['auto_playing'] = False
-            st.success("✅ 완료!")
-    
-    st.caption("💡 **Tip:** 카메라 각도를 먼저 조정한 후 자동 재생하면 유지됩니다.")
+    st.caption("💡 **Tip:** 슬라이더를 드래그해서 형성 과정을 확인하세요. 마우스로 3D 회전 가능!")
