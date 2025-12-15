@@ -722,78 +722,148 @@ def create_meander_animated(grid_size: int, stage: float,
 
 
 def create_u_valley_animated(grid_size: int, stage: float,
-                              valley_depth: float = 100.0, valley_width: float = 0.4) -> np.ndarray:
-    """U자곡 형성과정 (빙하 성장 → 침식 → 빙하 후퇴 → U자곡)
+                              valley_depth: float = 100.0, valley_width: float = 0.4,
+                              return_metadata: bool = False) -> np.ndarray:
+    """U자곡 형성과정 (V자곡 → 빙하 침식 → U자곡 노출)
     
-    Stage 0.0~0.3: 빙하 성장 (V자곡에 빙하 채워짐)
-    Stage 0.3~0.6: 빙하 침식 (U자 형태로 변형)
-    Stage 0.6~1.0: 빙하 후퇴 (빙하 녹으면서 U자곡 드러남)
+    Stage 0~0.2: V자곡 상태 (하천 침식에 의해 형성된 초기 계곡)
+    Stage 0.2~0.5: 빙하 채워짐 + 침식 시작 (플러킹, 마식)
+    Stage 0.5~0.8: U자 형태 발달 (바닥 넓어짐, 벽 급경사)
+    Stage 0.8~1.0: 빙하 후퇴 → U자곡 드러남 + 현수곡 + 빙하호
+    
+    핵심 과정:
+    - 플러킹(Plucking): 암석 파쇄 후 운반
+    - 마식(Abrasion): 빙하 바닥 연마
+    - 현수곡(Hanging Valley): 지류 빙하가 덜 침식
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     center = w // 2
     
-    # 1단계: V자곡 → U자곡 변형 (침식)
-    if stage < 0.6:
-        u_factor = min(stage / 0.6, 1.0)  # 0~1로 정규화
+    # Stage에 따른 U자 변형 정도
+    if stage < 0.2:
+        # V자곡 상태
+        u_transform = 0
+        glacier_visible = False
+    elif stage < 0.5:
+        # 빙하 성장 + 초기 침식
+        u_transform = (stage - 0.2) / 0.3 * 0.5
+        glacier_visible = True
+    elif stage < 0.8:
+        # U자 형태 발달
+        u_transform = 0.5 + (stage - 0.5) / 0.3 * 0.5
+        glacier_visible = True
     else:
-        u_factor = 1.0  # 완전 U자
+        # 빙하 후퇴, U자곡 노출
+        u_transform = 1.0
+        glacier_visible = False
     
-    half_width = int(w * valley_width / 2) * u_factor  # U 바닥 너비
+    # U자 바닥 너비 (점차 넓어짐)
+    floor_width = int(w * valley_width * 0.3 * u_transform)
     
+    # 기본 지형 생성
     for r in range(h):
+        # 상류로 갈수록 기반 높아짐
+        base_height = (h - r) / h * 40.0
+        
         for c in range(w):
             dx = abs(c - center)
             
-            if dx < half_width:
-                # U자 바닥
-                elevation[r, c] = 0
+            # V자곡 → U자곡 단면 변형
+            if dx < floor_width:
+                # U자 바닥 (평탄)
+                valley_floor = 0
             else:
-                # V에서 U로 전환
-                normalized_x = (dx - half_width) / max(1, w // 2 - half_width)
-                v_height = valley_depth * normalized_x  # V shape
-                u_height = valley_depth * (normalized_x ** 2)  # U shape
-                elevation[r, c] = v_height * (1 - u_factor) + u_height * u_factor
+                # 벽면
+                wall_dist = (dx - floor_width) / max(1, w // 2 - floor_width)
                 
-        # 상류로 갈수록 높아짐
-        elevation[r, :] += (h - r) / h * 30.0
+                # V자 단면 (삼각형)
+                v_profile = valley_depth * wall_dist
+                
+                # U자 단면 (포물선)
+                u_profile = valley_depth * (wall_dist ** 0.5)
+                
+                # 변환 적용
+                valley_floor = v_profile * (1 - u_transform) + u_profile * u_transform
+            
+            elevation[r, c] = base_height + valley_floor
     
-    # 2단계: 빙하 추가 (stage에 따라 성장/후퇴)
-    # stage 0~0.3: 빙하 성장 (하류로 전진)
-    # stage 0.3~0.6: 최대 범위
-    # stage 0.6~1.0: 빙하 후퇴 (상류로 후퇴)
+    # 현수곡 (Hanging Valley) - stage 0.6 이후 시각화
+    if stage > 0.6:
+        hanging_valleys = [
+            (int(h * 0.3), -1),  # 좌측 현수곡
+            (int(h * 0.6), 1),   # 우측 현수곡
+        ]
+        
+        for hy, side in hanging_valleys:
+            hx = center + side * int(w * 0.35)
+            hang_height = 30.0 * u_transform  # 현수 높이
+            
+            for dy in range(-10, 11):
+                for dx in range(-8, 9):
+                    r, c = hy + dy, hx + dx
+                    if 0 <= r < h and 0 <= c < w:
+                        dist = np.sqrt(dy**2 + dx**2)
+                        if dist < 10:
+                            # 현수곡 입구 (높게 매달림)
+                            notch = 10.0 * (1 - dist / 10)
+                            elevation[r, c] = max(elevation[r, c], hang_height + notch)
     
-    glacier_grid = np.zeros((h, w))
+    # 빙하 시각화 (채움)
+    if glacier_visible:
+        glacier_progress = min(1.0, (stage - 0.2) / 0.6)
+        glacier_end = int(h * 0.85 * glacier_progress)
+        glacier_thickness = 25.0 * glacier_progress
+        
+        for r in range(glacier_end):
+            for c in range(w):
+                dx = abs(c - center)
+                if dx < floor_width + 10:
+                    # 빙하 볼록 표면
+                    ice_surface = glacier_thickness * (1 - (dx / (floor_width + 10)) ** 2)
+                    if stage < 0.8:
+                        elevation[r, c] += ice_surface
     
-    if stage < 0.3:
-        # 빙하 성장: 상류에서 하류로 전진
-        glacier_extent = int(h * (stage / 0.3) * 0.8)  # 최대 80%까지 전진
-        glacier_start = 0
-        glacier_end = glacier_extent
-    elif stage < 0.6:
-        # 최대 빙하 범위
-        glacier_start = 0
-        glacier_end = int(h * 0.8)
-    else:
-        # 빙하 후퇴
-        retreat_factor = (stage - 0.6) / 0.4
-        glacier_start = int(h * 0.8 * retreat_factor)  # 하류에서 녹음
-        glacier_end = int(h * 0.8 * (1 - retreat_factor * 0.5))  # 상류도 줄어듦
+    # 빙하호(Tarn) - 빙하 후퇴 후
+    if stage > 0.85:
+        tarn_progress = (stage - 0.85) / 0.15
+        tarn_y = int(h * 0.15)
+        tarn_radius = int(w * 0.12 * tarn_progress)
+        
+        for dy in range(-tarn_radius, tarn_radius + 1):
+            for dx in range(-tarn_radius, tarn_radius + 1):
+                r, c = tarn_y + dy, center + dx
+                if 0 <= r < h and 0 <= c < w:
+                    dist = np.sqrt(dy**2 + dx**2)
+                    if dist < tarn_radius:
+                        # 호수 바닥
+                        elevation[r, c] = min(elevation[r, c], -5.0 * (1 - dist / tarn_radius))
     
-    # 빙하 표시 (골짜기 채움)
-    for r in range(glacier_start, min(glacier_end, h)):
-        for c in range(w):
-            dx = abs(c - center)
-            if dx < half_width + 5:  # U자곡 바닥 + 약간 넓게
-                glacier_thickness = 20.0 * (1 - abs(c - center) / (half_width + 5))
-                if stage < 0.6:
-                    elevation[r, c] += glacier_thickness
-                else:
-                    # 후퇴 중: 빙하 높이 감소
-                    retreat_factor = (stage - 0.6) / 0.4
-                    elevation[r, c] += glacier_thickness * (1 - retreat_factor)
+    if return_metadata:
+        return elevation, {
+            'u_transform': u_transform,
+            'glacier_visible': glacier_visible,
+            'floor_width': floor_width,
+            'stage_description': _get_u_valley_stage_desc(stage)
+        }
     
     return elevation
+
+
+def _get_u_valley_stage_desc(stage: float) -> str:
+    """U자곡 단계별 설명"""
+    if stage < 0.15:
+        return "🏞️ V자곡 상태: 하천 침식에 의한 초기 계곡"
+    elif stage < 0.35:
+        return "❄️ 빙하 성장: 계곡에 빙하 채워짐"
+    elif stage < 0.55:
+        return "⛏️ 빙하 침식: 플러킹 + 마식 → 바닥 확장"
+    elif stage < 0.75:
+        return "🗻 U자 형태: 평탄 바닥 + 급경사 벽"
+    elif stage < 0.9:
+        return "🌊 빙하 후퇴: 현수곡(Hanging Valley) 드러남"
+    else:
+        return "💧 빙하호(Tarn): 빙하 융해수 고임"
 
 
 def create_coastal_cliff_animated(grid_size: int, stage: float,
@@ -880,15 +950,18 @@ def create_v_valley_animated(grid_size: int, stage: float,
 
 
 def create_barchan_animated(grid_size: int, stage: float,
-                             num_dunes: int = 3) -> np.ndarray:
-    """바르한 사구 이동 애니메이션
+                             num_dunes: int = 3, return_metadata: bool = False) -> np.ndarray:
+    """바르한 사구 형성 과정 애니메이션
     
-    위에서 볼 때 초승달(🌙) 모양:
-    - 볼록면(convex): 바람 불어오는 쪽 (상단)
-    - 오목면(concave): 바람 가는 쪽 (하단) + 뿔
-    - 뿔(horns): 바람 방향으로 뻗음
+    Stage 0~0.25: 모래 축적 (작은 원형 언덕 형성)
+    Stage 0.25~0.5: 비대칭 발달 (바람받이 완경사, 바람그늘 급경사)
+    Stage 0.5~0.75: 초승달 형태 발달 (오목면 형성)
+    Stage 0.75~1.0: 뿔(horn) 완성 (바람 방향으로 연장)
     
-    바람 방향: 위 → 아래
+    형성 원리:
+    - 바람이 모래를 바람받이 사면으로 운반
+    - 정상 넘어 바람그늘에 퇴적 (낙사면, slip face)
+    - 가장자리 모래가 더 빨리 이동 → 뿔 형성
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
@@ -898,75 +971,127 @@ def create_barchan_animated(grid_size: int, stage: float,
     
     np.random.seed(42)
     
-    # 사구 이동
-    move_distance = int(h * 0.5 * stage)
-    
     for i in range(num_dunes):
-        # 위치
-        initial_y = h // 5 + i * (h // (num_dunes + 1))
+        # 사구 위치 (고정)
         cx = w // 4 + (i % 2) * (w // 2)
-        cy = initial_y + move_distance
+        cy = int(h * 0.3) + i * (h // (num_dunes + 1))
         
-        if cy >= h - 20:
+        if cy >= h - 15:
             continue
         
-        # 사구 크기
-        dune_height = 10.0 + i * 2.0
-        outer_r = w // 7  # 바깥 원 반지름
-        inner_r = outer_r * 0.6  # 안쪽 원 반지름
-        inner_offset = outer_r * 0.5  # 안쪽 원 오프셋 (아래로)
+        # Stage에 따른 크기 발달
+        max_height = 12.0 + i * 3.0
+        max_radius = int(w * 0.12)
+        
+        # Stage 0~0.25: 작은 원형 언덕
+        if stage < 0.25:
+            progress = stage / 0.25
+            current_height = max_height * 0.3 * progress
+            current_radius = int(max_radius * 0.4 * progress)
+            asymmetry = 0  # 대칭
+            horn_length = 0
+            
+        # Stage 0.25~0.5: 비대칭 발달
+        elif stage < 0.5:
+            progress = (stage - 0.25) / 0.25
+            current_height = max_height * (0.3 + 0.4 * progress)
+            current_radius = int(max_radius * (0.4 + 0.3 * progress))
+            asymmetry = progress  # 점차 비대칭
+            horn_length = 0
+            
+        # Stage 0.5~0.75: 초승달 형태
+        elif stage < 0.75:
+            progress = (stage - 0.5) / 0.25
+            current_height = max_height * (0.7 + 0.2 * progress)
+            current_radius = int(max_radius * (0.7 + 0.2 * progress))
+            asymmetry = 1.0
+            horn_length = int(max_radius * 0.4 * progress)
+            
+        # Stage 0.75~1.0: 뿔 완성
+        else:
+            progress = (stage - 0.75) / 0.25
+            current_height = max_height * (0.9 + 0.1 * progress)
+            current_radius = max_radius
+            asymmetry = 1.0
+            horn_length = int(max_radius * (0.4 + 0.4 * progress))
+        
+        if current_radius < 2:
+            continue
+            
+        # 초승달 파라미터
+        inner_ratio = 0.5 + 0.2 * asymmetry  # 안쪽 원 비율
+        inner_offset = current_radius * 0.4 * asymmetry  # 오프셋
         
         for r in range(h):
             for c in range(w):
                 dy = r - cy
                 dx = c - cx
                 
-                # 바깥 원 (볼록면 - 상단)
-                dist_outer = np.sqrt(dx**2 + dy**2)
+                dist = np.sqrt(dx**2 + dy**2)
                 
-                # 안쪽 원 (오목면 - 하단으로 오프셋)
-                dist_inner = np.sqrt(dx**2 + (dy - inner_offset)**2)
-                
-                # 초승달 영역: 바깥 원 안 AND 안쪽 원 밖
-                in_crescent = (dist_outer < outer_r) and (dist_inner > inner_r)
-                
-                if in_crescent:
-                    # 높이 계산: 중심에서 멀수록 낮아짐
-                    height_factor = 1 - (dist_outer / outer_r)
+                # 바깥 원 영역
+                if dist < current_radius:
+                    # 안쪽 원 (오목면) - 비대칭일 때만
+                    dist_inner = np.sqrt(dx**2 + (dy - inner_offset)**2)
+                    inner_r = current_radius * inner_ratio
                     
-                    # 바람받이(상단) 완만, 바람그늘(하단) 급
+                    if asymmetry > 0.5 and dist_inner < inner_r:
+                        # 오목면 안쪽은 낮게
+                        continue
+                    
+                    # 높이 계산
+                    radial_factor = 1 - (dist / current_radius) ** 1.5
+                    
+                    # 바람받이(상단) vs 바람그늘(하단) 비대칭
                     if dy < 0:
-                        # 바람받이: 완만한 경사
-                        slope = height_factor * 0.8
+                        # 바람받이: 완만 (5-12° 경사)
+                        slope_factor = 0.6 + 0.4 * (1 - asymmetry)
                     else:
-                        # 바람그늘: 더 높게 (급경사 효과)
-                        slope = height_factor * 1.2
+                        # 바람그늘: 급경사 (30-34° 안식각)
+                        slope_factor = 0.8 + 0.5 * asymmetry
                     
-                    z = dune_height * slope
-                    elevation[r, c] = max(elevation[r, c], 5.0 + z)
+                    z = current_height * radial_factor * slope_factor
+                    if z > 0.5:
+                        elevation[r, c] = max(elevation[r, c], 5.0 + z)
                 
-                # 뿔 (horn) - 양쪽으로 바람 방향으로 뻗음
-                horn_width = outer_r * 0.3
-                horn_length = outer_r * 0.8
-                
-                for side in [-1, 1]:  # 왼쪽, 오른쪽 뿔
-                    horn_cx = cx + side * (outer_r - horn_width)
-                    horn_cy = cy + inner_offset
-                    
-                    dx_horn = c - horn_cx
-                    dy_horn = r - horn_cy
-                    
-                    # 뿔 영역 (바람 방향으로 길쭉)
-                    if abs(dx_horn) < horn_width and 0 < dy_horn < horn_length:
-                        # 뿔 높이: 끝으로 갈수록 낮아짐
-                        horn_factor = 1 - dy_horn / horn_length
-                        width_factor = 1 - abs(dx_horn) / horn_width
-                        z = dune_height * 0.5 * horn_factor * width_factor
+                # 뿔 (horns) - stage 0.5 이후
+                if horn_length > 2:
+                    for side in [-1, 1]:
+                        horn_cx = cx + side * (current_radius * 0.7)
+                        horn_cy = cy + inner_offset
                         
-                        if z > 0.3:
-                            elevation[r, c] = max(elevation[r, c], 5.0 + z)
+                        dx_h = c - horn_cx
+                        dy_h = r - horn_cy
+                        
+                        # 뿔 영역: 바람 방향으로 길쭉
+                        horn_width = max(2, current_radius * 0.25)
+                        if abs(dx_h) < horn_width and 0 < dy_h < horn_length:
+                            horn_factor = (1 - dy_h / horn_length) ** 0.7
+                            width_factor = 1 - (abs(dx_h) / horn_width) ** 2
+                            z = current_height * 0.4 * horn_factor * width_factor
+                            if z > 0.3:
+                                elevation[r, c] = max(elevation[r, c], 5.0 + z)
+    
+    if return_metadata:
+        return elevation, {
+            'stage_description': _get_barchan_stage_desc(stage)
+        }
     
     return elevation
+
+
+def _get_barchan_stage_desc(stage: float) -> str:
+    """바르한 단계별 설명"""
+    if stage < 0.2:
+        return "🏜️ 모래 축적: 장애물 주변 모래 쌓임 시작"
+    elif stage < 0.4:
+        return "⬆️ 언덕 성장: 원형 모래언덕 형성"
+    elif stage < 0.6:
+        return "↗️ 비대칭 발달: 바람받이 완경사, 바람그늘 급경사"
+    elif stage < 0.8:
+        return "🌙 초승달 형태: 오목면 형성, 뿔 발달 시작"
+    else:
+        return "🏜️ 바르한 완성: 뿔이 바람 방향으로 연장"
 # ============================================
 # 확장 지형 (Extended Landforms)
 # ============================================
@@ -1605,86 +1730,316 @@ def _get_horn_stage_desc(stage: float) -> str:
 
 
 def create_shield_volcano(grid_size: int = 100, stage: float = 1.0,
-                          max_height: float = 40.0) -> np.ndarray:
-    """순상화산 (Shield Volcano) - 완만한 경사"""
+                          max_height: float = 40.0, return_metadata: bool = False) -> np.ndarray:
+    """순상화산 (Shield Volcano) - 하와이형
+    
+    Stage 0~0.3: 해저 분출 → 해수면 도달
+    Stage 0.3~0.6: 용암류 반복 → 완만한 순상 형성
+    Stage 0.6~0.8: 정상부 확장 + 중앙 화구 형성
+    Stage 0.8~1.0: 정상 칼데라 + 용암 흐름 흔적
+    
+    특징:
+    - 현무암질 용암 (유동성 높음)
+    - 경사 5-10°
+    - 용암류가 넓게 퍼짐
+    """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
     center = (h // 2, w // 2)
-    radius = w // 2
+    max_radius = int(w * 0.45)
+    
+    # Stage에 따른 반경 성장
+    current_radius = int(max_radius * min(1.0, stage * 1.3))
+    current_height = max_height * stage
     
     for r in range(h):
         for c in range(w):
             dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
             
-            if dist < radius:
-                # 완만한 포물선 형태 (경사 5-10도)
-                elevation[r, c] = max_height * (1 - (dist / radius)**2) * stage
+            if dist < current_radius and current_radius > 0:
+                # 완만한 포물선 형태 (경사 5-10도)  
+                radial_factor = 1 - (dist / current_radius) ** 1.8
+                elevation[r, c] = current_height * radial_factor
+    
+    # 용암류 흔적 (방사상) - stage 0.4 이후
+    if stage > 0.4:
+        np.random.seed(42)
+        num_flows = 6
+        for i in range(num_flows):
+            angle = 2 * np.pi * i / num_flows + np.random.random() * 0.3
+            flow_length = int(current_radius * (0.6 + 0.4 * stage))
+            flow_width = 3 + int(2 * stage)
+            
+            for d in range(10, flow_length):
+                fx = int(center[1] + d * np.cos(angle))
+                fy = int(center[0] + d * np.sin(angle))
                 
-    # 정상부 화구
-    crater_radius = int(radius * 0.1)
-    for r in range(h):
-        for c in range(w):
-            dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
-            if dist < crater_radius:
-                elevation[r, c] = max_height * 0.9 * stage
-                
+                for dw in range(-flow_width, flow_width + 1):
+                    tx = int(fx + dw * np.sin(angle))
+                    ty = int(fy - dw * np.cos(angle))
+                    
+                    if 0 <= ty < h and 0 <= tx < w:
+                        # 용암류 융기
+                        flow_height = 2.0 * (1 - abs(dw) / flow_width) * (1 - d / flow_length)
+                        elevation[ty, tx] += flow_height
+    
+    # 정상부 화구/칼데라 - stage 0.6 이후
+    if stage > 0.6:
+        caldera_progress = (stage - 0.6) / 0.4
+        crater_radius = int(max_radius * 0.08 * (1 + caldera_progress))
+        crater_depth = 5.0 * caldera_progress
+        
+        for r in range(h):
+            for c in range(w):
+                dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                if dist < crater_radius:
+                    # 함몰 칼데라
+                    depression = crater_depth * (1 - (dist / crater_radius) ** 2)
+                    elevation[r, c] = max(elevation[r, c] - depression, current_height * 0.85)
+    
+    if return_metadata:
+        return elevation, {
+            'current_radius': current_radius,
+            'current_height': current_height,
+            'stage_description': _get_shield_stage_desc(stage)
+        }
+    
     return elevation
+
+
+def _get_shield_stage_desc(stage: float) -> str:
+    """순상화산 단계별 설명"""
+    if stage < 0.2:
+        return "🌋 해저 분출: 현무암 용암 분출 시작"
+    elif stage < 0.4:
+        return "🏝️ 해수면 도달: 화산섬 형성"
+    elif stage < 0.6:
+        return "🔥 용암류 확장: 파호이호이 용암 흐름"
+    elif stage < 0.8:
+        return "⛰️ 순상 형성: 완만한 경사 (5-10°)"
+    else:
+        return "🕳️ 정상 칼데라: 마그마 빠짐 → 함몰"
 
 
 def create_stratovolcano(grid_size: int = 100, stage: float = 1.0,
-                         max_height: float = 80.0) -> np.ndarray:
-    """성층화산 (Stratovolcano) - 급한 원뿔형"""
+                         max_height: float = 80.0, return_metadata: bool = False) -> np.ndarray:
+    """성층화산 (Stratovolcano) - 복합화산
+    
+    Stage 0~0.25: 초기 분출 → 원뿔 형성 시작
+    Stage 0.25~0.5: 용암+화쇄물 교대 → 급경사 원뿔
+    Stage 0.5~0.75: 고도 상승 + 분화구 발달
+    Stage 0.75~1.0: 정상 분화구 + 화산쇄설물 사면
+    
+    특징:
+    - 안산암질/유문암질 마그마
+    - 경사 25-35°
+    - 용암류 + 화쇄류 교대층
+    """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
     center = (h // 2, w // 2)
-    radius = int(w * 0.4)
+    max_radius = int(w * 0.4)
+    
+    # Stage에 따른 성장
+    current_radius = int(max_radius * min(1.0, stage * 1.2))
+    current_height = max_height * stage
     
     for r in range(h):
         for c in range(w):
             dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
             
-            if dist < radius:
+            if dist < current_radius and current_radius > 0:
                 # 급한 원뿔 (경사 25-35도)
-                elevation[r, c] = max_height * (1 - dist / radius) * stage
-                
-    # 정상부 화구
-    crater_radius = int(radius * 0.08)
-    crater_depth = 10.0
-    for r in range(h):
-        for c in range(w):
-            dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
-            if dist < crater_radius:
-                elevation[r, c] = max_height * stage - crater_depth
-                
+                radial_factor = 1 - (dist / current_radius) ** 0.8
+                elevation[r, c] = current_height * radial_factor
+    
+    # 층리 표현 (작은 요철) - stage 0.3 이후
+    if stage > 0.3:
+        np.random.seed(42)
+        num_layers = int(5 * stage)
+        for layer in range(num_layers):
+            layer_radius = current_radius * (0.3 + 0.7 * layer / max(1, num_layers))
+            layer_height = current_height * (0.2 + 0.6 * layer / max(1, num_layers))
+            
+            for r in range(h):
+                for c in range(w):
+                    dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                    if abs(dist - layer_radius) < 3:
+                        # 층리 경계에 약간의 요철
+                        bump = 1.5 * np.sin(np.arctan2(r - center[0], c - center[1]) * 8)
+                        elevation[r, c] += bump
+    
+    # 정상부 분화구 - stage 0.5 이후
+    if stage > 0.5:
+        crater_progress = (stage - 0.5) / 0.5
+        crater_radius = int(max_radius * 0.06 * (1 + crater_progress * 0.5))
+        crater_depth = 12.0 * crater_progress
+        
+        for r in range(h):
+            for c in range(w):
+                dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                if dist < crater_radius:
+                    # 분화구
+                    if dist < crater_radius * 0.7:
+                        elevation[r, c] = current_height - crater_depth
+                    else:
+                        # 분화구 테두리
+                        rim_factor = (dist - crater_radius * 0.7) / (crater_radius * 0.3)
+                        elevation[r, c] = current_height - crater_depth + crater_depth * rim_factor
+    
+    if return_metadata:
+        return elevation, {
+            'current_height': current_height,
+            'stage_description': _get_strato_stage_desc(stage)
+        }
+    
     return elevation
+
+
+def _get_strato_stage_desc(stage: float) -> str:
+    """성층화산 단계별 설명"""
+    if stage < 0.2:
+        return "🌋 초기 분출: 화산쇄설물 분출"
+    elif stage < 0.4:
+        return "🔥 원뿔 형성: 용암 + 화쇄류 교대"
+    elif stage < 0.6:
+        return "⛰️ 급경사 발달: 성층 구조 형성"
+    elif stage < 0.8:
+        return "🗻 고도 상승: 분화구 발달"
+    else:
+        return "💨 정상 분화구: 분연 활동 가능"
 
 
 def create_caldera(grid_size: int = 100, stage: float = 1.0,
-                   rim_height: float = 50.0) -> np.ndarray:
-    """칼데라 (Caldera) - 화구 함몰"""
+                   rim_height: float = 50.0, return_metadata: bool = False) -> np.ndarray:
+    """칼데라 (Caldera) - 화산 정상부 함몰
+    
+    Stage 0~0.3: 성층화산 성장 (분화 활동)
+    Stage 0.3~0.5: 대분화 → 마그마방 공동화
+    Stage 0.5~0.8: 정상부 함몰 (칼데라 형성)
+    Stage 0.8~1.0: 칼데라 확장 + 호수 형성 (백두산 천지)
+    
+    핵심 과정:
+    - 마그마방 비워짐 → 지지력 상실
+    - 정상부 함몰 → 넓은 원형 분지
+    - 칼데라 직경 수 km ~ 수십 km
+    """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
     center = (h // 2, w // 2)
-    outer_radius = int(w * 0.45)
-    caldera_radius = int(w * 0.3)
+    max_outer = int(w * 0.45)
     
-    for r in range(h):
-        for c in range(w):
-            dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
-            
-            if dist < outer_radius:
-                if dist < caldera_radius:
-                    # 칼데라 바닥 (평탄, 호수 가능)
-                    elevation[r, c] = 5.0
-                else:
-                    # 칼데라 벽 (급경사)
-                    t = (dist - caldera_radius) / (outer_radius - caldera_radius)
-                    elevation[r, c] = 5.0 + rim_height * (1 - t) * stage
+    if stage < 0.3:
+        # Stage 0~0.3: 성층화산 성장
+        progress = stage / 0.3
+        volcano_height = rim_height * 1.5 * progress
+        volcano_radius = int(max_outer * 0.8 * progress)
+        
+        for r in range(h):
+            for c in range(w):
+                dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                if dist < volcano_radius and volcano_radius > 0:
+                    # 성층화산 형태
+                    elevation[r, c] = volcano_height * (1 - (dist / volcano_radius) ** 0.9)
+        
+        # 작은 분화구
+        crater_r = max(2, int(volcano_radius * 0.08))
+        for r in range(h):
+            for c in range(w):
+                dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                if dist < crater_r:
+                    elevation[r, c] = volcano_height * 0.85
                     
+    elif stage < 0.5:
+        # Stage 0.3~0.5: 대분화 시작, 함몰 시작
+        progress = (stage - 0.3) / 0.2
+        volcano_height = rim_height * 1.5
+        collapse_depth = rim_height * 0.5 * progress
+        collapse_radius = int(max_outer * 0.15 * (1 + progress))
+        
+        for r in range(h):
+            for c in range(w):
+                dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                if dist < max_outer * 0.8:
+                    # 화산체
+                    base = volcano_height * (1 - (dist / (max_outer * 0.8)) ** 0.9)
+                    
+                    if dist < collapse_radius:
+                        # 함몰 시작
+                        elevation[r, c] = base - collapse_depth * (1 - (dist / collapse_radius) ** 2)
+                    else:
+                        elevation[r, c] = base
+                        
+    elif stage < 0.8:
+        # Stage 0.5~0.8: 칼데라 확장
+        progress = (stage - 0.5) / 0.3
+        caldera_radius = int(max_outer * (0.2 + 0.25 * progress))  # 점점 넓어짐
+        collapse_depth = rim_height * (0.5 + 0.4 * progress)
+        
+        for r in range(h):
+            for c in range(w):
+                dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                
+                if dist < max_outer:
+                    if dist < caldera_radius:
+                        # 칼데라 바닥 (평탄)
+                        elevation[r, c] = rim_height * 1.5 - collapse_depth
+                    else:
+                        # 칼데라 벽 + 외륜산
+                        wall_progress = (dist - caldera_radius) / (max_outer - caldera_radius)
+                        if wall_progress < 0.3:
+                            # 급경사 벽
+                            elevation[r, c] = (rim_height * 1.5 - collapse_depth) + rim_height * 0.8 * (wall_progress / 0.3)
+                        else:
+                            # 외륜산 사면
+                            elevation[r, c] = rim_height * (1 - (wall_progress - 0.3) / 0.7) * 1.2
+                            
+    else:
+        # Stage 0.8~1.0: 칼데라 완성 + 호수
+        progress = (stage - 0.8) / 0.2
+        caldera_radius = int(max_outer * 0.45)  # 최종 크기
+        
+        for r in range(h):
+            for c in range(w):
+                dist = np.sqrt((r - center[0])**2 + (c - center[1])**2)
+                
+                if dist < max_outer:
+                    if dist < caldera_radius:
+                        # 칼데라 바닥 (호수)
+                        water_level = 5.0
+                        elevation[r, c] = water_level - 3.0 * (1 - (dist / caldera_radius) ** 2)
+                    elif dist < caldera_radius + 8:
+                        # 급경사 벽
+                        wall_t = (dist - caldera_radius) / 8
+                        elevation[r, c] = 5.0 + rim_height * 0.9 * wall_t
+                    else:
+                        # 외륜산
+                        outer_t = (dist - caldera_radius - 8) / (max_outer - caldera_radius - 8)
+                        elevation[r, c] = rim_height * (1 - outer_t ** 0.8) * 0.9
+    
+    if return_metadata:
+        return elevation, {
+            'stage_description': _get_caldera_stage_desc(stage)
+        }
+    
     return elevation
+
+
+def _get_caldera_stage_desc(stage: float) -> str:
+    """칼데라 단계별 설명"""
+    if stage < 0.2:
+        return "🌋 성층화산 성장: 분화 활동으로 산체 형성"
+    elif stage < 0.4:
+        return "💥 대분화: 마그마 대량 분출"
+    elif stage < 0.6:
+        return "🕳️ 함몰 시작: 마그마방 비워짐 → 지지력 상실"
+    elif stage < 0.8:
+        return "⬇️ 칼데라 확장: 정상부 함몰 확대"
+    else:
+        return "💧 칼데라 호수: 융해수 고임 (백두산 천지)"
 
 
 def create_mesa_butte(grid_size: int = 100, stage: float = 1.0,
@@ -2323,78 +2678,131 @@ def create_crater_lake(grid_size: int = 100, stage: float = 1.0,
     return elevation
 
 
-def create_lava_plateau(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
-    """용암대지 (Lava Plateau) - 한탄강 형성과정
+def create_lava_plateau(grid_size: int = 100, stage: float = 1.0,
+                        return_metadata: bool = False) -> np.ndarray:
+    """용암대지 (Lava Plateau) - 한탄강/제주도형
     
-    Stage 0.0~0.3: 원래 V자곡 존재
-    Stage 0.3~0.6: 열하분출로 V자곡 메워짐 (용암대지 형성)
-    Stage 0.6~1.0: 하천 재침식으로 새로운 협곡 형성
+    Stage 0~0.25: 원래 V자곡 존재 (하천 흐름)
+    Stage 0.25~0.5: 열하분출 → 용암이 V자곡 메움 (용암류)
+    Stage 0.5~0.75: 용암대지 형성 (평탄화)
+    Stage 0.75~1.0: 하천 재침식 → 새로운 협곡 형성
+    
+    핵심 과정:
+    - 열하분출(fissure eruption): 선상으로 용암 분출
+    - 홍수현무암(flood basalt): 넓은 지역 뒤덮음
+    - 재침식(rejuvenation): 새 하천이 협곡 형성
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
+    lava_mask = np.zeros((h, w), dtype=bool)  # 용암 위치 표시
     center = w // 2
     
     # 기반 고원 높이
     plateau_base = 30.0
     
-    if stage < 0.3:
-        # 원래 V자곡 상태
-        v_factor = 1.0
-        lava_fill = 0.0
-        new_valley = 0.0
-    elif stage < 0.6:
-        # 열하분출로 V자곡 메워짐
-        v_factor = 1.0 - ((stage - 0.3) / 0.3)  # V자곡 점점 사라짐
-        lava_fill = (stage - 0.3) / 0.3  # 용암 채워짐
-        new_valley = 0.0
-    else:
-        # 새 협곡 형성
-        v_factor = 0.0  # 원래 V자곡 완전히 덮임
-        lava_fill = 1.0
-        new_valley = (stage - 0.6) / 0.4  # 새 협곡 발달
-    
-    for r in range(h):
-        for c in range(w):
-            dx = abs(c - center)
-            
-            # 기본 고원
-            elevation[r, c] = plateau_base
-            
-            # 원래 V자곡 (열하분출 전)
-            if v_factor > 0:
-                valley_depth = 25.0 * v_factor
-                if dx < 15:
-                    v_shape = valley_depth * (1 - dx / 15)
-                    elevation[r, c] -= v_shape
-            
-            # 용암 채움 (평탄화)
-            if lava_fill > 0:
-                # 용암이 V자곡을 메움
-                if dx < 15:
-                    fill_amount = 25.0 * lava_fill * (1 - dx / 15)
-                    elevation[r, c] += fill_amount * 0.8  # 약간 낮게
-                    
-            # 새로운 협곡 (하천 재침식)
-            if new_valley > 0:
-                # 새 하천이 용암대지를 파고듦
-                new_valley_width = int(8 * new_valley)
-                new_valley_depth = 20.0 * new_valley
+    if stage < 0.25:
+        # Stage 0~0.25: 원래 V자곡 (하천 흐름)
+        v_depth = 30.0
+        for r in range(h):
+            for c in range(w):
+                dx = abs(c - center)
+                elevation[r, c] = plateau_base
                 
-                if dx < new_valley_width:
-                    # 더 좁고 깊은 협곡
-                    gorge_shape = new_valley_depth * (1 - dx / max(new_valley_width, 1))
+                # V자곡
+                if dx < 18:
+                    v_shape = v_depth * (1 - dx / 18) ** 1.2
+                    elevation[r, c] -= v_shape
+                    
+    elif stage < 0.5:
+        # Stage 0.25~0.5: 용암 분출 → 골짜기 메움
+        progress = (stage - 0.25) / 0.25
+        v_depth = 30.0 * (1 - progress * 0.9)  # V자곡 점점 메워짐
+        lava_thickness = 25.0 * progress
+        
+        for r in range(h):
+            # 용암 흐름 범위 (상류에서 하류로 진행)
+            flow_reach = int(h * progress)
+            
+            for c in range(w):
+                dx = abs(c - center)
+                elevation[r, c] = plateau_base
+                
+                # 잔여 V자곡
+                if dx < 18:
+                    v_shape = v_depth * (1 - dx / 18) ** 1.2
+                    elevation[r, c] -= v_shape
+                
+                # 용암 채움
+                if r < flow_reach and dx < 20:
+                    lava_fill = lava_thickness * (1 - dx / 20) ** 0.8
+                    elevation[r, c] += lava_fill
+                    lava_mask[r, c] = True
+                    
+    elif stage < 0.75:
+        # Stage 0.5~0.75: 용암대지 평탄화
+        progress = (stage - 0.5) / 0.25
+        
+        for r in range(h):
+            for c in range(w):
+                dx = abs(c - center)
+                
+                # 평탄한 용암대지
+                if dx < 25:
+                    elevation[r, c] = plateau_base + 5.0
+                    lava_mask[r, c] = True
+                else:
+                    # 가장자리 경사
+                    edge_t = (dx - 25) / (w // 2 - 25)
+                    elevation[r, c] = (plateau_base + 5.0) * (1 - edge_t ** 0.7)
+                    
+    else:
+        # Stage 0.75~1.0: 새 협곡 형성
+        progress = (stage - 0.75) / 0.25
+        gorge_width = int(6 + 6 * progress)
+        gorge_depth = 35.0 * progress
+        
+        for r in range(h):
+            for c in range(w):
+                dx = abs(c - center)
+                
+                # 용암대지 기반
+                if dx < 25:
+                    elevation[r, c] = plateau_base + 5.0
+                    lava_mask[r, c] = True
+                else:
+                    edge_t = (dx - 25) / (w // 2 - 25)
+                    elevation[r, c] = (plateau_base + 5.0) * (1 - edge_t ** 0.7)
+                
+                # 새로운 협곡 (하천 재침식)
+                if dx < gorge_width:
+                    gorge_shape = gorge_depth * (1 - (dx / gorge_width) ** 2)
                     elevation[r, c] -= gorge_shape
                     
-    # 가장자리 경사
-    margin = int(w * 0.1)
-    for r in range(h):
-        for c in range(w):
-            edge_dist = min(r, h - r - 1, c, w - c - 1)
-            if edge_dist < margin:
-                t = edge_dist / margin
-                elevation[r, c] = elevation[r, c] * t + 5.0 * (1 - t)
-                
+                    # 수직 절벽 형성 (주상절리 효과)
+                    if dx > gorge_width * 0.7:
+                        elevation[r, c] -= 3.0  # 급경사
+    
+    if return_metadata:
+        return elevation, {
+            'lava_mask': lava_mask,
+            'stage_description': _get_lava_plateau_stage_desc(stage)
+        }
+    
     return elevation
+
+
+def _get_lava_plateau_stage_desc(stage: float) -> str:
+    """용암대지 단계별 설명"""
+    if stage < 0.2:
+        return "🏞️ 원래 V자곡: 하천 침식에 의한 계곡"
+    elif stage < 0.4:
+        return "🌋 열하분출: 용암이 계곡을 따라 흐름"
+    elif stage < 0.6:
+        return "🔥 용암 홍수: 계곡을 완전히 메움"
+    elif stage < 0.8:
+        return "⬛ 용암대지 형성: 평탄한 현무암 대지"
+    else:
+        return "🏞️ 재침식: 새로운 하천이 협곡 형성 (주상절리)"
 
 
 def create_coastal_dune(grid_size: int = 100, stage: float = 1.0,

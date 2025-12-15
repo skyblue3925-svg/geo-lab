@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
 from app.components.renderer import render_terrain_plotly
+from app.components.animation_renderer import create_animated_terrain_figure
 
 st.header("📖 이상적 지형 갤러리")
 st.markdown("_교과서적인 지형 형태를 기하학적 모델로 시각화합니다._")
@@ -239,11 +240,44 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
             # 단계별 설명 표시
             st.success(metadata.get('stage_description', ''))
             
-            # 선상지 존 정보
+            # 선상지 존 정보 + 색상 하이라이트
             if landform_key == 'alluvial_fan' and 'zone_info' in metadata:
-                with st.expander("📊 세부 구조 보기"):
-                    for zone_id, info in metadata['zone_info'].items():
-                        st.markdown(f"**{info['name']}**: 경사 {info['slope']}, {info['sediment']}")
+                with st.expander("📊 세부 구조 보기", expanded=True):
+                    col_z1, col_z2, col_z3 = st.columns(3)
+                    col_z1.markdown("🔴 **선정(Apex)**<br>경사 5-15°, 역력", unsafe_allow_html=True)
+                    col_z2.markdown("🟡 **선앙(Mid)**<br>경사 2-5°, 사질", unsafe_allow_html=True)
+                    col_z3.markdown("🔵 **선단(Toe)**<br>경사 <2°, 니질", unsafe_allow_html=True)
+                    
+                    show_zones = st.checkbox("🎨 존 색상 오버레이 표시", value=False, key="show_zone_colors")
+                    
+                    if show_zones and 'zone_mask' in metadata:
+                        # 존 마스크를 색상으로 표시
+                        st.info("🔴 선정 | 🟡 선앙 | 🔵 선단")
+                        
+                        import matplotlib.pyplot as plt
+                        from matplotlib.colors import ListedColormap
+                        
+                        zone_mask = metadata['zone_mask']
+                        cmap = ListedColormap(['#4682B4', '#FFD700', '#FF6347', '#228B22'])  # 배경, 선단, 선앙, 선정
+                        
+                        fig_zone, ax = plt.subplots(figsize=(8, 6))
+                        im = ax.imshow(zone_mask, cmap=cmap, origin='lower', alpha=0.8)
+                        ax.contour(stage_elev, levels=10, colors='white', linewidths=0.5, alpha=0.5)
+                        ax.set_title("선상지 존 구분")
+                        ax.set_xlabel("X")
+                        ax.set_ylabel("Y")
+                        
+                        # 범례
+                        from matplotlib.patches import Patch
+                        legend_elements = [
+                            Patch(facecolor='#FF6347', label='선정(Apex)'),
+                            Patch(facecolor='#FFD700', label='선앙(Mid)'),
+                            Patch(facecolor='#4682B4', label='선단(Toe)')
+                        ]
+                        ax.legend(handles=legend_elements, loc='upper right')
+                        
+                        st.pyplot(fig_zone)
+                        plt.close(fig_zone)
             
             # 피오르드 프로세스 정보
             if landform_key == 'fjord' and 'process_info' in metadata:
@@ -309,38 +343,52 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
                 if 0 <= c < gallery_grid_size:
                     stage_water[r, c] = 3.0
     
-    # 3D 렌더링
-    fig_stage = render_terrain_plotly(
-        stage_elev,
-        f"{selected_landform} - {int(stage_value*100)}%",
-        add_water=True,
-        water_depth_grid=stage_water,
-        water_level=-999,
-        force_camera=False,  # 카메라 이동 허용
-        landform_type=landform_type
+    # 애니메이션 모드 선택
+    st.markdown("---")
+    animation_mode = st.radio(
+        "애니메이션 모드",
+        ["🎬 부드러운 애니메이션 (추천)", "📊 슬라이더 수동 조작"],
+        horizontal=True,
+        key="anim_mode"
     )
-    st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
     
-    # 자동 재생 (세션 상태 활용)
-    col_play, col_step = st.columns(2)
-    with col_play:
-        if st.button("▶️ 자동 재생 시작", key="auto_play"):
-            st.session_state['auto_playing'] = True
-            st.session_state['auto_stage'] = 0.0
-    with col_step:
-        if st.button("⏹️ 정지", key="stop_play"):
-            st.session_state['auto_playing'] = False
+    if animation_mode == "🎬 부드러운 애니메이션 (추천)":
+        # Plotly 네이티브 애니메이션 (카메라 유지!)
+        st.info("▶️ **재생** 버튼을 누르면 애니메이션이 시작됩니다. **카메라를 자유롭게 조작**할 수 있습니다!")
+        
+        try:
+            fig_animated = create_animated_terrain_figure(
+                landform_func=anim_func,
+                grid_size=gallery_grid_size,
+                num_frames=20,
+                title=f"{selected_landform} 형성 과정",
+                landform_type=landform_type
+            )
+            st.plotly_chart(fig_animated, use_container_width=True, key="animated_view")
+        except Exception as e:
+            st.error(f"애니메이션 생성 오류: {e}")
+            # 폴백: 정적 렌더링
+            fig_stage = render_terrain_plotly(
+                stage_elev,
+                f"{selected_landform} - {int(stage_value*100)}%",
+                add_water=True,
+                water_depth_grid=stage_water,
+                water_level=-999,
+                force_camera=False,
+                landform_type=landform_type
+            )
+            st.plotly_chart(fig_stage, use_container_width=True, key="stage_view_fallback")
+    else:
+        # 기존 슬라이더 방식
+        fig_stage = render_terrain_plotly(
+            stage_elev,
+            f"{selected_landform} - {int(stage_value*100)}%",
+            add_water=True,
+            water_depth_grid=stage_water,
+            water_level=-999,
+            force_camera=False,
+            landform_type=landform_type
+        )
+        st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
     
-    # 자동 재생 중이면 stage 자동 증가
-    if st.session_state.get('auto_playing', False):
-        current_stage = st.session_state.get('auto_stage', 0.0)
-        if current_stage < 1.0:
-            st.session_state['auto_stage'] = current_stage + 0.04
-            import time
-            time.sleep(0.15)
-            st.rerun()
-        else:
-            st.session_state['auto_playing'] = False
-            st.success("✅ 완료!")
-    
-    st.caption("💡 **Tip:** 카메라 각도를 먼저 조정한 후 자동 재생하면 유지됩니다.")
+    st.caption("💡 **Tip:** '부드러운 애니메이션' 모드에서는 카메라를 자유롭게 조작하면서 재생할 수 있습니다!")

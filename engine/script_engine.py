@@ -54,7 +54,24 @@ class ScriptExecutor:
             'min': min,
             'abs': abs,
             'pow': pow,
-            'print': print # 디버깅용
+            'print': print,  # 디버깅용
+            'range': range,
+            'len': len,
+            'int': int,
+            'float': float,
+            'round': round,
+            'sum': sum,
+            'enumerate': enumerate,
+            'zip': zip,
+            'list': list,
+            'tuple': tuple,
+            'dict': dict,
+            'set': set,
+            'str': str,
+            'bool': bool,
+            'True': True,
+            'False': False,
+            'None': None,
         }
         
         # 2. 금지된 키워드 체크 (기본적인 보안)
