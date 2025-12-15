@@ -147,7 +147,7 @@ def create_animated_terrain_figure(
     updatemenus = [{
         'type': 'buttons',
         'showactive': False,
-        'y': 1.15,
+        'y': 1.0,
         'x': 0.85,
         'xanchor': 'left',
         'yanchor': 'top',
