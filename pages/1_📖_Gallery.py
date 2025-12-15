@@ -119,7 +119,7 @@ with col_sel:
     st.markdown("---")
     st.subheader("⚙️ 파라미터")
     
-    gallery_grid_size = st.slider("해상도", 30, 100, 50, 10, key="gallery_res")
+    gallery_grid_size = st.slider("해상도", 30, 200, 50, 10, key="gallery_res")
     
     # 동적 지형 생성
     if landform_key in IDEAL_LANDFORM_GENERATORS:
