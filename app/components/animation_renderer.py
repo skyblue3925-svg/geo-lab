@@ -10,7 +10,7 @@ from typing import Callable
 def create_animated_terrain_figure(
     landform_func: Callable,
     grid_size: int = 50,
-    num_frames: int = 25,  # 프레임 증가 (더 부드러운 애니메이션)
+    num_frames: int = 40,  # 더 많은 프레임 (천천히 부드럽게)
     title: str = "지형 형성 과정",
     landform_type: str = "river"
 ) -> go.Figure:
@@ -37,20 +37,29 @@ def create_animated_terrain_figure(
     frames = []
     all_elevations = []
     
+    stage_descriptions = []
+    
     for i in range(num_frames):
         stage = i / (num_frames - 1)
         
+        # 지형 생성 + 단계 설명 추출
+        stage_desc = ""
         try:
-            # return_metadata 지원 여부 확인
-            result = landform_func(grid_size, stage)
+            result = landform_func(grid_size, stage, return_metadata=True)
             if isinstance(result, tuple):
                 elevation = result[0]
+                metadata = result[1] if len(result) > 1 else {}
+                stage_desc = metadata.get('stage_description', '')
             else:
                 elevation = result
         except:
-            elevation = landform_func(grid_size, stage)
+            try:
+                elevation = landform_func(grid_size, stage)
+            except:
+                elevation = np.zeros((grid_size, grid_size))
         
         all_elevations.append(elevation)
+        stage_descriptions.append(stage_desc)
         
         # Biome 계산 (간소화)
         dy, dx = np.gradient(elevation)
@@ -58,6 +67,19 @@ def create_animated_terrain_figure(
         biome = np.ones_like(elevation)  # 기본: 풀
         biome[slope > 1.2] = 2  # 암석
         biome[elevation < 5] = 0  # 물/모래
+        
+        # 프레임 라벨
+        frame_label = f"{int(stage * 100)}%"
+        
+        # 단계 설명이 있으면 제목에 포함
+        frame_layout = None
+        if stage_desc:
+            frame_layout = go.Layout(
+                title=dict(
+                    text=f"{title}<br><span style='font-size:13px;color:#88ccff;'>{stage_desc}</span>",
+                    font=dict(color='white', size=16)
+                )
+            )
         
         frames.append(go.Frame(
             data=[go.Surface(
@@ -69,7 +91,8 @@ def create_animated_terrain_figure(
                 showscale=False,
                 lighting=dict(ambient=0.4, diffuse=0.5, roughness=0.9, specular=0.1)
             )],
-            name=f"{int(stage * 100)}%"
+            name=frame_label,
+            layout=frame_layout
         ))
     
     # 초기 프레임 (stage=0)
@@ -136,9 +159,9 @@ def create_animated_terrain_figure(
                 'args': [
                     None,
                     {
-                        'frame': {'duration': 150, 'redraw': True},
+                        'frame': {'duration': 350, 'redraw': True},
                         'fromcurrent': True,
-                        'transition': {'duration': 100, 'easing': 'quadratic-in-out'}
+                        'transition': {'duration': 200, 'easing': 'quadratic-in-out'}
                     }
                 ]
             },
