@@ -1020,10 +1020,10 @@ def create_barchan_animated(grid_size: int, stage: float,
     Stage 0.5~0.75: 초승달 형태 발달 (오목면 형성)
     Stage 0.75~1.0: 뿔(horn) 완성 (바람 방향으로 연장)
     
-    형성 원리:
-    - 바람이 모래를 바람받이 사면으로 운반
-    - 정상 넘어 바람그늘에 퇴적 (낙사면, slip face)
-    - 가장자리 모래가 더 빨리 이동 → 뿔 형성
+    형성 원리 (바람 방향: 왼쪽→오른쪽):
+    - 바람이 모래를 바람받이(왼쪽) 사면으로 운반
+    - 정상 넘어 바람그늘(오른쪽)에 퇴적 (낙사면, slip face)
+    - 가장자리 모래가 더 빨리 이동 → 뿔이 바람 하류로 뻗음
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
@@ -1035,21 +1035,21 @@ def create_barchan_animated(grid_size: int, stage: float,
     
     for i in range(num_dunes):
         # 사구 위치 (고정)
-        cx = w // 4 + (i % 2) * (w // 2)
-        cy = int(h * 0.3) + i * (h // (num_dunes + 1))
+        cy = int(h * 0.25) + (i % 2) * int(h * 0.3)
+        cx = int(w * 0.30) + i * int(w * 0.20)
         
-        if cy >= h - 15:
+        if cx >= w - 15:
             continue
         
         # Stage에 따른 크기 발달
-        max_height = 12.0 + i * 3.0
-        max_radius = int(w * 0.12)
+        max_height = 12.0 + i * 2.0
+        max_radius = int(w * 0.10)
         
         # Stage 0~0.25: 작은 원형 언덕
         if stage < 0.25:
             progress = stage / 0.25
             current_height = max_height * 0.3 * progress
-            current_radius = int(max_radius * 0.4 * progress)
+            current_radius = max(2, int(max_radius * 0.4 * progress))
             asymmetry = 0  # 대칭
             horn_length = 0
             
@@ -1067,7 +1067,7 @@ def create_barchan_animated(grid_size: int, stage: float,
             current_height = max_height * (0.7 + 0.2 * progress)
             current_radius = int(max_radius * (0.7 + 0.2 * progress))
             asymmetry = 1.0
-            horn_length = int(max_radius * 0.4 * progress)
+            horn_length = int(max_radius * 0.5 * progress)
             
         # Stage 0.75~1.0: 뿔 완성
         else:
@@ -1075,26 +1075,26 @@ def create_barchan_animated(grid_size: int, stage: float,
             current_height = max_height * (0.9 + 0.1 * progress)
             current_radius = max_radius
             asymmetry = 1.0
-            horn_length = int(max_radius * (0.4 + 0.4 * progress))
+            horn_length = int(max_radius * (0.5 + 0.4 * progress))
         
         if current_radius < 2:
             continue
             
-        # 초승달 파라미터
-        inner_ratio = 0.5 + 0.2 * asymmetry  # 안쪽 원 비율
-        inner_offset = current_radius * 0.4 * asymmetry  # 오프셋
+        # 초승달 파라미터 (오목면이 바람 하류 쪽)
+        inner_ratio = 0.5 + 0.2 * asymmetry
+        inner_offset = current_radius * 0.4 * asymmetry  # X방향 오프셋 (바람 하류)
         
         for r in range(h):
             for c in range(w):
-                dy = r - cy
-                dx = c - cx
+                dy = r - cy  # Y축
+                dx = c - cx  # X축 (바람 방향)
                 
                 dist = np.sqrt(dx**2 + dy**2)
                 
                 # 바깥 원 영역
                 if dist < current_radius:
-                    # 안쪽 원 (오목면) - 비대칭일 때만
-                    dist_inner = np.sqrt(dx**2 + (dy - inner_offset)**2)
+                    # 안쪽 원 (오목면) - 바람 하류(오른쪽)에 위치
+                    dist_inner = np.sqrt((dx - inner_offset)**2 + dy**2)
                     inner_r = current_radius * inner_ratio
                     
                     if asymmetry > 0.5 and dist_inner < inner_r:
@@ -1104,8 +1104,8 @@ def create_barchan_animated(grid_size: int, stage: float,
                     # 높이 계산
                     radial_factor = 1 - (dist / current_radius) ** 1.5
                     
-                    # 바람받이(상단) vs 바람그늘(하단) 비대칭
-                    if dy < 0:
+                    # 바람받이(왼쪽) vs 바람그늘(오른쪽) 비대칭
+                    if dx < 0:
                         # 바람받이: 완만 (5-12° 경사)
                         slope_factor = 0.6 + 0.4 * (1 - asymmetry)
                     else:
@@ -1116,21 +1116,21 @@ def create_barchan_animated(grid_size: int, stage: float,
                     if z > 0.5:
                         elevation[r, c] = max(elevation[r, c], 5.0 + z)
                 
-                # 뿔 (horns) - stage 0.5 이후
+                # 뿔 (horns) - stage 0.5 이후, 바람 하류(오른쪽)로 뻗음
                 if horn_length > 2:
                     for side in [-1, 1]:
-                        horn_cx = cx + side * (current_radius * 0.7)
-                        horn_cy = cy + inner_offset
+                        horn_cy = cy + side * int(current_radius * 0.7)
+                        horn_cx = cx + inner_offset
                         
                         dx_h = c - horn_cx
                         dy_h = r - horn_cy
                         
-                        # 뿔 영역: 바람 방향으로 길쭉
-                        horn_width = max(2, current_radius * 0.25)
-                        if abs(dx_h) < horn_width and 0 < dy_h < horn_length:
-                            horn_factor = (1 - dy_h / horn_length) ** 0.7
-                            width_factor = 1 - (abs(dx_h) / horn_width) ** 2
-                            z = current_height * 0.4 * horn_factor * width_factor
+                        # 뿔 영역: 바람 방향(X방향)으로 길쭉
+                        horn_width = max(2, current_radius * 0.20)
+                        if abs(dy_h) < horn_width and 0 < dx_h < horn_length:
+                            horn_factor = (1 - dx_h / horn_length) ** 0.7
+                            width_factor = 1 - (abs(dy_h) / horn_width) ** 2
+                            z = current_height * 0.35 * horn_factor * width_factor
                             if z > 0.3:
                                 elevation[r, c] = max(elevation[r, c], 5.0 + z)
     
