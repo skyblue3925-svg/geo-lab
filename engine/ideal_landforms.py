@@ -2451,33 +2451,33 @@ def create_drumlin(grid_size: int = 100, stage: float = 1.0,
     np.random.seed(42)  # 재현성
     
     for i in range(num_drumlins):
-        # 빙하 흐름 방향(위→아래)으로 정렬된 위치
-        cy = int(h * 0.15 + (i % 3) * h * 0.28)
-        cx = int(w * 0.18 + (i // 3) * w * 0.32) + int((i % 2) * w * 0.08)
+        # 드럼린 위치 (빙하 흐름 방향: 왼쪽→오른쪽)
+        cy = int(h * 0.20 + (i % 3) * h * 0.25)
+        cx = int(w * 0.25 + (i // 3) * w * 0.25)
         drumlin_positions.append((cy, cx))
         
-        # 드럼린 크기 (형성 정도에 따라)
-        length = int(w * 0.18 * drumlin_visible)  # 빙하 방향 길이
-        width_val = int(w * 0.07 * drumlin_visible)
-        height_val = 18.0 * drumlin_visible
+        # 드럼린 크기 - 가로로 길쭉 (눕혀진 숟가락)
+        length = int(w * 0.22 * drumlin_visible)  # X방향 (빙하 흐름 방향) 길이
+        width_val = int(h * 0.08 * drumlin_visible)  # Y방향 너비
+        height_val = 15.0 * drumlin_visible
         
         if length > 0 and width_val > 0:
-            for r in range(max(0, cy - length), min(h, cy + length)):
-                for c in range(max(0, cx - width_val - 5), min(w, cx + width_val + 5)):
-                    dy = (r - cy) / max(length, 1)
-                    dx = (c - cx) / max(width_val, 1)
+            for r in range(max(0, cy - width_val - 3), min(h, cy + width_val + 3)):
+                for c in range(max(0, cx - length), min(w, cx + length)):
+                    dy = (r - cy) / max(width_val, 1)  # Y축: 너비
+                    dx = (c - cx) / max(length, 1)  # X축: 길이 (빙하 방향)
                     
-                    # 유선형 (stoss-lee 비대칭)
-                    if dy < 0:
-                        # Stoss (상류) - 둥글고 완만
+                    # 유선형 (stoss-lee 비대칭) - X방향
+                    if dx < 0:
+                        # Stoss (상류/왼쪽) - 둥글고 완만
                         dist = np.sqrt(dy**2 + dx**2)
                     else:
-                        # Lee (하류) - 뾰족하고 가파름
-                        dist = np.sqrt((dy * 1.5)**2 + dx**2)
+                        # Lee (하류/오른쪽) - 뾰족하게 캐리
+                        dist = np.sqrt(dy**2 + (dx * 1.8)**2)
                     
                     if dist < 1.0:
-                        # 언덕 형태
-                        z = height_val * (1 - dist ** 1.3)
+                        # 언덕 형태 - 부드러운 곡선
+                        z = height_val * (1 - dist ** 1.5) * (1 - abs(dy) * 0.3)
                         elevation[r, c] = max(elevation[r, c], 5.0 + z)
     
     # === 빙하 덮음 시각화 ===
