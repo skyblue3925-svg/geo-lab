@@ -2400,36 +2400,123 @@ def _get_fjord_stage_desc(stage: float) -> str:
 
 
 def create_drumlin(grid_size: int = 100, stage: float = 1.0,
-                   num_drumlins: int = 5) -> np.ndarray:
-    """드럼린 (Drumlin) - 빙하 방향 타원형 언덕"""
+                   num_drumlins: int = 5, return_metadata: bool = False) -> np.ndarray:
+    """드럼린 (Drumlin) 형성과정 - 학술 자료 기반
+    
+    Stage 0~0.15: 빙하 이전 평원
+    Stage 0.15~0.35: 빙기 - 대륙빙하 전진 (덮음)
+    Stage 0.35~0.60: 빙기 절정 - 빙하 바닥에서 til 성형
+    Stage 0.60~0.80: 간빙기 - 빙하 후퇴
+    Stage 0.80~1.0: 드럼린 노출 (유선형 언덕군)
+    
+    핵심 과정:
+    - 빙하 바닥의 til이 빙하 흐름 방향으로 성형
+    - Stoss (상류/둥근) + Lee (하류/뾰족) 비대칭
+    - 빙하 이동 방향 지시자
+    """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
-    elevation[:, :] = 5.0  # 빙하 퇴적 평원
+    # 빙하 퇴적 평원
+    elevation[:, :] = 5.0
+    
+    # === 단계별 상태 계산 ===
+    if stage < 0.15:
+        glacier_cover = 0.0
+        drumlin_visible = 0.0
+        phase = "pre_glacial"
+    elif stage < 0.35:
+        # 빙기: 빙하 전진 (대륙빙하가 덮음)
+        glacier_cover = (stage - 0.15) / 0.20
+        drumlin_visible = 0.0
+        phase = "glacial_advance"
+    elif stage < 0.60:
+        # 빙기 절정: 빙하 아래에서 드럼린 형성
+        glacier_cover = 1.0
+        drumlin_visible = (stage - 0.35) / 0.25  # 형성 중
+        phase = "glacial_max"
+    elif stage < 0.80:
+        # 간빙기: 빙하 후퇴
+        glacier_cover = 1.0 - (stage - 0.60) / 0.20
+        drumlin_visible = 1.0
+        phase = "glacial_retreat"
+    else:
+        # 드럼린 노출
+        glacier_cover = 0.0
+        drumlin_visible = 1.0
+        phase = "post_glacial"
+    
+    # === 드럼린 생성 ===
+    drumlin_positions = []
+    np.random.seed(42)  # 재현성
     
     for i in range(num_drumlins):
-        # 드럼린 위치 (빙하 흐름 방향으로 정렬)
-        cy = int(h * 0.2 + (i % 3) * h * 0.25)
-        cx = int(w * 0.2 + (i // 3) * w * 0.3)
+        # 빙하 흐름 방향(위→아래)으로 정렬된 위치
+        cy = int(h * 0.15 + (i % 3) * h * 0.28)
+        cx = int(w * 0.18 + (i // 3) * w * 0.32) + int((i % 2) * w * 0.08)
+        drumlin_positions.append((cy, cx))
         
-        # 타원형 (빙하 방향으로 길쭉)
-        length = int(w * 0.15 * stage)
-        width = int(w * 0.06 * stage)
-        height = 15.0 * stage
+        # 드럼린 크기 (형성 정도에 따라)
+        length = int(w * 0.18 * drumlin_visible)  # 빙하 방향 길이
+        width_val = int(w * 0.07 * drumlin_visible)
+        height_val = 18.0 * drumlin_visible
         
-        for r in range(h):
-            for c in range(w):
-                dy = (r - cy) / max(length, 1)
-                dx = (c - cx) / max(width, 1)
-                dist = np.sqrt(dy**2 + dx**2)
-                
-                if dist < 1.0:
-                    # 뾰족한 빙하 상류, 완만한 하류
-                    asymmetry = 1.0 if dy < 0 else 0.7
-                    z = height * (1 - dist) * asymmetry
-                    elevation[r, c] = max(elevation[r, c], 5.0 + z)
+        if length > 0 and width_val > 0:
+            for r in range(max(0, cy - length), min(h, cy + length)):
+                for c in range(max(0, cx - width_val - 5), min(w, cx + width_val + 5)):
+                    dy = (r - cy) / max(length, 1)
+                    dx = (c - cx) / max(width_val, 1)
                     
+                    # 유선형 (stoss-lee 비대칭)
+                    if dy < 0:
+                        # Stoss (상류) - 둥글고 완만
+                        dist = np.sqrt(dy**2 + dx**2)
+                    else:
+                        # Lee (하류) - 뾰족하고 가파름
+                        dist = np.sqrt((dy * 1.5)**2 + dx**2)
+                    
+                    if dist < 1.0:
+                        # 언덕 형태
+                        z = height_val * (1 - dist ** 1.3)
+                        elevation[r, c] = max(elevation[r, c], 5.0 + z)
+    
+    # === 빙하 덮음 시각화 ===
+    if glacier_cover > 0 and phase != "post_glacial":
+        ice_thickness = 25.0 * glacier_cover
+        
+        # 빙하 전진 위치
+        ice_front = int(h * glacier_cover * 0.95)
+        
+        for r in range(ice_front):
+            for c in range(w):
+                # 빙하 표면 (약간 볼록)
+                ice_surface = ice_thickness * (1 - (r / max(1, ice_front)) * 0.2)
+                elevation[r, c] = max(elevation[r, c], 5.0 + ice_surface)
+    
+    if return_metadata:
+        return elevation, {
+            'glacier_cover': glacier_cover,
+            'drumlin_visible': drumlin_visible,
+            'num_drumlins': num_drumlins,
+            'phase': phase,
+            'stage_description': _get_drumlin_stage_desc(stage)
+        }
+    
     return elevation
+
+
+def _get_drumlin_stage_desc(stage: float) -> str:
+    """드럼린 단계별 설명"""
+    if stage < 0.15:
+        return "🏜️ 빙하 이전: 퇴적 평원"
+    elif stage < 0.35:
+        return "🧊 빙기/빙하 전진: 대륙빙하가 평원 덮음"
+    elif stage < 0.60:
+        return "❄️ 빙기 절정: 빙하 바닥에서 til 유선형 성형"
+    elif stage < 0.80:
+        return "🌡️ 간빙기/빙하 후퇴: 드럼린 노출 시작"
+    else:
+        return "🏔️ 드럼린 완성: 빙하 이동 방향 지시 언덕군"
 
 
 def create_moraine(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
