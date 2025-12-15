@@ -161,7 +161,7 @@ with col_view:
             force_camera=True,
             landform_type=landform_type  # 카테고리에 맞는 색상 적용
         )
-        st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d")
+        st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d", config={'scrollZoom': True, 'displayModeBar': True})
     
     # 설명
     descriptions = {
@@ -379,7 +379,7 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
             fig_animated.update_layout(
                 scene=dict(camera=selected_camera)
             )
-            st.plotly_chart(fig_animated, use_container_width=True, key="animated_view")
+            st.plotly_chart(fig_animated, use_container_width=True, key="animated_view", config={'scrollZoom': True, 'displayModeBar': True})
         except Exception as e:
             st.error(f"애니메이션 생성 오류: {e}")
             # 폴백: 정적 렌더링
@@ -393,7 +393,7 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
                 landform_type=landform_type
             )
             fig_stage.update_layout(scene=dict(camera=selected_camera))
-            st.plotly_chart(fig_stage, use_container_width=True, key="stage_view_fallback")
+            st.plotly_chart(fig_stage, use_container_width=True, key="stage_view_fallback", config={'scrollZoom': True, 'displayModeBar': True})
     else:
         # 기존 슬라이더 방식
         fig_stage = render_terrain_plotly(
@@ -406,6 +406,6 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
             landform_type=landform_type
         )
         fig_stage.update_layout(scene=dict(camera=selected_camera))
-        st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
+        st.plotly_chart(fig_stage, use_container_width=True, key="stage_view", config={'scrollZoom': True, 'displayModeBar': True})
     
     st.caption("💡 **Tip:** '시점 선택'에서 X축(측면), Y축(정면), Z축(평면도) 등 다양한 각도로 감상할 수 있습니다!")
