@@ -100,3 +100,90 @@ with st.expander("📋 업데이트 내역", expanded=False):
 
 st.markdown("---")
 st.caption("© 2025 한백고등학교 김한솔T | Geo-Lab AI")
+
+# ========== 사이드바 하단 정보 ==========
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📊 방문자 통계")
+
+# 방문자 카운터 (세션 기반)
+from datetime import datetime
+import json
+import os
+
+# 방문자 데이터 파일 경로
+VISITOR_FILE = "visitor_count.json"
+
+def load_visitor_data():
+    """방문자 데이터 로드"""
+    if os.path.exists(VISITOR_FILE):
+        try:
+            with open(VISITOR_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+    return {"total": 0, "today": 0, "date": ""}
+
+def save_visitor_data(data):
+    """방문자 데이터 저장"""
+    try:
+        with open(VISITOR_FILE, 'w') as f:
+            json.dump(data, f)
+    except:
+        pass
+
+# 방문자 카운트 처리
+if 'visitor_counted' not in st.session_state:
+    st.session_state['visitor_counted'] = True
+    
+    visitor_data = load_visitor_data()
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    # 날짜가 바뀌면 오늘 카운트 리셋
+    if visitor_data["date"] != today:
+        visitor_data["date"] = today
+        visitor_data["today"] = 0
+    
+    visitor_data["total"] += 1
+    visitor_data["today"] += 1
+    
+    save_visitor_data(visitor_data)
+else:
+    visitor_data = load_visitor_data()
+
+st.sidebar.metric("오늘 방문자", f"{visitor_data.get('today', 0)}명")
+st.sidebar.metric("총 방문자", f"{visitor_data.get('total', 0)}명")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📋 업데이트 내역")
+st.sidebar.markdown("""
+**v4.4** (2025-12-15) 🆕
+- 다중 시점 카메라 (X/Y/Z축)
+- 지형 형성과정 정확도 개선
+- Lab 연구용 기능 추가
+
+**v4.3** (2025-12-14)
+- 5개 새 지형 추가
+- 애니메이션 개선
+""")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📖 사용 설명서")
+st.sidebar.markdown("""
+1. **📖 Gallery**: 지형 선택 → 2D/3D 보기
+2. **🎬 애니메이션**: 형성 단계 슬라이더
+3. **📐 시점 변경**: 드롭다운에서 각도 선택
+4. **🔬 Research**: 고급 분석 (개발중)
+""")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🗺️ 앞으로의 계획")
+st.sidebar.markdown("""
+- [ ] 실제 DEM 비교 분석
+- [ ] 시계열 파라미터 변화
+- [ ] 논문 인용 지원
+- [ ] 다국어 지원
+""")
+
+st.sidebar.markdown("---")
+st.sidebar.caption("💡 문의: 한백고 김한솔T")
+
