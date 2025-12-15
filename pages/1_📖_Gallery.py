@@ -151,17 +151,47 @@ with col_view:
     st.pyplot(fig_2d)
     plt.close(fig_2d)
     
-    # 3D 보기 버튼
-    if st.button("🔲 3D 뷰 보기", key="show_3d_view"):
-        fig_3d = render_terrain_plotly(
-            elevation, 
-            f"{selected_landform} - 3D",
-            add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
-            water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
-            force_camera=True,
-            landform_type=landform_type  # 카테고리에 맞는 색상 적용
-        )
-        st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d", config={'scrollZoom': True, 'displayModeBar': True})
+    # 3D 보기 버튼 (두 가지 옵션)
+    col_3d_1, col_3d_2 = st.columns(2)
+    
+    with col_3d_1:
+        if st.button("🔲 3D 뷰 (Plotly)", key="show_3d_view"):
+            fig_3d = render_terrain_plotly(
+                elevation, 
+                f"{selected_landform} - 3D",
+                add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
+                water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
+                force_camera=True,
+                landform_type=landform_type
+            )
+            st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d", config={'scrollZoom': True, 'displayModeBar': True})
+    
+    with col_3d_2:
+        if st.button("🖼️ 3D 뷰 (이미지)", key="show_3d_mpl", help="WebGL이 안 되는 환경용"):
+            from mpl_toolkits.mplot3d import Axes3D
+            
+            fig_mpl = plt.figure(figsize=(10, 8))
+            ax_3d = fig_mpl.add_subplot(111, projection='3d')
+            
+            # 다운샘플링 (성능)
+            step = max(1, gallery_grid_size // 50)
+            h, w = elevation.shape
+            x_mpl = np.arange(0, w, step)
+            y_mpl = np.arange(0, h, step)
+            X, Y = np.meshgrid(x_mpl, y_mpl)
+            Z = elevation[::step, ::step]
+            
+            # 색상 매핑
+            ax_3d.plot_surface(X, Y, Z, cmap='terrain', linewidth=0, antialiased=True, alpha=0.9)
+            ax_3d.set_xlabel('X (m)')
+            ax_3d.set_ylabel('Y (m)')
+            ax_3d.set_zlabel('Elevation (m)')
+            ax_3d.set_title(f"{selected_landform} - 3D")
+            ax_3d.view_init(elev=30, azim=-60)
+            
+            st.pyplot(fig_mpl)
+            plt.close(fig_mpl)
+            st.caption("💡 Matplotlib 3D 이미지 (WebGL 없이 작동)")
     
     # 설명
     descriptions = {
