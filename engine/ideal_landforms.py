@@ -724,126 +724,149 @@ def create_meander_animated(grid_size: int, stage: float,
 def create_u_valley_animated(grid_size: int, stage: float,
                               valley_depth: float = 100.0, valley_width: float = 0.4,
                               return_metadata: bool = False) -> np.ndarray:
-    """U자곡 형성과정 (V자곡 → 빙하 침식 → U자곡 노출)
+    """U자곡 형성과정 (빙하 전진/후퇴 사이클)
     
-    Stage 0~0.2: V자곡 상태 (하천 침식에 의해 형성된 초기 계곡)
-    Stage 0.2~0.5: 빙하 채워짐 + 침식 시작 (플러킹, 마식)
-    Stage 0.5~0.8: U자 형태 발달 (바닥 넓어짐, 벽 급경사)
-    Stage 0.8~1.0: 빙하 후퇴 → U자곡 드러남 + 현수곡 + 빙하호
+    Stage 0~0.15: 초기 V자곡 (하천 침식 지형)
+    Stage 0.15~0.35: 빙기 시작 - 빙하 전진 (상류→하류)
+    Stage 0.35~0.55: 빙기 절정 - 최대 확장 + 침식 활발
+    Stage 0.55~0.75: 간빙기 시작 - 빙하 후퇴 (하류→상류)
+    Stage 0.75~1.0: 간빙기 - U자곡 + 현수곡 + 빙하호 노출
     
-    핵심 과정:
-    - 플러킹(Plucking): 암석 파쇄 후 운반
-    - 마식(Abrasion): 빙하 바닥 연마
-    - 현수곡(Hanging Valley): 지류 빙하가 덜 침식
+    빙하 전진: 계곡빙하가 V자곡을 따라 전진하며 침식
+    빙하 후퇴: 빙하가 녹으며 U자형 침식 흔적 노출
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     center = w // 2
     
-    # Stage에 따른 U자 변형 정도
-    if stage < 0.2:
-        # V자곡 상태
-        u_transform = 0
-        glacier_visible = False
-    elif stage < 0.5:
-        # 빙하 성장 + 초기 침식
-        u_transform = (stage - 0.2) / 0.3 * 0.5
-        glacier_visible = True
-    elif stage < 0.8:
-        # U자 형태 발달
-        u_transform = 0.5 + (stage - 0.5) / 0.3 * 0.5
-        glacier_visible = True
+    # 빙하 전진/후퇴 계산
+    if stage < 0.15:
+        # V자곡 상태 (빙하 없음)
+        glacier_front = 0  # 빙하 없음
+        u_erosion = 0.0
+        phase = "pre_glacial"
+    elif stage < 0.35:
+        # 빙기: 빙하 전진 (상류에서 시작)
+        advance_progress = (stage - 0.15) / 0.2
+        glacier_front = int(h * 0.1 + h * 0.6 * advance_progress)  # 10%→70%
+        u_erosion = advance_progress * 0.4
+        phase = "glacial_advance"
+    elif stage < 0.55:
+        # 빙기 절정: 최대 확장
+        glacier_front = int(h * 0.85)  # 85%까지 도달
+        erosion_progress = (stage - 0.35) / 0.2
+        u_erosion = 0.4 + erosion_progress * 0.5  # 40%→90%
+        phase = "glacial_max"
+    elif stage < 0.75:
+        # 간빙기: 빙하 후퇴 (하류에서 상류로)
+        retreat_progress = (stage - 0.55) / 0.2
+        glacier_front = int(h * 0.85 * (1 - retreat_progress))  # 85%→0%
+        u_erosion = 0.9 + retreat_progress * 0.1  # 90%→100%
+        phase = "interglacial_retreat"
     else:
-        # 빙하 후퇴, U자곡 노출
-        u_transform = 1.0
-        glacier_visible = False
+        # 간빙기: 빙하 완전 소멸
+        glacier_front = 0
+        u_erosion = 1.0
+        phase = "post_glacial"
     
-    # U자 바닥 너비 (점차 넓어짐)
-    floor_width = int(w * valley_width * 0.3 * u_transform)
+    # U자 바닥 너비 (침식에 따라 넓어짐)
+    floor_width = int(w * valley_width * 0.1) + int(w * valley_width * 0.4 * u_erosion)
     
-    # 기본 지형 생성
+    # 기본 지형 생성 (V자곡 → U자곡 변환)
     for r in range(h):
-        # 상류로 갈수록 기반 높아짐
-        base_height = (h - r) / h * 40.0
+        base_height = (h - r) / h * 50.0  # 상류 높음
         
         for c in range(w):
             dx = abs(c - center)
             
-            # V자곡 → U자곡 단면 변형
-            if dx < floor_width:
-                # U자 바닥 (평탄)
-                valley_floor = 0
-            else:
-                # 벽면
-                wall_dist = (dx - floor_width) / max(1, w // 2 - floor_width)
-                
-                # V자 단면 (삼각형)
-                v_profile = valley_depth * wall_dist
-                
-                # U자 단면 (포물선)
-                u_profile = valley_depth * (wall_dist ** 0.5)
-                
-                # 변환 적용
-                valley_floor = v_profile * (1 - u_transform) + u_profile * u_transform
+            # 빙하가 지나간 구간만 U자 침식
+            erosion_here = u_erosion if r < glacier_front or phase.startswith("post") else 0
             
-            elevation[r, c] = base_height + valley_floor
+            if dx < floor_width * erosion_here:
+                # U자 바닥 (평탄)
+                elev = 0
+            else:
+                wall_dist = (dx - floor_width * erosion_here) / max(1, w // 2 - floor_width)
+                wall_dist = min(1, wall_dist)
+                
+                # V자 → U자 변환
+                v_profile = valley_depth * wall_dist
+                u_profile = valley_depth * (wall_dist ** 0.4)
+                
+                elev = v_profile * (1 - erosion_here) + u_profile * erosion_here
+            
+            elevation[r, c] = base_height + elev
     
-    # 현수곡 (Hanging Valley) - stage 0.6 이후 시각화
+    # 빙하 시각화 (빙하가 있을 때만)
+    if glacier_front > 0 and phase not in ["pre_glacial", "post_glacial"]:
+        glacier_thickness = 35.0 if phase == "glacial_max" else 25.0
+        
+        for r in range(glacier_front):
+            for c in range(w):
+                dx = abs(c - center)
+                ice_width = floor_width + 15
+                
+                if dx < ice_width:
+                    # 빙하 표면 (볼록)
+                    ice_surface = glacier_thickness * (1 - (dx / ice_width) ** 2)
+                    # 빙하 앞부분 경사
+                    front_factor = 1 - (glacier_front - r) / max(1, glacier_front) * 0.3
+                    if r > glacier_front - int(h * 0.1):
+                        front_factor *= (glacier_front - r) / (h * 0.1)
+                    elevation[r, c] += ice_surface * front_factor
+    
+    # 현수곡 (Hanging Valley) - 후퇴 후 노출
     if stage > 0.6:
+        hang_progress = min(1, (stage - 0.6) / 0.3)
         hanging_valleys = [
-            (int(h * 0.3), -1),  # 좌측 현수곡
-            (int(h * 0.6), 1),   # 우측 현수곡
+            (int(h * 0.3), -1, 25),  # 좌측
+            (int(h * 0.55), 1, 20),   # 우측
         ]
         
-        for hy, side in hanging_valleys:
-            hx = center + side * int(w * 0.35)
-            hang_height = 30.0 * u_transform  # 현수 높이
+        for hy, side, height in hanging_valleys:
+            hx = center + side * int(w * 0.38)
+            hang_height = height * hang_progress
             
-            for dy in range(-10, 11):
-                for dx in range(-8, 9):
+            for dy in range(-12, 13):
+                for dx in range(-10, 11):
                     r, c = hy + dy, hx + dx
                     if 0 <= r < h and 0 <= c < w:
                         dist = np.sqrt(dy**2 + dx**2)
-                        if dist < 10:
-                            # 현수곡 입구 (높게 매달림)
-                            notch = 10.0 * (1 - dist / 10)
+                        if dist < 12:
+                            notch = hang_height * (1 - dist / 12)
                             elevation[r, c] = max(elevation[r, c], hang_height + notch)
     
-    # 빙하 시각화 (채움)
-    if glacier_visible:
-        glacier_progress = min(1.0, (stage - 0.2) / 0.6)
-        glacier_end = int(h * 0.85 * glacier_progress)
-        glacier_thickness = 25.0 * glacier_progress
+    # 빙하호 (Tarn) - 완전 후퇴 후
+    if stage > 0.8:
+        tarn_progress = (stage - 0.8) / 0.2
+        tarn_y = int(h * 0.12)
+        tarn_radius = int(w * 0.1 * tarn_progress)
         
-        for r in range(glacier_end):
-            for c in range(w):
-                dx = abs(c - center)
-                if dx < floor_width + 10:
-                    # 빙하 볼록 표면
-                    ice_surface = glacier_thickness * (1 - (dx / (floor_width + 10)) ** 2)
-                    if stage < 0.8:
-                        elevation[r, c] += ice_surface
-    
-    # 빙하호(Tarn) - 빙하 후퇴 후
-    if stage > 0.85:
-        tarn_progress = (stage - 0.85) / 0.15
-        tarn_y = int(h * 0.15)
-        tarn_radius = int(w * 0.12 * tarn_progress)
-        
-        for dy in range(-tarn_radius, tarn_radius + 1):
-            for dx in range(-tarn_radius, tarn_radius + 1):
+        for dy in range(-tarn_radius-2, tarn_radius + 3):
+            for dx in range(-tarn_radius-2, tarn_radius + 3):
                 r, c = tarn_y + dy, center + dx
                 if 0 <= r < h and 0 <= c < w:
                     dist = np.sqrt(dy**2 + dx**2)
                     if dist < tarn_radius:
-                        # 호수 바닥
-                        elevation[r, c] = min(elevation[r, c], -5.0 * (1 - dist / tarn_radius))
+                        elevation[r, c] = min(elevation[r, c], -8.0 * (1 - dist / tarn_radius))
+    
+    # 종퇴석 (Terminal Moraine) - 빙하 최대 전진선
+    if stage > 0.5:
+        moraine_progress = min(1, (stage - 0.5) / 0.3)
+        moraine_row = int(h * 0.85)
+        
+        for c in range(w):
+            dx = abs(c - center)
+            if dx < floor_width + 20:
+                moraine_height = 8 * moraine_progress * (1 - dx / (floor_width + 20))
+                elevation[moraine_row, c] += moraine_height
     
     if return_metadata:
         return elevation, {
-            'u_transform': u_transform,
-            'glacier_visible': glacier_visible,
+            'glacier_front': glacier_front,
+            'u_erosion': u_erosion,
             'floor_width': floor_width,
+            'phase': phase,
             'stage_description': _get_u_valley_stage_desc(stage)
         }
     
@@ -853,17 +876,17 @@ def create_u_valley_animated(grid_size: int, stage: float,
 def _get_u_valley_stage_desc(stage: float) -> str:
     """U자곡 단계별 설명"""
     if stage < 0.15:
-        return "🏞️ V자곡 상태: 하천 침식에 의한 초기 계곡"
+        return "🏞️ V자곡 상태: 하천 침식으로 형성된 초기 계곡"
     elif stage < 0.35:
-        return "❄️ 빙하 성장: 계곡에 빙하 채워짐"
+        return "❄️ 빙기/빙하 전진: 계곡빙하가 상류→하류 방향 전진"
     elif stage < 0.55:
-        return "⛏️ 빙하 침식: 플러킹 + 마식 → 바닥 확장"
+        return "🧊 빙기 절정: 빙하 최대 확장, 플러킹+마식 침식"
     elif stage < 0.75:
-        return "🗻 U자 형태: 평탄 바닥 + 급경사 벽"
+        return "🌡️ 간빙기/빙하 후퇴: 하류→상류 방향 융해 후퇴"
     elif stage < 0.9:
-        return "🌊 빙하 후퇴: 현수곡(Hanging Valley) 드러남"
+        return "🗻 U자곡 노출: 현수곡(Hanging Valley) 드러남"
     else:
-        return "💧 빙하호(Tarn): 빙하 융해수 고임"
+        return "💧 빙하호(Tarn): 종퇴석 + 권곡호 형성"
 
 
 def create_coastal_cliff_animated(grid_size: int, stage: float,
@@ -1500,48 +1523,62 @@ def create_cuspate_delta(grid_size: int = 100, stage: float = 1.0) -> np.ndarray
 
 def create_cirque(grid_size: int = 100, stage: float = 1.0,
                   depth: float = 50.0, return_metadata: bool = False) -> np.ndarray:
-    """권곡 (Cirque) - 빙하 시작점
+    """권곡 (Cirque) - 빙하 전진/후퇴 사이클
     
-    Stage 0~0.3: 니발 침식 (Nivation)
-      - 만년설의 동결풍화로 얕은 움푹 형성
-      - 암설(rock debris) 축적 시작
+    Stage 0~0.2: 니발 침식 (Nivation) - 만년설 영역
+    Stage 0.2~0.4: 빙기 시작 - 빙하 생성 및 전진
+    Stage 0.4~0.6: 빙기 절정 - 빙하 가득 참 + 플러킹/마식
+    Stage 0.6~0.8: 간빙기 - 빙하 후퇴 시작
+    Stage 0.8~1.0: 빙하 소멸 - 턴(Tarn) 호수 형성
     
-    Stage 0.3~0.6: 빙하화 (Glacierization)
-      - 피른(firn) → 빙하 얼음 압밀
-      - 플러킹(plucking)과 마식(abrasion) 시작
-      - 후벽(headwall) 발달
-    
-    Stage 0.6~0.8: 권곡 확장
-      - 베르그슈런트(bergschrund) 동결풍화
-      - 바닥과 벽 침식 확대
-    
-    Stage 0.8~1.0: 빙하 소멸 + 턴(Tarn) 형성
-      - 빙하 융해
-      - 빙하호(tarn) 형성
+    핵심:
+    - 베르그슈런트(bergschrund): 빙하와 후벽 사이 크레바스
+    - 플러킹: 후벽 침식
+    - 마식: 바닥 연마
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
     # 산악 배경
-    mountain_height = depth + 40.0
+    mountain_height = depth + 50.0
     elevation[:, :] = mountain_height
     
     # 권곡 위치 (상단 중앙)
     cirque_y = int(h * 0.35)
     cirque_x = w // 2
     
-    # Stage에 따른 권곡 크기
-    if stage < 0.3:
+    # 빙하 전진/후퇴 계산
+    if stage < 0.2:
         # 니발 침식: 작은 움푹
-        cirque_radius = int(w * 0.15 * (stage / 0.3))
-        bowl_depth = depth * 0.3 * (stage / 0.3)
+        glacier_fill = 0.0
+        erosion = stage / 0.2 * 0.2
+        phase = "nivation"
+    elif stage < 0.4:
+        # 빙기: 빙하 전진
+        glacier_fill = (stage - 0.2) / 0.2
+        erosion = 0.2 + (stage - 0.2) / 0.2 * 0.3
+        phase = "glacial_advance"
+    elif stage < 0.6:
+        # 빙기 절정
+        glacier_fill = 1.0
+        erosion = 0.5 + (stage - 0.4) / 0.2 * 0.4
+        phase = "glacial_max"
+    elif stage < 0.8:
+        # 간빙기: 빙하 후퇴
+        glacier_fill = 1.0 - (stage - 0.6) / 0.2
+        erosion = 0.9 + (stage - 0.6) / 0.2 * 0.1
+        phase = "interglacial_retreat"
     else:
-        # 빙하화 이후: 급격히 확장
-        cirque_radius = int(w * 0.15 + w * 0.15 * ((stage - 0.3) / 0.7))
-        bowl_depth = depth * (0.3 + 0.7 * ((stage - 0.3) / 0.7))
+        # 빙하 소멸
+        glacier_fill = 0.0
+        erosion = 1.0
+        phase = "post_glacial"
     
-    # 후벽 경사도 (stage에 따라 급해짐)
-    headwall_steepness = 0.3 + 0.7 * min(1.0, stage / 0.6)
+    # 권곡 크기 (침식에 따라)
+    base_radius = int(w * 0.12)
+    cirque_radius = base_radius + int(w * 0.15 * erosion)
+    bowl_depth = depth * (0.2 + 0.8 * erosion)
+    headwall_steepness = 0.3 + 0.7 * erosion
     
     for r in range(h):
         for c in range(w):
@@ -1550,46 +1587,65 @@ def create_cirque(grid_size: int = 100, stage: float = 1.0,
             dist = np.sqrt(dy**2 + dx**2)
             
             if dist < cirque_radius:
-                # 방향에 따른 높이 변화
                 if dy < 0:
                     # 후벽 (Headwall) - 급경사
                     wall_height = bowl_depth * headwall_steepness * (1 - dist / cirque_radius)
-                    elevation[r, c] = mountain_height - bowl_depth + wall_height
+                    base_elev = mountain_height - bowl_depth + wall_height
                 else:
-                    # 바닥 - 평탄하거나 약간 오목
+                    # 바닥 - 오목
                     floor_depth = bowl_depth * (1 - (dist / cirque_radius) ** 2) * 0.8
-                    elevation[r, c] = mountain_height - floor_depth
-                    
-            # 빙하 유출구 (하류 방향)
-            if cirque_y < r < cirque_y + cirque_radius * 0.5:
-                if abs(c - cirque_x) < cirque_radius * 0.3:
-                    outlet_depth = bowl_depth * 0.5 * (1 - (r - cirque_y) / (cirque_radius * 0.5))
+                    base_elev = mountain_height - floor_depth
+                
+                elevation[r, c] = base_elev
+                
+            # 빙하 유출구
+            if cirque_y < r < cirque_y + cirque_radius * 0.6:
+                if abs(c - cirque_x) < cirque_radius * 0.25:
+                    outlet_depth = bowl_depth * 0.4 * (1 - (r - cirque_y) / (cirque_radius * 0.6))
                     elevation[r, c] = min(elevation[r, c], mountain_height - outlet_depth)
     
-    # 턴(Tarn) 호수 - stage > 0.8
-    tarn_present = False
-    tarn_depth = 0
-    if stage > 0.8:
-        tarn_present = True
-        tarn_progress = (stage - 0.8) / 0.2
-        tarn_radius = int(cirque_radius * 0.5 * tarn_progress)
-        tarn_depth = bowl_depth * 0.3 * tarn_progress
+    # 빙하 시각화 (전진/후퇴)
+    if glacier_fill > 0 and phase != "post_glacial":
+        ice_radius = int(cirque_radius * 0.85 * glacier_fill)
+        ice_thickness = 20.0 * glacier_fill
         
-        for r in range(cirque_y - tarn_radius, cirque_y + tarn_radius):
+        for r in range(cirque_y - ice_radius, cirque_y + int(ice_radius * 0.7)):
+            for c in range(cirque_x - ice_radius, cirque_x + ice_radius):
+                if 0 <= r < h and 0 <= c < w:
+                    dist = np.sqrt((r - cirque_y)**2 + (c - cirque_x)**2)
+                    if dist < ice_radius:
+                        # 빙하 표면
+                        ice_surface = ice_thickness * (1 - (dist / ice_radius) ** 2)
+                        # 후퇴 중이면 가장자리부터 녹음
+                        if phase == "interglacial_retreat":
+                            melt_factor = min(1, (ice_radius - dist) / (ice_radius * 0.5))
+                            ice_surface *= melt_factor
+                        elevation[r, c] = max(elevation[r, c], elevation[r, c] + ice_surface)
+    
+    # 턴(Tarn) 호수 - 빙하 소멸 후
+    tarn_present = False
+    if stage > 0.75:
+        tarn_present = True
+        tarn_progress = min(1, (stage - 0.75) / 0.25)
+        tarn_radius = int(cirque_radius * 0.4 * tarn_progress)
+        tarn_depth_val = bowl_depth * 0.25 * tarn_progress
+        
+        for r in range(cirque_y - tarn_radius, cirque_y + int(tarn_radius * 0.5)):
             for c in range(cirque_x - tarn_radius, cirque_x + tarn_radius):
                 if 0 <= r < h and 0 <= c < w:
                     dist = np.sqrt((r - cirque_y)**2 + (c - cirque_x)**2)
                     if dist < tarn_radius:
                         # 호수 바닥
-                        elevation[r, c] = mountain_height - bowl_depth - tarn_depth * (1 - dist / tarn_radius)
+                        water_depth = tarn_depth_val * (1 - dist / tarn_radius)
+                        elevation[r, c] = min(elevation[r, c], mountain_height - bowl_depth - water_depth)
     
     if return_metadata:
         return elevation, {
             'cirque_radius': cirque_radius,
             'bowl_depth': bowl_depth,
-            'headwall_steepness': headwall_steepness,
+            'glacier_fill': glacier_fill,
+            'phase': phase,
             'tarn_present': tarn_present,
-            'tarn_depth': tarn_depth if tarn_present else 0,
             'stage_description': _get_cirque_stage_desc(stage)
         }
     
@@ -1599,15 +1655,15 @@ def create_cirque(grid_size: int = 100, stage: float = 1.0,
 def _get_cirque_stage_desc(stage: float) -> str:
     """권곡 단계별 설명"""
     if stage < 0.2:
-        return "❄️ 니발 초기: 만년설 아래 동결풍화 시작"
+        return "❄️ 니발 침식: 만년설 아래 동결풍화 시작"
     elif stage < 0.4:
-        return "🏔️ 니발 후기: 얕은 움푹, 암설 축적"
+        return "🧊 빙기/빙하 전진: 권곡에 빙하 생성 및 성장"
     elif stage < 0.6:
-        return "🧊 빙하화: 피른→빙하, 플러킹+마식 시작"
+        return "⛏️ 빙기 절정: 플러킹+마식으로 후벽 발달"
     elif stage < 0.8:
-        return "⛏️ 권곡 확장: 베르그슈런트 동결풍화"
+        return "🌡️ 간빙기/빙하 후퇴: 빙하 가장자리부터 융해"
     else:
-        return "💧 턴 형성: 빙하 소멸, 빙하호 형성"
+        return "💧 턴(Tarn) 형성: 빙하 소멸, 빙하호 생성"
 
 
 def create_horn(grid_size: int = 100, stage: float = 1.0,
@@ -1718,13 +1774,13 @@ def create_horn(grid_size: int = 100, stage: float = 1.0,
 def _get_horn_stage_desc(stage: float) -> str:
     """호른 단계별 설명"""
     if stage < 0.2:
-        return "🏔️ 초기 산체: 원뿔형 산, 권곡 형성 시작"
+        return "🏔️ 초기 산체: 원뿔형 산, 니발 영역 형성"
     elif stage < 0.4:
-        return "❄️ 권곡 발달: 여러 방향에서 빙하 침식"
+        return "🧊 빙기/빙하 전진: 여러 방향에서 권곡 발달"
     elif stage < 0.6:
-        return "⛏️ 두부침식: 권곡 깊어짐, 아레트 형성"
+        return "❄️ 빙기 절정: 권곡 확장, 아레트 형성"
     elif stage < 0.8:
-        return "🗻 호른 형성: 권곡 만남, 피라미드 돌출"
+        return "🌡️ 간빙기/빙하 후퇴: 피라미드 봉우리 노출"
     else:
         return "⛰️ 성숙 호른: 날카로운 정상 (마터호른형)"
 
@@ -2116,22 +2172,23 @@ def create_spit_lagoon(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
 
 def create_fjord(grid_size: int = 100, stage: float = 1.0,
                  return_metadata: bool = False) -> np.ndarray:
-    """피오르드 (Fjord) - 빙하 후퇴 후 바다 유입
+    """피오르드 (Fjord) - 빙하 전진/후퇴 사이클
     
-    Stage 0.0~0.4: 빙하가 U자곡을 채움 (빙하기)
-      - 계곡빙하(Valley Glacier)가 U자곡 점유
-      - 플러킹(Plucking)과 마식(Abrasion)으로 바닥 침식
-      - 빙하 두께 수백m → 해수면 이하까지 침식
+    Stage 0.0~0.2: 빙기 시작 - 빙하 전진 (산지→해안)
+      - 계곡빙하가 해안 방향으로 전진
+      - V자곡을 U자곡으로 침식
     
-    Stage 0.4~0.7: 빙하 후퇴 시작 (간빙기)
-      - 기후 온난화로 빙하 융해
-      - 빙하 말단이 상류로 후퇴
+    Stage 0.2~0.45: 빙기 절정 - 해수면 이하까지 침식
+      - 빙하가 해안까지 도달 (빙붕 형성)
+      - 플러킹+마식으로 깊은 과굴착(overdeepening)
+    
+    Stage 0.45~0.7: 간빙기 시작 - 빙하 후퇴
+      - 빙하 말단이 해안에서 내륙으로 후퇴
       - 해수가 빙하 뒤를 따라 유입
     
     Stage 0.7~1.0: 피오르드 완성
       - 빙하 완전 소멸
-      - 깊고 좁은 만 형성 (수심 최대 1,300m)
-      - 상류로 갈수록 수심 감소
+      - 깊고 좁은 만 형성 (수심 수백m)
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
@@ -2231,15 +2288,15 @@ def create_fjord(grid_size: int = 100, stage: float = 1.0,
 def _get_fjord_stage_desc(stage: float) -> str:
     """피오르드 단계별 설명"""
     if stage < 0.2:
-        return "❄️ 빙하기 초기: 빙하가 U자곡을 채우기 시작"
-    elif stage < 0.4:
-        return "🏔️ 빙하기 최성기: 플러킹과 마식으로 바닥 깊어짐"
+        return "🧊 빙기/빙하 전진: 계곡빙하가 해안 방향으로 진출"
+    elif stage < 0.45:
+        return "❄️ 빙기 절정: 빙붕 형성, 해수면 이하까지 과굴착"
     elif stage < 0.55:
-        return "🌡️ 간빙기 시작: 온난화로 빙하 융해 시작"
-    elif stage < 0.7:
-        return "🌊 해침 진행: 빙하 후퇴, 해수 유입"
+        return "🌡️ 간빙기/빙하 후퇴: 빙하 말단 융해 시작"
+    elif stage < 0.75:
+        return "🌊 해수 유입: 빙하 뒤따라 바다가 협곡 채움"
     else:
-        return "🌅 피오르드 완성: 깊고 좁은 만 형성"
+        return "🌅 피오르드 완성: 깊고 좁은 빙하 침식 해안"
 
 
 def create_drumlin(grid_size: int = 100, stage: float = 1.0,
