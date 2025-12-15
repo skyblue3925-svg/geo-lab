@@ -143,12 +143,12 @@ def create_animated_terrain_figure(
         ]
     }]
     
-    # 재생/정지 버튼
+    # 재생/정지 버튼 (오른쪽 배치)
     updatemenus = [{
         'type': 'buttons',
         'showactive': False,
         'y': 1.15,
-        'x': 0.05,
+        'x': 0.85,
         'xanchor': 'left',
         'yanchor': 'top',
         'pad': {'t': 0, 'r': 10},
