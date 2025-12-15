@@ -290,8 +290,13 @@ def get_multi_angle_cameras() -> dict:
             center=dict(x=0, y=0, z=-0.1),
             up=dict(x=0, y=0, z=1)
         ),
-        "➡️ X축 (측면)": dict(
+        "➡️ X축 (좌측면)": dict(
             eye=dict(x=2.5, y=0, z=0.3),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        "⬅️ X축 (우측면)": dict(
+            eye=dict(x=-2.5, y=0, z=0.3),
             center=dict(x=0, y=0, z=0),
             up=dict(x=0, y=0, z=1)
         ),
@@ -300,7 +305,12 @@ def get_multi_angle_cameras() -> dict:
             center=dict(x=0, y=0, z=0),
             up=dict(x=0, y=0, z=1)
         ),
-        "⬇️ Z축 (평면도)": dict(
+        "⬇️ Y축 (후면)": dict(
+            eye=dict(x=0, y=2.5, z=0.3),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        "🔽 Z축 (평면도)": dict(
             eye=dict(x=0, y=0, z=2.5),
             center=dict(x=0, y=0, z=0),
             up=dict(x=0, y=1, z=0)
