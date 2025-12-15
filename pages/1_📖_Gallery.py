@@ -352,6 +352,17 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
         key="anim_mode"
     )
     
+    # 📐 다중 시점 선택
+    from app.components.animation_renderer import get_multi_angle_cameras
+    camera_presets = get_multi_angle_cameras()
+    
+    selected_view = st.selectbox(
+        "📐 시점 선택",
+        list(camera_presets.keys()),
+        key="camera_view"
+    )
+    selected_camera = camera_presets[selected_view]
+    
     if animation_mode == "🎬 부드러운 애니메이션 (추천)":
         # Plotly 네이티브 애니메이션 (카메라 유지!)
         st.info("▶️ **재생** 버튼을 누르면 애니메이션이 시작됩니다. **카메라를 자유롭게 조작**할 수 있습니다!")
@@ -363,6 +374,10 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
                 num_frames=20,
                 title=f"{selected_landform} 형성 과정",
                 landform_type=landform_type
+            )
+            # 선택된 카메라 각도 적용
+            fig_animated.update_layout(
+                scene=dict(camera=selected_camera)
             )
             st.plotly_chart(fig_animated, use_container_width=True, key="animated_view")
         except Exception as e:
@@ -377,6 +392,7 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
                 force_camera=False,
                 landform_type=landform_type
             )
+            fig_stage.update_layout(scene=dict(camera=selected_camera))
             st.plotly_chart(fig_stage, use_container_width=True, key="stage_view_fallback")
     else:
         # 기존 슬라이더 방식
@@ -389,6 +405,7 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
             force_camera=False,
             landform_type=landform_type
         )
+        fig_stage.update_layout(scene=dict(camera=selected_camera))
         st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
     
-    st.caption("💡 **Tip:** '부드러운 애니메이션' 모드에서는 카메라를 자유롭게 조작하면서 재생할 수 있습니다!")
+    st.caption("💡 **Tip:** '시점 선택'에서 X축(측면), Y축(정면), Z축(평면도) 등 다양한 각도로 감상할 수 있습니다!")
