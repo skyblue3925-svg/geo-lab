@@ -12,7 +12,8 @@ def create_animated_terrain_figure(
     grid_size: int = 50,
     num_frames: int = 40,  # 더 많은 프레임 (천천히 부드럽게)
     title: str = "지형 형성 과정",
-    landform_type: str = "river"
+    landform_type: str = "river",
+    detailed_type: str = None
 ) -> go.Figure:
     """Plotly 네이티브 애니메이션으로 부드러운 3D 지형 애니메이션 생성
     
@@ -194,6 +195,34 @@ def create_animated_terrain_figure(
     # 지형 유형별 최적 카메라 각도
     camera_settings = _get_optimal_camera(landform_type)
     
+    # 지형 유형별 Z축 스케일 (aspect ratio)
+    # 지형 유형별 Z축 스케일 (aspect ratio)
+    z_scales = {
+        # General Categories
+        'arid': 0.25,      # Default Dune
+        'coastal': 0.35,
+        'river': 0.4,
+        'glacial': 0.5,
+        'volcanic': 0.6,
+        'karst': 0.35,
+        
+        # Specific Overrides
+        'mesa_butte': 0.5,
+        'pedestal_rock': 0.7,
+        'tower_karst': 0.7,
+        'shield_volcano': 0.3,
+        'stratovolcano': 0.7,
+        'horn': 0.7,
+        'fjord': 0.5,
+        'wadi': 0.5,
+        'pediment': 0.4,
+        'canyon': 0.6
+    }
+    
+    z_aspect = z_scales.get(detailed_type)
+    if z_aspect is None:
+        z_aspect = z_scales.get(landform_type, 0.4)
+    
     # 레이아웃
     fig.update_layout(
         title=dict(text=title, font=dict(color='white', size=16)),
@@ -204,7 +233,7 @@ def create_animated_terrain_figure(
             bgcolor='#0e1117',
             camera=camera_settings,
             aspectmode='manual',
-            aspectratio=dict(x=1, y=1, z=0.4)
+            aspectratio=dict(x=1, y=1, z=z_aspect)
         ),
         paper_bgcolor='#0e1117',
         plot_bgcolor='#0e1117',

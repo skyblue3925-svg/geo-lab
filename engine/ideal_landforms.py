@@ -1013,7 +1013,13 @@ def create_v_valley_animated(grid_size: int, stage: float,
 
 def create_barchan_animated(grid_size: int, stage: float,
                              num_dunes: int = 3, return_metadata: bool = False) -> np.ndarray:
-    """바르한 사구 형성 과정 애니메이션
+    """바르한 사구 형성 과정 애니메이션 (학술 자료 기반)
+    
+    실제 바르한 사구 스케일:
+    - 높이: 9-30m (일반), 최대 45m
+    - 바람받이 경사: ~15°
+    - 낙사면(slip face): 30-35° (안식각)
+    - 폭: 최대 350-370m
     
     Stage 0~0.25: 모래 축적 (작은 원형 언덕 형성)
     Stage 0.25~0.5: 비대칭 발달 (바람받이 완경사, 바람그늘 급경사)
@@ -1028,8 +1034,8 @@ def create_barchan_animated(grid_size: int, stage: float,
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
     
-    # 사막 기반면
-    elevation[:, :] = 5.0
+    # 사막 기반면: 0으로 설정 (사구 상대 높이가 잘 보이도록)
+    elevation[:, :] = 0.0
     
     np.random.seed(42)
     
@@ -1042,8 +1048,9 @@ def create_barchan_animated(grid_size: int, stage: float,
             continue
         
         # Stage에 따른 크기 발달
-        max_height = 12.0 + i * 2.0
-        max_radius = int(w * 0.10)
+        # 학술 자료: 일반 바르한 높이 9-30m
+        max_height = 15.0 + i * 5.0  # 15m, 20m, 25m (학술 범위 내)
+        max_radius = int(w * 0.12)  # 폭 비율 약간 증가
         
         # Stage 0~0.25: 작은 원형 언덕
         if stage < 0.25:
@@ -1104,17 +1111,17 @@ def create_barchan_animated(grid_size: int, stage: float,
                     # 높이 계산
                     radial_factor = 1 - (dist / current_radius) ** 1.5
                     
-                    # 바람받이(왼쪽) vs 바람그늘(오른쪽) 비대칭
+                    # 바람받이(왼쪽, ~15°) vs 바람그늘(오른쪽, 30-35° 안식각)
                     if dx < 0:
-                        # 바람받이: 완만 (5-12° 경사)
-                        slope_factor = 0.6 + 0.4 * (1 - asymmetry)
+                        # 바람받이: 완만 (~15° 경사)
+                        slope_factor = 0.5 + 0.3 * (1 - asymmetry)
                     else:
-                        # 바람그늘: 급경사 (30-34° 안식각)
-                        slope_factor = 0.8 + 0.5 * asymmetry
+                        # 바람그늘: 급경사 (30-35° 안식각)
+                        slope_factor = 0.9 + 0.3 * asymmetry
                     
                     z = current_height * radial_factor * slope_factor
-                    if z > 0.5:
-                        elevation[r, c] = max(elevation[r, c], 5.0 + z)
+                    if z > 0.3:
+                        elevation[r, c] = max(elevation[r, c], z)
                 
                 # 뿔 (horns) - stage 0.5 이후, 바람 하류(오른쪽)로 뻗음
                 if horn_length > 2:
@@ -1126,13 +1133,13 @@ def create_barchan_animated(grid_size: int, stage: float,
                         dy_h = r - horn_cy
                         
                         # 뿔 영역: 바람 방향(X방향)으로 길쭉
-                        horn_width = max(2, current_radius * 0.20)
+                        horn_width = max(2, current_radius * 0.22)
                         if abs(dy_h) < horn_width and 0 < dx_h < horn_length:
                             horn_factor = (1 - dx_h / horn_length) ** 0.7
                             width_factor = 1 - (abs(dy_h) / horn_width) ** 2
-                            z = current_height * 0.35 * horn_factor * width_factor
-                            if z > 0.3:
-                                elevation[r, c] = max(elevation[r, c], 5.0 + z)
+                            z = current_height * 0.4 * horn_factor * width_factor
+                            if z > 0.2:
+                                elevation[r, c] = max(elevation[r, c], z)
     
     if return_metadata:
         return elevation, {
@@ -2167,23 +2174,62 @@ def create_mesa_butte(grid_size: int = 100, stage: float = 1.0,
     # 사막 기반
     elevation[:, :] = 5.0
     
-    mesa_height = 40.0 * stage
+    # 메사 높이 상향 (40m -> 100m)
+    mesa_height = 100.0 * stage
     
     # 메사 배치
     positions = [(h//3, w//3), (h//2, 2*w//3)]
-    sizes = [(w//4, w//5), (w//6, w//6)]  # 메사, 뷰트
+    # Sizes (radius_y, radius_x)
+    # 메사는 넓고, 뷰트는 좁음
+    sizes = [(w//5, w//4), (w//12, w//12)]  
     
-    for i, ((my, mx), (sw, sh)) in enumerate(zip(positions[:num_mesas], sizes[:num_mesas])):
-        for r in range(h):
-            for c in range(w):
-                if abs(r - my) < sh and abs(c - mx) < sw:
-                    # 평탄한 정상부
-                    elevation[r, c] = mesa_height
-                elif abs(r - my) < sh + 3 and abs(c - mx) < sw + 3:
-                    # 급경사 측벽
-                    edge_dist = min(abs(abs(r - my) - sh), abs(abs(c - mx) - sw))
-                    elevation[r, c] = mesa_height * (1 - edge_dist / 3)
-                    
+    for i, ((my, mx), (sh, sw)) in enumerate(zip(positions[:num_mesas], sizes[:num_mesas])):
+        # Superellipse shape (Rounded Rectangle) for more natural look
+        # (dy/sh)^n + (dx/sw)^n <= 1
+        n = 4.0
+        
+        # 최적화를 위해 바운딩 박스 내에서만 계산
+        r_min, r_max = max(0, my - int(sh * 1.5)), min(h, my + int(sh * 1.5))
+        c_min, c_max = max(0, mx - int(sw * 1.5)), min(w, mx + int(sw * 1.5))
+        
+        for r in range(r_min, r_max):
+            for c in range(c_min, c_max):
+                dy = abs(r - my)
+                dx = abs(c - mx)
+                
+                # Normalize distance
+                if sh > 0 and sw > 0:
+                    dist_norm = (dy / sh)**n + (dx / sw)**n
+                else:
+                    dist_norm = 999.0
+                
+                if dist_norm <= 1.0:
+                    # 평탄한 정상부 (Cap Rock)
+                    elevation[r, c] = max(elevation[r, c], mesa_height)
+                elif dist_norm <= 1.5:
+                    # 급경사 측벽 (Cliff)
+                    # dist_norm 1.0 -> 1.5 사이에서 높이 감소
+                    # Linear decay in normalized space approx
+                    wall_pos = (dist_norm - 1.0) / 0.5
+                    z = mesa_height * (1 - wall_pos)
+                    elevation[r, c] = max(elevation[r, c], z)
+
+    # 뷰트 침식 표현 (뷰트는 메사보다 조금 더 깎임)
+    # 두 번째 아이템이 뷰트라고 가정
+    if num_mesas > 1 and stage > 0.5:
+        # 뷰트 주변에 Talus(애추) 형성 (노이즈)
+        by, bx = positions[1]
+        b_sh, b_sw = sizes[1]
+        
+        erosion_mask = (elevation > 10) & (elevation < mesa_height * 0.9)
+        # 뷰트 주변만
+        dist_b = np.sqrt(((np.arange(h)[:, None] - by)**2 + (np.arange(w)[None, :] - bx)**2))
+        erosion_mask &= (dist_b < max(b_sh, b_sw) * 2)
+        
+        # 노이즈 추가
+        noise = np.random.rand(h, w) * 5.0
+        elevation[erosion_mask] += noise[erosion_mask]
+
     return elevation
 
 
@@ -3454,6 +3500,56 @@ def create_playa(grid_size: int = 100, stage: float = 1.0):
                         if abs(dr) + abs(dc) == poly_size - 1:  # 테두리
                             elevation[poly_r+dr, poly_c+dc] += 0.3
     
+
+    return elevation
+
+
+def create_pediment(grid_size: int = 100, stage: float = 1.0):
+    """페디먼트 (Pediment) - 산록 완사촌 (침식 평원)
+    
+    산지 전면의 완만한 경사지. 침식 작용으로 형성된 암석 표면.
+    하부에는 선상지 연합(Bajada)이 덮이기도 함.
+    """
+    h, w = grid_size, grid_size
+    elevation = np.zeros((h, w))
+    
+    # 1. 후면 산지 (급경사, Mountain Front)
+    mountain_end = int(h * 0.25)
+    mountain_height = 80.0
+    
+    # 2. 페디먼트 경사 (Pediment Slope)
+    # 상부는 암석 노출, 하부는 퇴적물 피복
+    
+    for r in range(h):
+        for c in range(w):
+            if r < mountain_end:
+                # 산지: 급경사 및 불규칙
+                elevation[r, c] = mountain_height * (0.8 + 0.2 * np.random.rand())
+            else:
+                # 페디먼트: 완만한 경사 (1~7도)
+                # 요형 사면 (Concave)
+                dist = r - mountain_end
+                max_dist = h - mountain_end
+                
+                # 높이 80m(산기슭) -> 5m(말단)
+                slope_start_h = mountain_height
+                slope_end_h = 5.0
+                
+                # 거리에 따른 감쇠 (Concave)
+                t = dist / max_dist
+                profile_h = slope_end_h + (slope_start_h - slope_end_h) * ((1 - t) ** 1.5)
+                
+                # 가로방향 약간의 굴곡
+                undulation = np.sin(c * 0.05) * 2.0 * (1 - t)
+                
+                elevation[r, c] = profile_h + undulation
+                
+                # 바하다 (Bajada) 퇴적 효과 (Stage에 따라 덮임)
+                if stage > 0.5:
+                    if t > 0.4:
+                        sediment = 5.0 * (t - 0.4) / 0.6 * stage
+                        elevation[r, c] += sediment
+
     return elevation
 
 
@@ -3484,7 +3580,7 @@ def create_pedestal_rock(grid_size: int = 100, stage: float = 1.0):
         
         # 원래 바위 크기 (stage 0에서의 크기)
         original_radius = np.random.randint(10, 16)
-        rock_height = np.random.uniform(25, 40)
+        rock_height = np.random.uniform(30, 50)  # 높이 상향 (25-40 -> 30-50)
         
         # stage에 따른 침식 정도 (stage 높을수록 하부 더 깎임)
         erosion_factor = stage  # 0~1
@@ -3607,6 +3703,7 @@ ANIMATED_LANDFORM_GENERATORS = {
     'playa': create_playa,
     'pedestal_rock': create_pedestal_rock,
     'estuary': create_estuary,
+    'pediment': create_pediment,  # 추가
 }
 
 # 지형 생성 함수 매핑
@@ -3657,5 +3754,6 @@ IDEAL_LANDFORM_GENERATORS = {
     'playa': lambda gs: create_playa(gs, 1.0),
     'pedestal_rock': lambda gs: create_pedestal_rock(gs, 1.0),
     'estuary': lambda gs: create_estuary(gs, 1.0),
+    'pediment': lambda gs: create_pediment(gs, 1.0),  # 추가
 }
 

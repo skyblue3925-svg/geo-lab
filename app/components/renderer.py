@@ -14,7 +14,7 @@ except ImportError:
 def render_terrain_plotly(elevation, title, add_water=True, water_level=0, 
                           texture_path=None, force_camera=True, 
                           water_depth_grid=None, sediment_grid=None, 
-                          landform_type=None):
+                          landform_type=None, detailed_type=None):
     """Plotly 인터랙티브 3D Surface - 사실적 텍스처(Biome) 적용
     
     Args:
@@ -169,6 +169,34 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
         )
         data.append(trace_water)
     
+    # 지형 유형별 Z축 스케일 (aspect ratio) 설정
+    z_scales = {
+        # General Categories
+        'arid': 0.25,      # 사구(Dune) 등 기본값 (납작함)
+        'coastal': 0.35,   # 해안
+        'river': 0.4,      # 하천
+        'glacial': 0.5,    # 빙하
+        'volcanic': 0.6,   # 화산
+        'karst': 0.35,     # 카르스트
+        
+        # Specific Types Overrides (상세 지형별 맞춤 비율)
+        'mesa_butte': 0.5,        # 메사/뷰트는 높고 웅장해야 함
+        'pedestal_rock': 0.7,     # 버섯바위는 수직적임
+        'tower_karst': 0.7,       # 탑카르스트는 가파른 기둥
+        'shield_volcano': 0.3,    # 순상화산은 완만한 경사
+        'stratovolcano': 0.7,     # 성층화산은 급경사 원뿔
+        'horn': 0.7,              # 호른은 날카로운 봉우리
+        'fjord': 0.5,             # 피오르드는 깊은 계곡
+        'canyon': 0.6,            # 협곡
+        'wadi': 0.5,              # 와디(건천), 깊이감 필요
+        'pediment': 0.4,          # 페디먼트, 경사 강조
+    }
+    
+    # Priority: detailed_type -> landform_type -> Default
+    z_aspect = z_scales.get(detailed_type)
+    if z_aspect is None:
+        z_aspect = z_scales.get(landform_type, 0.35)
+
     # Layout
     fig = go.Figure(data=data)
     fig.update_layout(
@@ -185,7 +213,7 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
                 up=dict(x=0, y=0, z=1)
             ) if force_camera else None,
             aspectmode='manual',
-            aspectratio=dict(x=1, y=1, z=0.35)
+            aspectratio=dict(x=1, y=1, z=z_aspect)
         ),
         paper_bgcolor='#0e1117',
         plot_bgcolor='#0e1117',

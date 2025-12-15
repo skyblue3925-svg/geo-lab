@@ -2276,19 +2276,19 @@ def simulate_arid(theory: str, time_years: int, params: dict, grid_size: int = 1
         L = 15.0 # Length param
         
         # Crescent Formula (simplified)
-        # Body: Gaussian
-        body = 40.0 * np.exp(-(dx**2 / (W**2) + dy**2 / (L**2)))
+        # Body: Gaussian (Height adjusted to 25m based on academic typical range 9-30m)
+        body = 25.0 * np.exp(-(dx**2 / (W**2) + dy**2 / (L**2)))
         
         # Horns: Subtract parabolic shape from behind
         # Wind from X (left to right) -> Horns point right
-        # Cutout from the back
-        cutout = 30.0 * np.exp(-((dx + 10)**2 / (W*1.5)**2 + dy**2 / (L*0.8)**2))
+        # Cutout from the back (Scaled down proportionally)
+        cutout = 18.0 * np.exp(-((dx + 10)**2 / (W*1.5)**2 + dy**2 / (L*0.8)**2))
         
         dune_shape = np.maximum(0, body - cutout)
         
         # 뿔(Horn)을 더 길게 앞으로 당김
         # Bending
-        horns = 10.0 * np.exp(-(dy**2 / 100.0)) * np.exp(-((dx-10)**2 / 200.0))
+        horns = 6.0 * np.exp(-(dy**2 / 100.0)) * np.exp(-((dx-10)**2 / 200.0))
         # Mask horns to be mainly on sides
         horns_mask = (np.abs(dy) > 10) & (dx > 0)
         dune_shape[horns_mask] += horns[horns_mask] * 2.0

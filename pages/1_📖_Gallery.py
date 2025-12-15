@@ -121,6 +121,12 @@ with col_sel:
     
     gallery_grid_size = st.slider("해상도", 30, 200, 50, 10, key="gallery_res")
     
+    # 애니메이션 프레임 수 설정
+    st.markdown("---")
+    st.caption("🎬 애니메이션 설정")
+    num_frames = st.slider("프레임 수", 10, 100, 40, 5, key="anim_frames", 
+                           help="높을수록 부드럽지만 생성이 느려집니다")
+    
     # 동적 지형 생성
     if landform_key in IDEAL_LANDFORM_GENERATORS:
         generator = IDEAL_LANDFORM_GENERATORS[landform_key]
@@ -401,7 +407,7 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
             fig_animated = create_animated_terrain_figure(
                 landform_func=anim_func,
                 grid_size=gallery_grid_size,
-                num_frames=10,  # 서버 호환성을 위해 축소
+                num_frames=num_frames,  # 사용자 설정 사용
                 title=f"{selected_landform} 형성 과정",
                 landform_type=landform_type
             )

@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
 from app.main import render_terrain_plotly
+from app.components.animation_renderer import create_animated_terrain_figure
 
 st.header("📖 이상적 지형 갤러리")
 st.markdown("_교과서적인 지형 형태를 기하학적 모델로 시각화합니다._")
@@ -98,6 +99,7 @@ elif category == "🏜️ 건조 지형":
         "🏜️ 와디 (Wadi)": "wadi",
         "🪶 플라야 (Playa)": "playa",
         "🍄 버섯바위 (Pedestal Rock)": "pedestal_rock",
+        "⛰️ 페디먼트 (Pediment)": "pediment",
     }
 else:  # 해안 지형
     landform_options = {
@@ -119,6 +121,13 @@ with col_sel:
     st.subheader("⚙️ 파라미터")
     
     gallery_grid_size = st.slider("해상도", 50, 150, 80, 10, key="gallery_res")
+    
+    # ======== 애니메이션 설정 ========
+    st.markdown("---")
+    st.markdown("### 🎬 애니메이션")
+    
+    num_frames = st.slider("프레임 수", 10, 100, 40, 5, key="anim_frames", 
+                           help="높을수록 애니메이션이 부드러워집니다")
     
     # 동적 지형 생성
     if landform_key in IDEAL_LANDFORM_GENERATORS:
@@ -158,7 +167,8 @@ with col_view:
             add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
             water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
             force_camera=True,
-            landform_type=landform_type  # 카테고리에 맞는 색상 적용
+            landform_type=landform_type,  # 카테고리에 맞는 색상 적용
+            detailed_type=landform_key    # 상세 지형별 Z-scale 적용
         )
         st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d")
     
@@ -187,6 +197,7 @@ with col_view:
         "lava_plateau": "**용암대지**: 열극 분출로 현무암질 용암이 넓게 펼쳐져 평탄한 대지 형성.",
         "barchan": "**바르한 사구**: 바람이 한 방향에서 불 때 형성되는 초승달 모양의 사구.",
         "mesa_butte": "**메사/뷰트**: 차별침식으로 남은 탁상지. 메사는 크고 평탄, 뷰트는 작고 높습니다.",
+        "pediment": "**페디먼트**: 건조 지역 산지 전면에 발달하는 완만한 경사의 침식 암석면(산록 완사촌).",
         "karst_doline": "**돌리네**: 석회암 용식으로 형성된 움푹 파인 와지.",
         "coastal_cliff": "**해안 절벽**: 파랑의 침식으로 형성된 절벽.",
         "spit_lagoon": "**사취+석호**: 연안류에 의해 퇴적물이 길게 쌓인 사취가 만을 막아 석호를 형성합니다.",
@@ -208,71 +219,27 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
     st.markdown("---")
     st.subheader("🎬 형성 과정")
     
-    # 자동 재생 중이면 session_state의 stage 사용
-    if st.session_state.get('auto_playing', False):
-        stage_value = st.session_state.get('auto_stage', 0.0)
-        st.slider(
-            "형성 단계 (자동 재생 중...)", 
-            0.0, 1.0, stage_value, 0.05, 
-            key="gallery_stage_slider",
-            disabled=True
-        )
-    else:
-        stage_value = st.slider(
-            "형성 단계 (0% = 시작, 100% = 완성)", 
-            0.0, 1.0, 1.0, 0.05, 
-            key="gallery_stage_slider"
-        )
+    st.markdown(f"""
+    <div style='background-color: #2b303b; padding: 15px; border-radius: 10px; border-left: 5px solid #4CAF50;'>
+        <p>왼쪽 패널에서 설정한 <b>{num_frames} 프레임</b>으로 부드러운 애니메이션을 생성합니다.</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
-    stage_elev = anim_func(gallery_grid_size, stage_value)
+    if st.button("🚀 애니메이션 생성", use_container_width=True):
+        with st.spinner(f"{selected_landform} 형성 과정 시뮬레이션 중... ({num_frames} 프레임)"):
+            anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
+            
+            fig_anim = create_animated_terrain_figure(
+                landform_func=anim_func,
+                grid_size=gallery_grid_size,
+                num_frames=num_frames,
+                title=f"{selected_landform} 형성과정",
+                landform_type=landform_type,
+                detailed_type=landform_key
+            )
+            
+            st.plotly_chart(fig_anim, use_container_width=True)
+            st.success("✅ 생성 완료! 하단 플레이어 컨트롤러를 사용하여 재생하세요.")
     
-    # 물 생성
-    stage_water = np.maximum(0, -stage_elev + 1.0)
-    stage_water[stage_elev > 2] = 0
-    
-    # 선상지 물 처리
-    if landform_key == "alluvial_fan":
-        apex_y = int(gallery_grid_size * 0.15)
-        center = gallery_grid_size // 2
-        for r in range(apex_y + 5):
-            for dc in range(-2, 3):
-                c = center + dc
-                if 0 <= c < gallery_grid_size:
-                    stage_water[r, c] = 3.0
-    
-    # 3D 렌더링
-    fig_stage = render_terrain_plotly(
-        stage_elev,
-        f"{selected_landform} - {int(stage_value*100)}%",
-        add_water=True,
-        water_depth_grid=stage_water,
-        water_level=-999,
-        force_camera=False,  # 카메라 이동 허용
-        landform_type=landform_type
-    )
-    st.plotly_chart(fig_stage, use_container_width=True, key="stage_view")
-    
-    # 자동 재생 (세션 상태 활용)
-    col_play, col_step = st.columns(2)
-    with col_play:
-        if st.button("▶️ 자동 재생 시작", key="auto_play"):
-            st.session_state['auto_playing'] = True
-            st.session_state['auto_stage'] = 0.0
-    with col_step:
-        if st.button("⏹️ 정지", key="stop_play"):
-            st.session_state['auto_playing'] = False
-    
-    # 자동 재생 중이면 stage 자동 증가
-    if st.session_state.get('auto_playing', False):
-        current_stage = st.session_state.get('auto_stage', 0.0)
-        if current_stage < 1.0:
-            st.session_state['auto_stage'] = current_stage + 0.1
-            import time
-            time.sleep(0.5)
-            st.rerun()
-        else:
-            st.session_state['auto_playing'] = False
-            st.success("✅ 완료!")
-    
-    st.caption("💡 **Tip:** 카메라 각도를 먼저 조정한 후 자동 재생하면 유지됩니다.")
+    st.caption("💡 **Tip:** 프레임 수가 높을수록 부드럽지만 생성 시간이 길어집니다.")
+
