@@ -119,7 +119,7 @@ with col_sel:
     st.markdown("---")
     st.subheader("⚙️ 파라미터")
     
-    gallery_grid_size = st.slider("해상도", 50, 150, 80, 10, key="gallery_res")
+    gallery_grid_size = st.slider("해상도", 30, 100, 50, 10, key="gallery_res")
     
     # 동적 지형 생성
     if landform_key in IDEAL_LANDFORM_GENERATORS:
@@ -371,7 +371,7 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
             fig_animated = create_animated_terrain_figure(
                 landform_func=anim_func,
                 grid_size=gallery_grid_size,
-                num_frames=20,
+                num_frames=10,  # 서버 호환성을 위해 축소
                 title=f"{selected_landform} 형성 과정",
                 landform_type=landform_type
             )

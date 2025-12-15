@@ -9,8 +9,8 @@ from typing import Callable
 
 def create_animated_terrain_figure(
     landform_func: Callable,
-    grid_size: int = 80,
-    num_frames: int = 25,
+    grid_size: int = 50,  # 서버 호환성을 위해 축소
+    num_frames: int = 15,  # 서버 호환성을 위해 축소
     title: str = "지형 형성 과정",
     landform_type: str = "river"
 ) -> go.Figure:
