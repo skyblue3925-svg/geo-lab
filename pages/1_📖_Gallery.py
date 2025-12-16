@@ -378,6 +378,35 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
                 with st.expander("🦶 분배수로 보기"):
                     st.markdown(f"**분배수로 개수**: {metadata.get('num_distributaries', 0)}개")
                     st.markdown(f"**최대 길이**: {metadata.get('max_length', 0)}m")
+            
+            # 빙퇴석 빙하 표시
+            if landform_key == 'moraine' and 'glacier_mask' in metadata:
+                with st.expander("❄️ 빙하 시각화", expanded=True):
+                    st.markdown(f"**단계**: {metadata.get('phase', '')}")
+                    st.markdown(f"**빙하 표시**: {'✅ 있음' if metadata.get('glacier_visible', False) else '❌ 소멸'}")
+                    
+                    show_glacier = st.checkbox("🧊 빙하 하얀색으로 표시", value=True, key="show_glacier_white")
+                    
+                    if show_glacier and metadata.get('glacier_visible', False):
+                        import matplotlib.pyplot as plt
+                        
+                        glacier_mask = metadata['glacier_mask']
+                        
+                        fig_glacier, ax = plt.subplots(figsize=(8, 6))
+                        # 기본 지형 표시
+                        im = ax.imshow(stage_elev, cmap='terrain', origin='upper')
+                        
+                        # 빙하 영역 하얀색 오버레이
+                        glacier_overlay = np.ma.masked_where(~glacier_mask, np.ones_like(stage_elev))
+                        ax.imshow(glacier_overlay, cmap='Blues_r', alpha=0.8, origin='upper', vmin=0, vmax=2)
+                        
+                        ax.set_title(f"빙퇴석 - {metadata.get('phase', '')}")
+                        ax.axis('off')
+                        plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
+                        
+                        st.pyplot(fig_glacier)
+                        plt.close(fig_glacier)
+                        st.caption("🧊 하얀색/청백색 영역 = 빙하")
                         
         except TypeError:
             # return_metadata 지원 안 하는 경우

@@ -3169,6 +3169,7 @@ def create_moraine(grid_size: int = 100, stage: float = 1.0,
     """
     h, w = grid_size, grid_size
     elevation = np.zeros((h, w))
+    glacier_mask = np.zeros((h, w), dtype=bool)  # 빙하 위치 마스크
     
     # 빙하 계곡 배경 (산지)
     for r in range(h):
@@ -3233,7 +3234,9 @@ def create_moraine(grid_size: int = 100, stage: float = 1.0,
                         snout_factor = (glacier_front - r) / (h * 0.1)
                         ice_height *= snout_factor
                     
-                    elevation[r, c] = max(elevation[r, c], 5.0 + ice_height)
+                    if ice_height > 2.0:  # 빙하 두께가 충분할 때만
+                        elevation[r, c] = max(elevation[r, c], 5.0 + ice_height)
+                        glacier_mask[r, c] = True  # 빙하 위치 표시
     
     # === 측퇴석 (Lateral Moraine) ===
     moraine_height = 15.0 * moraine_visible
@@ -3276,6 +3279,7 @@ def create_moraine(grid_size: int = 100, stage: float = 1.0,
             'phase': phase,
             'glacier_front': glacier_front,
             'glacier_visible': glacier_visible,
+            'glacier_mask': glacier_mask,  # 빙하 위치 마스크 (하얀색 표시용)
             'moraine_height': moraine_height,
             'glacier_width': glacier_width * 10,
             'moraine_types': {
