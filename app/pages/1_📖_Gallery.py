@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
-from app.main import render_terrain_plotly
+from app.components.renderer import render_terrain_plotly
 from app.components.animation_renderer import create_animated_terrain_figure
 
 st.header("📖 이상적 지형 갤러리")
@@ -99,7 +99,6 @@ elif category == "🏜️ 건조 지형":
         "🏜️ 와디 (Wadi)": "wadi",
         "🪶 플라야 (Playa)": "playa",
         "🍄 버섯바위 (Pedestal Rock)": "pedestal_rock",
-        "⛰️ 페디먼트 (Pediment)": "pediment",
     }
 else:  # 해안 지형
     landform_options = {
@@ -120,14 +119,13 @@ with col_sel:
     st.markdown("---")
     st.subheader("⚙️ 파라미터")
     
-    gallery_grid_size = st.slider("해상도", 50, 150, 80, 10, key="gallery_res")
+    gallery_grid_size = st.slider("해상도", 30, 200, 50, 10, key="gallery_res")
     
-    # ======== 애니메이션 설정 ========
+    # 애니메이션 프레임 수 설정
     st.markdown("---")
-    st.markdown("### 🎬 애니메이션")
-    
+    st.caption("🎬 애니메이션 설정")
     num_frames = st.slider("프레임 수", 10, 100, 40, 5, key="anim_frames", 
-                           help="높을수록 애니메이션이 부드러워집니다")
+                           help="높을수록 부드럽지만 생성이 느려집니다")
     
     # 동적 지형 생성
     if landform_key in IDEAL_LANDFORM_GENERATORS:
@@ -159,18 +157,47 @@ with col_view:
     st.pyplot(fig_2d)
     plt.close(fig_2d)
     
-    # 3D 보기 버튼
-    if st.button("🔲 3D 뷰 보기", key="show_3d_view"):
-        fig_3d = render_terrain_plotly(
-            elevation, 
-            f"{selected_landform} - 3D",
-            add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
-            water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
-            force_camera=True,
-            landform_type=landform_type,  # 카테고리에 맞는 색상 적용
-            detailed_type=landform_key    # 상세 지형별 Z-scale 적용
-        )
-        st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d")
+    # 3D 보기 버튼 (두 가지 옵션)
+    col_3d_1, col_3d_2 = st.columns(2)
+    
+    with col_3d_1:
+        if st.button("🔲 3D 뷰 (Plotly)", key="show_3d_view"):
+            fig_3d = render_terrain_plotly(
+                elevation, 
+                f"{selected_landform} - 3D",
+                add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
+                water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
+                force_camera=True,
+                landform_type=landform_type
+            )
+            st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d", config={'scrollZoom': True, 'displayModeBar': True})
+    
+    with col_3d_2:
+        if st.button("🖼️ 3D 뷰 (이미지)", key="show_3d_mpl", help="WebGL이 안 되는 환경용"):
+            from mpl_toolkits.mplot3d import Axes3D
+            
+            fig_mpl = plt.figure(figsize=(10, 8))
+            ax_3d = fig_mpl.add_subplot(111, projection='3d')
+            
+            # 다운샘플링 (성능)
+            step = max(1, gallery_grid_size // 50)
+            h, w = elevation.shape
+            x_mpl = np.arange(0, w, step)
+            y_mpl = np.arange(0, h, step)
+            X, Y = np.meshgrid(x_mpl, y_mpl)
+            Z = elevation[::step, ::step]
+            
+            # 색상 매핑
+            ax_3d.plot_surface(X, Y, Z, cmap='terrain', linewidth=0, antialiased=True, alpha=0.9)
+            ax_3d.set_xlabel('X (m)')
+            ax_3d.set_ylabel('Y (m)')
+            ax_3d.set_zlabel('Elevation (m)')
+            ax_3d.set_title(f"{selected_landform} - 3D")
+            ax_3d.view_init(elev=30, azim=-60)
+            
+            st.pyplot(fig_mpl)
+            plt.close(fig_mpl)
+            st.caption("💡 Matplotlib 3D 이미지 (WebGL 없이 작동)")
     
     # 설명
     descriptions = {
@@ -197,7 +224,6 @@ with col_view:
         "lava_plateau": "**용암대지**: 열극 분출로 현무암질 용암이 넓게 펼쳐져 평탄한 대지 형성.",
         "barchan": "**바르한 사구**: 바람이 한 방향에서 불 때 형성되는 초승달 모양의 사구.",
         "mesa_butte": "**메사/뷰트**: 차별침식으로 남은 탁상지. 메사는 크고 평탄, 뷰트는 작고 높습니다.",
-        "pediment": "**페디먼트**: 건조 지역 산지 전면에 발달하는 완만한 경사의 침식 암석면(산록 완사촌).",
         "karst_doline": "**돌리네**: 석회암 용식으로 형성된 움푹 파인 와지.",
         "coastal_cliff": "**해안 절벽**: 파랑의 침식으로 형성된 절벽.",
         "spit_lagoon": "**사취+석호**: 연안류에 의해 퇴적물이 길게 쌓인 사취가 만을 막아 석호를 형성합니다.",
@@ -219,27 +245,203 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
     st.markdown("---")
     st.subheader("🎬 형성 과정")
     
-    st.markdown(f"""
-    <div style='background-color: #2b303b; padding: 15px; border-radius: 10px; border-left: 5px solid #4CAF50;'>
-        <p>왼쪽 패널에서 설정한 <b>{num_frames} 프레임</b>으로 부드러운 애니메이션을 생성합니다.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # 자동 재생 중이면 session_state의 stage 사용
+    if st.session_state.get('auto_playing', False):
+        stage_value = st.session_state.get('auto_stage', 0.0)
+        st.slider(
+            "형성 단계 (자동 재생 중...)", 
+            0.0, 1.0, stage_value, 0.02, 
+            key="gallery_stage_slider",
+            disabled=True
+        )
+    else:
+        stage_value = st.slider(
+            "형성 단계 (0% = 시작, 100% = 완성)", 
+            0.0, 1.0, 1.0, 0.02, 
+            key="gallery_stage_slider"
+        )
     
-    if st.button("🚀 애니메이션 생성", use_container_width=True):
-        with st.spinner(f"{selected_landform} 형성 과정 시뮬레이션 중... ({num_frames} 프레임)"):
-            anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
+    anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
+    
+    # 메타데이터 지원 지형 확인
+    supported_metadata = [
+        'incised_meander', 'alluvial_fan', 'fjord',  # 기존
+        'free_meander', 'waterfall', 'cirque', 'horn', 'coastal_cliff',  # 신규
+        'bird_foot_delta'  # 추가
+    ]
+    
+    if landform_key in supported_metadata:
+        try:
+            stage_elev, metadata = anim_func(gallery_grid_size, stage_value, return_metadata=True)
+            # 단계별 설명 표시
+            st.success(metadata.get('stage_description', ''))
             
-            fig_anim = create_animated_terrain_figure(
+            # 선상지 존 정보 + 색상 하이라이트
+            if landform_key == 'alluvial_fan' and 'zone_info' in metadata:
+                with st.expander("📊 세부 구조 보기", expanded=True):
+                    col_z1, col_z2, col_z3 = st.columns(3)
+                    col_z1.markdown("🔴 **선정(Apex)**<br>경사 5-15°, 역력", unsafe_allow_html=True)
+                    col_z2.markdown("🟡 **선앙(Mid)**<br>경사 2-5°, 사질", unsafe_allow_html=True)
+                    col_z3.markdown("🔵 **선단(Toe)**<br>경사 <2°, 니질", unsafe_allow_html=True)
+                    
+                    show_zones = st.checkbox("🎨 존 색상 오버레이 표시", value=False, key="show_zone_colors")
+                    
+                    if show_zones and 'zone_mask' in metadata:
+                        # 존 마스크를 색상으로 표시
+                        st.info("🔴 선정 | 🟡 선앙 | 🔵 선단")
+                        
+                        import matplotlib.pyplot as plt
+                        from matplotlib.colors import ListedColormap
+                        
+                        zone_mask = metadata['zone_mask']
+                        cmap = ListedColormap(['#4682B4', '#FFD700', '#FF6347', '#228B22'])  # 배경, 선단, 선앙, 선정
+                        
+                        fig_zone, ax = plt.subplots(figsize=(8, 6))
+                        im = ax.imshow(zone_mask, cmap=cmap, origin='lower', alpha=0.8)
+                        ax.contour(stage_elev, levels=10, colors='white', linewidths=0.5, alpha=0.5)
+                        ax.set_title("선상지 존 구분")
+                        ax.set_xlabel("X")
+                        ax.set_ylabel("Y")
+                        
+                        # 범례
+                        from matplotlib.patches import Patch
+                        legend_elements = [
+                            Patch(facecolor='#FF6347', label='선정(Apex)'),
+                            Patch(facecolor='#FFD700', label='선앙(Mid)'),
+                            Patch(facecolor='#4682B4', label='선단(Toe)')
+                        ]
+                        ax.legend(handles=legend_elements, loc='upper right')
+                        
+                        st.pyplot(fig_zone)
+                        plt.close(fig_zone)
+            
+            # 피오르드 프로세스 정보
+            if landform_key == 'fjord' and 'process_info' in metadata:
+                with st.expander("🧊 빙하 작용 보기"):
+                    for process, desc in metadata['process_info'].items():
+                        st.markdown(f"- **{process}**: {desc}")
+            
+            # 자유곡류 정보
+            if landform_key == 'free_meander':
+                with st.expander("🌀 곡류 정보 보기"):
+                    st.markdown(f"**사행도**: {metadata.get('sinuosity', 1):.2f}")
+                    st.markdown(f"**우각호 형성**: {'✅ 예' if metadata.get('oxbow_formed', False) else '❌ 아니오'}")
+            
+            # 폭포 정보
+            if landform_key == 'waterfall' and 'layer_info' in metadata:
+                with st.expander("⛰️ 차별침식 보기"):
+                    for layer, info in metadata['layer_info'].items():
+                        st.markdown(f"- **{layer}**: {info['description']}")
+                    st.markdown(f"**후퇴 거리**: {metadata.get('retreat_distance', 0):.0f}m")
+            
+            # 권곡 정보
+            if landform_key == 'cirque':
+                with st.expander("❄️ 빙하 침식 보기"):
+                    st.markdown(f"**권곡 반경**: {metadata.get('cirque_radius', 0)}m")
+                    st.markdown(f"**턴(호수) 형성**: {'✅ 예' if metadata.get('tarn_present', False) else '❌ 아니오'}")
+            
+            # 호른 정보
+            if landform_key == 'horn':
+                with st.expander("🗻 다중 권곡 보기"):
+                    st.markdown(f"**권곡 개수**: {metadata.get('num_cirques', 0)}개")
+                    st.markdown(f"**정상 높이**: {metadata.get('peak_height', 0):.0f}m")
+            
+            # 해안절벽 정보
+            if landform_key == 'coastal_cliff' and 'erosion_processes' in metadata:
+                with st.expander("🌊 파랑 침식 보기"):
+                    for process, desc in metadata['erosion_processes'].items():
+                        st.markdown(f"- **{process}**: {desc}")
+                    st.markdown(f"**후퇴량**: {metadata.get('retreat_amount', 0)}m")
+            
+            # 조족상 삼각주 정보
+            if landform_key == 'bird_foot_delta':
+                with st.expander("🦶 분배수로 보기"):
+                    st.markdown(f"**분배수로 개수**: {metadata.get('num_distributaries', 0)}개")
+                    st.markdown(f"**최대 길이**: {metadata.get('max_length', 0)}m")
+                        
+        except TypeError:
+            # return_metadata 지원 안 하는 경우
+            stage_elev = anim_func(gallery_grid_size, stage_value)
+    else:
+        stage_elev = anim_func(gallery_grid_size, stage_value)
+    
+    # 물 생성
+    stage_water = np.maximum(0, -stage_elev + 1.0)
+    stage_water[stage_elev > 2] = 0
+    
+    # 선상지 물 처리
+    if landform_key == "alluvial_fan":
+        apex_y = int(gallery_grid_size * 0.15)
+        center = gallery_grid_size // 2
+        for r in range(apex_y + 5):
+            for dc in range(-2, 3):
+                c = center + dc
+                if 0 <= c < gallery_grid_size:
+                    stage_water[r, c] = 3.0
+    
+    # 애니메이션 모드 선택
+    st.markdown("---")
+    animation_mode = st.radio(
+        "애니메이션 모드",
+        ["🎬 부드러운 애니메이션 (추천)", "📊 슬라이더 수동 조작"],
+        horizontal=True,
+        key="anim_mode"
+    )
+    
+    # 📐 다중 시점 선택
+    from app.components.animation_renderer import get_multi_angle_cameras
+    camera_presets = get_multi_angle_cameras()
+    
+    selected_view = st.selectbox(
+        "📐 시점 선택",
+        list(camera_presets.keys()),
+        key="camera_view"
+    )
+    selected_camera = camera_presets[selected_view]
+    
+    if animation_mode == "🎬 부드러운 애니메이션 (추천)":
+        # Plotly 네이티브 애니메이션 (카메라 유지!)
+        st.info("▶️ **재생** 버튼을 누르면 애니메이션이 시작됩니다. **카메라를 자유롭게 조작**할 수 있습니다!")
+        
+        try:
+            fig_animated = create_animated_terrain_figure(
                 landform_func=anim_func,
                 grid_size=gallery_grid_size,
-                num_frames=num_frames,
-                title=f"{selected_landform} 형성과정",
-                landform_type=landform_type,
-                detailed_type=landform_key
+                num_frames=num_frames,  # 사용자 설정 사용
+                title=f"{selected_landform} 형성 과정",
+                landform_type=landform_type
             )
-            
-            st.plotly_chart(fig_anim, use_container_width=True)
-            st.success("✅ 생성 완료! 하단 플레이어 컨트롤러를 사용하여 재생하세요.")
+            # 선택된 카메라 각도 적용
+            fig_animated.update_layout(
+                scene=dict(camera=selected_camera)
+            )
+            st.plotly_chart(fig_animated, use_container_width=True, key="animated_view", config={'scrollZoom': True, 'displayModeBar': True})
+        except Exception as e:
+            st.error(f"애니메이션 생성 오류: {e}")
+            # 폴백: 정적 렌더링
+            fig_stage = render_terrain_plotly(
+                stage_elev,
+                f"{selected_landform} - {int(stage_value*100)}%",
+                add_water=True,
+                water_depth_grid=stage_water,
+                water_level=-999,
+                force_camera=False,
+                landform_type=landform_type
+            )
+            fig_stage.update_layout(scene=dict(camera=selected_camera))
+            st.plotly_chart(fig_stage, use_container_width=True, key="stage_view_fallback", config={'scrollZoom': True, 'displayModeBar': True})
+    else:
+        # 기존 슬라이더 방식
+        fig_stage = render_terrain_plotly(
+            stage_elev,
+            f"{selected_landform} - {int(stage_value*100)}%",
+            add_water=True,
+            water_depth_grid=stage_water,
+            water_level=-999,
+            force_camera=False,
+            landform_type=landform_type
+        )
+        fig_stage.update_layout(scene=dict(camera=selected_camera))
+        st.plotly_chart(fig_stage, use_container_width=True, key="stage_view", config={'scrollZoom': True, 'displayModeBar': True})
     
-    st.caption("💡 **Tip:** 프레임 수가 높을수록 부드럽지만 생성 시간이 길어집니다.")
-
+    st.caption("💡 **Tip:** '시점 선택'에서 X축(측면), Y축(정면), Z축(평면도) 등 다양한 각도로 감상할 수 있습니다!")
