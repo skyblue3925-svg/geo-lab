@@ -80,7 +80,7 @@ elif category == "🌋 화산 지형":
         "🛡️ 순상화산 (Shield)": "shield_volcano",
         "🗻 성층화산 (Stratovolcano)": "stratovolcano",
         "🕳️ 칼데라 (Caldera)": "caldera",
-        "💧 화구호 (Crater Lake)": "crater_lake",
+        "💧 칼데라호 (Caldera Lake)": "crater_lake",
         "🟫 용암대지 (Lava Plateau)": "lava_plateau",
     }
 elif category == "🦇 카르스트 지형":
@@ -220,7 +220,7 @@ with col_view:
         "shield_volcano": "**순상화산**: 유동성 높은 현무암질 용암이 완만하게 쌓여 방패 형태.",
         "stratovolcano": "**성층화산**: 용암과 화산쇄설물이 교대로 쌓여 급한 원뿔형.",
         "caldera": "**칼데라**: 대규모 분화 후 마그마방 함몰로 형성된 거대한 분지.",
-        "crater_lake": "**화구호**: 화구나 칼데라에 물이 고여 형성된 호수.",
+        "crater_lake": "**칼데라호**: 대규모 화산 폭발 후 정상부 함몰로 형성된 호수. 지름 1km 이상.",
         "lava_plateau": "**용암대지**: 열극 분출로 현무암질 용암이 넓게 펼쳐져 평탄한 대지 형성.",
         "barchan": "**바르한 사구**: 바람이 한 방향에서 불 때 형성되는 초승달 모양의 사구.",
         "mesa_butte": "**메사/뷰트**: 차별침식으로 남은 탁상지. 메사는 크고 평탄, 뷰트는 작고 높습니다.",
@@ -267,7 +267,27 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
     supported_metadata = [
         'incised_meander', 'alluvial_fan', 'fjord',  # 기존
         'free_meander', 'waterfall', 'cirque', 'horn', 'coastal_cliff',  # 신규
-        'bird_foot_delta'  # 추가
+        'bird_foot_delta',  # 추가
+        'v_valley',  # V자곡 추가
+        'delta',  # 일반 삼각주 추가
+        'barchan',  # 바르한 사구 추가
+        'mesa_butte',  # 메사/뷰트 추가
+        'spit_lagoon',  # 사취+석호 추가
+        'stratovolcano',  # 성층화산 추가
+        'karst_doline',  # 돌리네 추가
+        'u_valley',  # U자곡
+        # Phase 2
+        'braided_river',  # 망상하천
+        'arcuate_delta',  # 호상삼각주
+        'cuspate_delta',  # 첨두삼각주
+        'drumlin',  # 드럼린
+        'moraine',  # 빙퇴석
+        'tombolo',  # 육계사주
+        'sea_arch',  # 해식아치
+        'crater_lake',  # 칼데라호
+        'transverse_dune',  # 횡사구
+        'star_dune',  # 성사구
+        'perched_river',  # 천정천
     ]
     
     if landform_key in supported_metadata:

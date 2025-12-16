@@ -48,7 +48,7 @@ CATEGORIES = {
         "shield_volcano": "순상화산",
         "stratovolcano": "성층화산",
         "caldera": "칼데라",
-        "crater_lake": "화구호",
+        "crater_lake": "칼데라호",
         "lava_plateau": "용암대지",
     },
     "🦇 카르스트 지형": {
