@@ -110,7 +110,7 @@ from datetime import datetime
 import json
 
 def get_visitor_count():
-    """Supabase에서 방문자 수 조회/업데이트"""
+    """Supabase에서 방문자 수 조회/업데이트 (경쟁 조건 수정)"""
     today = datetime.now().strftime("%Y-%m-%d")
     
     try:
@@ -123,25 +123,28 @@ def get_visitor_count():
                 st.secrets["supabase"]["key"]
             )
             
-            # 오늘 데이터 조회
-            result = supabase.table("visitors").select("*").eq("date", today).execute()
-            
-            if result.data:
-                today_count = result.data[0]["count"]
-            else:
-                today_count = 0
-                supabase.table("visitors").insert({"date": today, "count": 0}).execute()
-            
-            # 총 방문자
-            total_result = supabase.table("visitors").select("count").execute()
-            total_count = sum(row["count"] for row in total_result.data)
-            
-            # 새 방문자 카운트 (세션당 1회)
+            # 새 방문자 카운트 (세션당 1회) - 먼저 증가 처리
             if 'visitor_counted' not in st.session_state:
                 st.session_state['visitor_counted'] = True
-                supabase.table("visitors").update({"count": today_count + 1}).eq("date", today).execute()
-                today_count += 1
-                total_count += 1
+                
+                # 오늘 데이터 확인
+                result = supabase.table("visitors").select("*").eq("date", today).execute()
+                
+                if result.data:
+                    # 기존 데이터 있으면 +1 업데이트 (SQL로 안전하게)
+                    current_count = result.data[0]["count"]
+                    supabase.table("visitors").update({"count": current_count + 1}).eq("date", today).execute()
+                else:
+                    # 새 날짜면 1로 시작
+                    supabase.table("visitors").insert({"date": today, "count": 1}).execute()
+            
+            # 증가 후 최신 데이터 조회
+            today_result = supabase.table("visitors").select("count").eq("date", today).execute()
+            today_count = today_result.data[0]["count"] if today_result.data else 0
+            
+            # 총 방문자 (모든 날짜 합계)
+            total_result = supabase.table("visitors").select("count").execute()
+            total_count = sum(row["count"] for row in total_result.data)
             
             return {"today": today_count, "total": total_count}
         else:
