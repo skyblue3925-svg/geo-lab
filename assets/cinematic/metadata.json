@@ -1,0 +1,97 @@
+{
+  "version": "1.0",
+  "description": "Geo-lab 시네마틱 지형 영상 및 이미지",
+  "videos": [
+    {
+      "id": "fjord_formation",
+      "title": "🧊 피오르드 형성 과정",
+      "category": "glacial",
+      "sources": [
+        "fjord_formation.png",
+        "fjord_texture.png"
+      ],
+      "file": "fjord_formation.gif",
+      "duration": "4s",
+      "description": "빙하가 U자곡을 깎아내고 해수면 상승으로 피오르드가 형성되는 과정",
+      "status": "ready"
+    },
+    {
+      "id": "delta_formation",
+      "title": "🌊 삼각주 형성 과정",
+      "category": "river",
+      "sources": [
+        "delta_satellite.png",
+        "delta_types_comparison.png"
+      ],
+      "file": "delta_formation.gif",
+      "duration": "4s",
+      "description": "하천이 바다로 유입되며 퇴적물이 쌓여 삼각주가 형성되는 과정",
+      "status": "ready"
+    },
+    {
+      "id": "barchan_formation",
+      "title": "🏜️ 바르한 사구 이동",
+      "category": "arid",
+      "sources": [
+        "barchan_dune_ref.png",
+        "barchan_dune_texture_topdown.png"
+      ],
+      "file": "barchan_formation.gif",
+      "duration": "4s",
+      "description": "바람에 의해 초승달 모양 사구가 이동하는 과정",
+      "status": "ready"
+    },
+    {
+      "id": "caldera_formation",
+      "title": "🌋 칼데라 형성 과정",
+      "category": "volcanic",
+      "sources": [
+        "caldera_formation.png",
+        "volcanic_landforms_suite.png"
+      ],
+      "file": "caldera_formation.gif",
+      "duration": "4s",
+      "description": "대규모 화산 폭발 후 마그마방 함몰로 칼데라가 형성되는 과정",
+      "status": "ready"
+    },
+    {
+      "id": "sea_arch_formation",
+      "title": "🏖️ 해식아치 형성",
+      "category": "coastal",
+      "sources": [
+        "sea_stack_evolution.png",
+        "sea_cliff_wave_cut_platform.png"
+      ],
+      "file": "sea_arch_formation.gif",
+      "duration": "4s",
+      "description": "파랑 침식으로 해식동굴 → 아치 → 시스택이 형성되는 단계",
+      "status": "ready"
+    }
+  ],
+  "images": [
+    {
+      "id": "fjord_cinematic",
+      "title": "피오르드 시네마틱",
+      "file": "fjord_cinematic_1766154582417.png",
+      "status": "ready"
+    },
+    {
+      "id": "delta_cinematic",
+      "title": "삼각주 시네마틱",
+      "file": "delta_cinematic_1766154750389.png",
+      "status": "ready"
+    },
+    {
+      "id": "barchan_cinematic",
+      "title": "바르한 시네마틱",
+      "file": "barchan_cinematic_1766155073873.png",
+      "status": "ready"
+    },
+    {
+      "id": "caldera_cinematic",
+      "title": "칼데라 시네마틱",
+      "file": "caldera_cinematic_1766155254613.png",
+      "status": "ready"
+    }
+  ]
+}

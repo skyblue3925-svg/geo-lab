@@ -24,8 +24,10 @@ Thumbs.db
 # Logs
 *.log
 
-# Binary assets (too large for HuggingFace)
+# Binary assets (too large for Cloud)
 assets/reference/
+assets/frames/
+assets/cinematic/*.gif
 *.png
 *.jpg
 *.jpeg
