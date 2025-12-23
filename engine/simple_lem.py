@@ -38,7 +38,25 @@ class SimpleLEM:
         enable_sediment_transport: bool = True,  # 퇴적물 운반 활성화
         # 측방 침식 파라미터
         Kl: float = 0.00001,       # 측방 침식계수 (lateral erosion coefficient)
-        enable_lateral_erosion: bool = False  # 측방 침식 활성화 (곡류 형성)
+        enable_lateral_erosion: bool = False,  # 측방 침식 활성화 (곡류 형성)
+        # 빙하 침식 파라미터
+        Kg: float = 0.0001,        # 빙하 침식계수
+        glacier_ela: float = 200.0, # 평형선 고도 (ELA, m)
+        enable_glacial: bool = False,  # 빙하 침식 활성화
+        # 해안 침식 파라미터
+        Km: float = 0.001,         # 해안 침식계수
+        sea_level: float = 0.0,    # 해수면 고도 (m)
+        enable_marine: bool = False,  # 해안 침식 활성화
+        # 산사태 파라미터
+        critical_slope: float = 0.6, # 임계 경사 (rad)
+        enable_landslides: bool = False,  # 산사태 활성화
+        # 단층 파라미터
+        fault_rate: float = 0.001,  # 단층 변위율 (m/year)
+        fault_position: float = 0.5, # 단층 위치 (0-1)
+        enable_faulting: bool = False,  # 단층 활성화
+        # 카르스트 파라미터
+        Kk: float = 0.0001,        # 용해율
+        enable_karst: bool = False  # 카르스트 용해 활성화
     ):
         """
         Args:
@@ -78,6 +96,29 @@ class SimpleLEM:
         self.Kl = Kl
         self.enable_lateral_erosion = enable_lateral_erosion
         
+        # 빙하 침식 파라미터
+        self.Kg = Kg
+        self.glacier_ela = glacier_ela
+        self.enable_glacial = enable_glacial
+        
+        # 해안 침식 파라미터
+        self.Km = Km
+        self.sea_level = sea_level
+        self.enable_marine = enable_marine
+        
+        # 산사태 파라미터
+        self.critical_slope = critical_slope
+        self.enable_landslides = enable_landslides
+        
+        # 단층 파라미터
+        self.fault_rate = fault_rate
+        self.fault_position = fault_position
+        self.enable_faulting = enable_faulting
+        
+        # 카르스트 파라미터
+        self.Kk = Kk
+        self.enable_karst = enable_karst
+        
         # 그리드 초기화
         self.elevation = np.zeros((grid_size, grid_size))  # 전체 고도 (기반암 + 토양)
         self.bedrock = np.zeros((grid_size, grid_size))    # 기반암 고도
@@ -85,6 +126,9 @@ class SimpleLEM:
         self.sediment_flux = np.zeros((grid_size, grid_size))  # 퇴적물 플럭스
         self.deposition_rate = np.zeros((grid_size, grid_size)) # 퇴적률
         self.lateral_erosion_rate = np.zeros((grid_size, grid_size))  # 측방 침식률
+        self.glacial_erosion_rate = np.zeros((grid_size, grid_size))  # 빙하 침식률
+        self.marine_erosion_rate = np.zeros((grid_size, grid_size))   # 해안 침식률
+        self.landslide_rate = np.zeros((grid_size, grid_size))        # 산사태율
         self.drainage_area = np.ones((grid_size, grid_size))
         self.erosion_rate = np.zeros((grid_size, grid_size))
         self.weathering_rate = np.zeros((grid_size, grid_size))
@@ -420,6 +464,123 @@ class SimpleLEM:
         self.lateral_erosion_rate = lateral / dt
         return lateral
     
+    def glacial_erosion(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Glacial Erosion (빙하 침식) - U자곡 형성
+        ELA(평형선 고도) 이상에서 빙하가 형성되어 침식
+        """
+        if not self.enable_glacial:
+            return np.zeros_like(self.elevation)
+        
+        glacial = np.zeros_like(self.elevation)
+        
+        # ELA 이상 지역에서 빙하 침식
+        ice_mask = self.elevation > self.glacier_ela
+        
+        # 빙하 두께 근사 (고도에 비례)
+        ice_thickness = np.maximum(0, self.elevation - self.glacier_ela)
+        
+        # 빙하 침식: E = Kg * H * S (두께 × 경사)
+        slope = self.calculate_slope()
+        glacial = self.Kg * ice_thickness * slope * dt * ice_mask
+        
+        # U자곡 효과: 측면도 침식
+        from scipy import ndimage
+        glacial += ndimage.uniform_filter(glacial, size=3) * 0.3
+        
+        self._fix_boundary_erosion(glacial)
+        self.glacial_erosion_rate = glacial / dt
+        return glacial
+    
+    def marine_erosion(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Marine Erosion (해안 침식) - 해식애, 파식대 형성
+        해수면 부근에서 파도에 의한 침식
+        """
+        if not self.enable_marine:
+            return np.zeros_like(self.elevation)
+        
+        marine = np.zeros_like(self.elevation)
+        
+        # 해수면 부근 지역 (±10m)
+        coastal_mask = np.abs(self.elevation - self.sea_level) < 10.0
+        
+        # 침식량: 노출된 경사면에서 강함
+        slope = self.calculate_slope()
+        marine = self.Km * slope * dt * coastal_mask
+        
+        self._fix_boundary_erosion(marine)
+        self.marine_erosion_rate = marine / dt
+        return marine
+    
+    def landslide_process(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Landslides (산사태) - 급경사면 붕괴
+        임계 경사 초과 시 토양이 하류로 이동
+        """
+        if not self.enable_landslides:
+            return np.zeros_like(self.elevation)
+        
+        landslide = np.zeros_like(self.elevation)
+        slope = self.calculate_slope()
+        
+        # 임계 경사 초과 지역
+        failure_mask = slope > self.critical_slope
+        
+        # 붕괴량: 초과 경사에 비례
+        excess_slope = np.maximum(0, slope - self.critical_slope)
+        landslide = excess_slope * self.soil_depth * failure_mask * 0.1  # 토양의 10%
+        
+        self._fix_boundary_erosion(landslide)
+        self.landslide_rate = landslide / dt
+        return landslide
+    
+    def tectonic_faulting(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Tectonic Faulting (단층 운동) - 단층 변위
+        단층선을 기준으로 한쪽이 융기
+        """
+        if not self.enable_faulting:
+            return np.zeros_like(self.elevation)
+        
+        fault_movement = np.zeros_like(self.elevation)
+        
+        # 단층선 위치 계산
+        fault_line_idx = int(self.fault_position * self.grid_size)
+        
+        # 단층 한쪽만 융기 (footwall)
+        fault_movement[:, fault_line_idx:] = self.fault_rate * dt
+        
+        return fault_movement
+    
+    def karst_dissolution(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Karst Dissolution (카르스트 용해) - 석회암 지형
+        지하수에 의한 용해, 돌리네/우발레 형성
+        """
+        if not self.enable_karst:
+            return np.zeros_like(self.elevation)
+        
+        dissolution = np.zeros_like(self.elevation)
+        
+        # 용해량: 배수면적에 비례 (물이 모이는 곳)
+        dissolution = self.Kk * np.log10(self.drainage_area + 1) * dt
+        
+        # 무작위 싱크홀 효과
+        sinkhole_chance = 0.001
+        sinkholes = np.random.random(self.elevation.shape) < sinkhole_chance
+        dissolution += sinkholes * 0.5 * dt  # 급격한 함몰
+        
+        self._fix_boundary_erosion(dissolution)
+        return dissolution
+    
+    def _fix_boundary_erosion(self, erosion_array: np.ndarray):
+        """경계 침식량 0으로 설정"""
+        erosion_array[0, :] = 0
+        erosion_array[-1, :] = 0
+        erosion_array[:, 0] = 0
+        erosion_array[:, -1] = 0
+    
     def step(self, dt: float = 100.0) -> Dict[str, float]:
         """
         한 시간 단계 진행
@@ -446,26 +607,41 @@ class SimpleLEM:
         # 6. 측방 침식 (Lateral Erosion) - 곡류 형성
         lateral = self.lateral_erosion(dt)
         
-        # 7. 지각 융기
+        # 7. 빙하 침식 (Glacial) - U자곡
+        glacial = self.glacial_erosion(dt)
+        
+        # 8. 해안 침식 (Marine) - 해식애
+        marine = self.marine_erosion(dt)
+        
+        # 9. 산사태 (Landslides)
+        landslide = self.landslide_process(dt)
+        
+        # 10. 단층 운동 (Faulting)
+        fault_uplift = self.tectonic_faulting(dt)
+        
+        # 11. 카르스트 용해 (Karst)
+        karst = self.karst_dissolution(dt)
+        
+        # 12. 지각 융기
         uplift = self.U * dt
         
-        # 8. 토양층 업데이트
-        # 침식은 먼저 토양에서 제거, 토양이 없으면 기반암 침식
-        total_erosion = erosion + lateral
+        # 13. 토양층 업데이트
+        # 모든 침식 합산
+        total_erosion = erosion + lateral + glacial + marine + landslide + karst
         soil_erosion = np.minimum(total_erosion, self.soil_depth)
         bedrock_erosion = total_erosion - soil_erosion
         
         # 토양에 풍화 추가, 퇴적물 추가
         self.soil_depth = self.soil_depth - soil_erosion + weathering + deposition
-        self.bedrock = self.bedrock - bedrock_erosion + uplift
+        self.bedrock = self.bedrock - bedrock_erosion + uplift + fault_uplift
         
-        # 9. 전체 고도 업데이트
+        # 14. 전체 고도 업데이트
         self.elevation = self.bedrock + self.soil_depth + diffusion
         
-        # 10. 경계 조건 적용
+        # 15. 경계 조건 적용
         self._fix_boundaries()
         
-        # 11. 음수 방지
+        # 16. 음수 방지
         self.elevation = np.maximum(self.elevation, 0)
         self.soil_depth = np.maximum(self.soil_depth, 0)
         self.bedrock = np.maximum(self.bedrock, 0)
@@ -479,12 +655,14 @@ class SimpleLEM:
             'mean_weathering_rate': float(self.weathering_rate.mean()),
             'mean_deposition_rate': float(self.deposition_rate.mean()),
             'mean_lateral_erosion': float(self.lateral_erosion_rate.mean()),
+            'mean_glacial': float(self.glacial_erosion_rate.mean()),
+            'mean_marine': float(self.marine_erosion_rate.mean()),
+            'mean_landslide': float(self.landslide_rate.mean()),
             'mean_soil_depth': float(self.soil_depth.mean()),
-            'total_erosion': float(erosion.sum()),
-            'total_lateral': float(lateral.sum()),
+            'total_erosion': float(total_erosion.sum()),
             'total_deposition': float(deposition.sum()),
             'total_weathering': float(weathering.sum()),
-            'total_uplift': float(uplift * self.grid_size**2)
+            'total_uplift': float((uplift + fault_uplift.sum()) * self.grid_size**2)
         }
     
     def run(
