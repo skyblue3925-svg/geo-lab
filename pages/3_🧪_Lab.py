@@ -17,6 +17,15 @@ from app.components.animation_renderer import create_animated_terrain_figure
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
 from engine.simple_lem import SimpleLEM, create_demo_simulation
 
+# 확장 모듈 import
+try:
+    from engine.lem.climate import ClimateSystem
+    from engine.lem.human import HumanActivity
+    from engine.lem.visualization import LEMVisualizer
+    LEM_EXTENSIONS = True
+except ImportError:
+    LEM_EXTENSIONS = False
+
 # ========== Page Config (무조건 첫 번째!) ==========
 st.set_page_config(page_title="🧪 Lab Script", page_icon="🧪", layout="wide")
 
@@ -41,8 +50,11 @@ st.markdown("""
 st.sidebar.subheader("⚙️ 그리드 설정")
 grid_size = st.sidebar.slider("그리드 크기", 50, 200, 100)
 
-# 탭 구성 (침식 시뮬레이션 추가)
-tab1, tab2, tab3, tab4 = st.tabs(["📝 코드 편집", "📚 예제 코드", "🌊 침식 시뮬레이션", "📖 도움말"])
+# 탭 구성 (기후/인간 탭 추가)
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📝 코드 편집", "📚 예제 코드", "🌊 침식 시뮬레이션", 
+    "🌧️ 기후/인간 시나리오", "📖 도움말"
+])
 
 
 with tab1:
@@ -925,7 +937,106 @@ with tab3:
             | 균형 상태 | 0.0001 | 0.01 | 0.0001 | 평형 지형 |
             """)
 
+# ========== 🌧️ 기후/인간 시나리오 탭 ==========
 with tab4:
+    st.subheader("🌧️ 기후 및 인간 활동 시나리오")
+    
+    if not LEM_EXTENSIONS:
+        st.warning("확장 모듈이 로드되지 않았습니다.")
+    else:
+        st.markdown("**새로운 기능!** 기후 변화, 강우 이벤트, 댐 건설, 삼림 벌채 시뮬레이션")
+        
+        scenario_type = st.radio(
+            "시나리오 유형",
+            ["🌧️ 기후 이벤트", "🏗️ 인간 활동", "📊 결과 비교"],
+            horizontal=True
+        )
+        
+        if scenario_type == "🌧️ 기후 이벤트":
+            st.markdown("---")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("### 강우 이벤트")
+                rain_type = st.selectbox("이벤트 유형", ["normal", "storm", "drought", "monsoon"])
+                rain_intensity = st.slider("강도", 0.1, 3.0, 1.0, 0.1)
+                
+                if st.button("강우 시뮬레이션", type="primary"):
+                    climate = ClimateSystem(100)
+                    rainfall = climate.rainfall_event(rain_type, intensity=rain_intensity)
+                    
+                    import plotly.graph_objects as go
+                    fig = go.Figure(data=go.Heatmap(z=rainfall, colorscale='Blues'))
+                    fig.update_layout(title=f"강우 분포 ({rain_type})", height=400)
+                    st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                st.markdown("### 기후 변화")
+                climate_scenario = st.selectbox("시나리오", ["rcp26", "rcp45", "rcp60", "rcp85", "ice_age"])
+                years = st.number_input("경과 년수", 10, 10000, 100)
+                
+                if st.button("기후 변화 적용"):
+                    climate = ClimateSystem(100)
+                    result = climate.climate_change(climate_scenario, years)
+                    
+                    st.metric("온도 변화", f"{result['temperature']:.1f}°C")
+                    st.metric("강수량 변화", f"{result['precipitation']:.2f}x")
+                    st.metric("해수면", f"{result['sea_level']:.1f}m")
+        
+        elif scenario_type == "🏗️ 인간 활동":
+            st.markdown("---")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("### 🏗️ 댐 건설")
+                dam_row = st.slider("댐 위치 (행)", 10, 90, 50)
+                dam_col = st.slider("댐 위치 (열)", 10, 90, 50)
+                dam_height = st.slider("댐 높이 (m)", 10, 100, 30)
+                
+                if st.button("댐 건설 시뮬레이션"):
+                    human = HumanActivity(100)
+                    dam = human.build_dam((dam_row, dam_col), height=dam_height, name="Test Dam")
+                    st.success(f"댐 건설 완료: {dam.name} ({dam.height}m)")
+            
+            with col2:
+                st.markdown("### 🌲 삼림 벌채")
+                deforest_row = st.slider("벌채 중심 (행)", 10, 90, 30, key="df_row")
+                deforest_col = st.slider("벌채 중심 (열)", 10, 90, 30, key="df_col")
+                deforest_radius = st.slider("벌채 반경", 5, 30, 15)
+                deforest_intensity = st.slider("벌채 강도", 0.1, 1.0, 0.8)
+                
+                if st.button("삼림 벌채 시뮬레이션"):
+                    human = HumanActivity(100)
+                    veg = human.deforest((deforest_row, deforest_col), radius=deforest_radius, intensity=deforest_intensity)
+                    
+                    import plotly.graph_objects as go
+                    fig = go.Figure(data=go.Heatmap(z=veg, colorscale='Greens'))
+                    fig.update_layout(title="식생 분포", height=400)
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    summary = human.get_summary()
+                    st.metric("벌채 면적", f"{summary['deforested_area']} 셀")
+        
+        else:  # 결과 비교
+            st.markdown("---")
+            st.info("LEM 시뮬레이션 후 결과를 비교할 수 있습니다. 침식 시뮬레이션 탭에서 먼저 실행해주세요.")
+            
+            visualizer = LEMVisualizer()
+            
+            if 'lem_history' in st.session_state:
+                st.markdown("### 📊 시뮬레이션 통계")
+                history = st.session_state['lem_history']
+                times = st.session_state['lem_times']
+                
+                for i, (elev, t) in enumerate(zip(history, times)):
+                    visualizer.record_stats(elev, np.zeros_like(elev), t)
+                
+                fig = visualizer.create_realtime_graph()
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("아직 시뮬레이션 결과가 없습니다.")
+
+with tab5:
     st.subheader("📖 도움말")
     
     st.markdown("""
@@ -965,4 +1076,5 @@ with tab4:
     - `open()`, `exec()`, `eval()` 사용 불가
     - 무한 루프 주의 (브라우저가 멈출 수 있음)
     """)
+
 
