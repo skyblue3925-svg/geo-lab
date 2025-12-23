@@ -81,7 +81,24 @@ class SimpleLEM:
         enable_lake: bool = False,  # 호수 형성 활성화
         # 빙하 퇴적 파라미터
         moraine_rate: float = 0.3,  # 모레인 퇴적률
-        enable_glacial_deposit: bool = False  # 빙하 퇴적 활성화
+        enable_glacial_deposit: bool = False,  # 빙하 퇴적 활성화
+        # === Landlab 추가 기능 ===
+        # Overland Flow (지표수 흐름)
+        manning_n: float = 0.03,  # Manning 조도계수
+        enable_overland_flow: bool = False,
+        # Cellular Automata (사면 붕괴)
+        ca_threshold: float = 0.5,  # 임계 경사비
+        enable_cellular_automata: bool = False,
+        # Flexure (지각 등압 조절)
+        flexural_rigidity: float = 1e23,  # 등가 탄성 두께
+        enable_flexure: bool = False,
+        # Chi Analysis (하천 분석)
+        chi_concavity: float = 0.45,  # 하천 오목도
+        enable_chi_analysis: bool = False,
+        # Landslide Probability (산사태 확률)
+        cohesion: float = 10000.0,  # 점착력 (Pa)
+        friction_angle: float = 30.0,  # 내부마찰각 (도)
+        enable_landslide_prob: bool = False
     ):
         """
         Args:
@@ -176,6 +193,32 @@ class SimpleLEM:
         # 빙하 퇴적 파라미터
         self.moraine_rate = moraine_rate
         self.enable_glacial_deposit = enable_glacial_deposit
+        
+        # === Landlab 추가 기능 ===
+        # Overland Flow
+        self.manning_n = manning_n
+        self.enable_overland_flow = enable_overland_flow
+        self.flow_velocity = np.zeros((grid_size, grid_size))
+        
+        # Cellular Automata
+        self.ca_threshold = ca_threshold
+        self.enable_cellular_automata = enable_cellular_automata
+        
+        # Flexure
+        self.flexural_rigidity = flexural_rigidity
+        self.enable_flexure = enable_flexure
+        self.flexural_deflection = np.zeros((grid_size, grid_size))
+        
+        # Chi Analysis
+        self.chi_concavity = chi_concavity
+        self.enable_chi_analysis = enable_chi_analysis
+        self.chi_index = np.zeros((grid_size, grid_size))
+        
+        # Landslide Probability
+        self.cohesion = cohesion
+        self.friction_angle = friction_angle
+        self.enable_landslide_prob = enable_landslide_prob
+        self.factor_of_safety = np.ones((grid_size, grid_size))
         
         # 그리드 초기화
         self.elevation = np.zeros((grid_size, grid_size))  # 전체 고도 (기반암 + 토양)
@@ -792,6 +835,145 @@ class SimpleLEM:
         
         self._fix_boundary_erosion(deposition)
         return deposition
+    
+    # === Landlab 추가 기능 메서드 ===
+    
+    def overland_flow(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Overland Flow (지표수 흐름) - Manning 방정식 기반
+        v = (1/n) * R^(2/3) * S^(1/2)
+        
+        Returns: 유속 배열 (m/s)
+        """
+        if not self.enable_overland_flow:
+            return np.zeros_like(self.elevation)
+        
+        slope = self.calculate_slope()
+        
+        # 수심 근사 (배수면적 기반)
+        flow_depth = np.sqrt(self.drainage_area * self.precipitation) * 0.01  # 간소화
+        flow_depth = np.maximum(flow_depth, 0.001)  # 최소 수심
+        
+        # Manning 방정식: v = (1/n) * R^(2/3) * S^(1/2)
+        # 수력반경 R ≈ 수심 (넓은 수로)
+        velocity = (1.0 / self.manning_n) * (flow_depth ** (2/3)) * np.sqrt(slope)
+        
+        self.flow_velocity = velocity
+        return velocity
+    
+    def cellular_automata_erosion(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Cellular Automata (사면 붕괴) - 규칙 기반
+        임계 경사 초과 시 물질이 이웃 셀로 분배
+        
+        Returns: 침식량 배열 (m)
+        """
+        if not self.enable_cellular_automata:
+            return np.zeros_like(self.elevation)
+        
+        ca_change = np.zeros_like(self.elevation)
+        
+        for i in range(1, self.grid_size-1):
+            for j in range(1, self.grid_size-1):
+                # 4방향 이웃
+                neighbors = [(i-1, j), (i+1, j), (i, j-1), (i, j+1)]
+                
+                for ni, nj in neighbors:
+                    slope_diff = (self.elevation[i, j] - self.elevation[ni, nj]) / self.cell_size
+                    
+                    if slope_diff > self.ca_threshold:
+                        # 초과 물질 계산
+                        excess = (slope_diff - self.ca_threshold) * self.cell_size * 0.25
+                        ca_change[i, j] -= excess
+                        ca_change[ni, nj] += excess
+        
+        self._fix_boundary_erosion(ca_change)
+        return ca_change
+    
+    def isostatic_flexure(self, load_change: np.ndarray, dt: float = 1.0) -> np.ndarray:
+        """
+        Flexure (지각 등압 조절) - 탄성판 모델
+        빙하/퇴적물 하중에 의한 지각 변형
+        
+        Args:
+            load_change: 하중 변화 (kg/m²)
+        Returns: 지각 변형량 배열 (m)
+        """
+        if not self.enable_flexure:
+            return np.zeros_like(self.elevation)
+        
+        from scipy import ndimage
+        
+        # 간소화된 등압 반응
+        # 실제로는 FlexureCompact 사용 필요
+        rho_m = 3300  # 맨틀 밀도 (kg/m³)
+        g = 9.8
+        
+        # 저주파 필터로 광역적 변형 근사
+        deflection = ndimage.gaussian_filter(load_change, sigma=10) / (rho_m * g)
+        deflection *= 0.1  # 스케일링
+        
+        self.flexural_deflection = deflection
+        return deflection
+    
+    def calculate_chi_index(self) -> np.ndarray:
+        """
+        Chi Analysis (하천 분석) - χ 지수 계산
+        지각 융기 패턴 추정에 사용
+        
+        Returns: χ 지수 배열
+        """
+        if not self.enable_chi_analysis:
+            return np.zeros_like(self.elevation)
+        
+        chi = np.zeros_like(self.elevation)
+        
+        # χ = ∫(A0/A)^m dx
+        A0 = 1.0  # 기준 면적
+        m = self.chi_concavity
+        
+        # 간소화: 배수면적 역수 적분 근사
+        chi = (A0 / (self.drainage_area + 1)) ** m * self.cell_size
+        
+        # 누적 (하류 → 상류)
+        from scipy import ndimage
+        chi = ndimage.uniform_filter(chi, size=5) * self.grid_size * 0.1
+        
+        self.chi_index = chi
+        return chi
+    
+    def calculate_landslide_probability(self) -> np.ndarray:
+        """
+        Landslide Probability (산사태 확률) - 무한 사면 안정성
+        Factor of Safety (FS) 계산
+        
+        FS = (c' + (γ - γw * m) * z * cos²β * tanφ') / (γ * z * sinβ * cosβ)
+        
+        Returns: 안전율 배열 (FS < 1이면 불안정)
+        """
+        if not self.enable_landslide_prob:
+            return np.ones_like(self.elevation)
+        
+        slope = self.calculate_slope()
+        slope = np.maximum(slope, 0.01)  # 0 방지
+        
+        # 간소화된 FS 계산
+        # FS = tanφ / tanβ + c / (γ * z * sinβ)
+        gamma = 18000  # 단위중량 (N/m³)
+        z = self.soil_depth + 0.1  # 토양 두께
+        phi_rad = np.radians(self.friction_angle)
+        
+        # 경사각
+        beta = np.arctan(slope)
+        sin_beta = np.sin(beta)
+        cos_beta = np.cos(beta)
+        
+        # 안전율
+        fs = (self.cohesion / (gamma * z * sin_beta * cos_beta + 0.001)) + (np.tan(phi_rad) / (np.tan(beta) + 0.001))
+        fs = np.clip(fs, 0.1, 10)  # 범위 제한
+        
+        self.factor_of_safety = fs
+        return fs
     
     def step(self, dt: float = 100.0) -> Dict[str, float]:
         """
