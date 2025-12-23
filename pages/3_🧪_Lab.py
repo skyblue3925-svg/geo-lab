@@ -746,6 +746,80 @@ with tab3:
                         verbose=False
                     )
                     
+                    # ========== 🔬 고급 물리 모델 적용 ==========
+                    final_elevation = history[-1].copy()
+                    advanced_results = {}
+                    
+                    # 1. 고급 확산 모델 적용
+                    if diffusion_model != "Linear (기본)":
+                        from engine.lem.advanced_physics import DiffusionModels
+                        diff = DiffusionModels(lem_grid_size)
+                        
+                        if diffusion_model == "Nonlinear (급경사)":
+                            dz = diff.nonlinear(final_elevation, D=D, Sc=Sc_critical, dt=100.0)
+                        elif diffusion_model == "Depth-Dependent (토양)":
+                            dz = diff.depth_dependent(final_elevation, lem.soil_depth, D0=D, dt=100.0)
+                        else:  # Taylor
+                            dz = diff.taylor_nonlinear(final_elevation, D=D, Sc=Sc_critical, dt=100.0)
+                        
+                        final_elevation += dz
+                        advanced_results['diffusion'] = diffusion_model
+                    
+                    # 2. MFD 유역면적 재계산
+                    if flow_model == "MFD (다중유향)":
+                        from engine.lem.advanced_physics import FlowRouting
+                        flow = FlowRouting(lem_grid_size)
+                        drainage_mfd = flow.accumulate_mfd(final_elevation)
+                        st.session_state['lem_drainage_mfd'] = drainage_mfd
+                        advanced_results['flow'] = 'MFD'
+                    
+                    # 3. Exner 방정식 (하상변동)
+                    if enable_exner:
+                        from engine.lem.advanced_physics import SedimentModels
+                        sed = SedimentModels(lem_grid_size)
+                        exner_result = sed.exner(final_elevation, lem.sediment_flux, dt=100.0)
+                        final_elevation += exner_result.bed_change
+                        st.session_state['lem_exner'] = exner_result
+                        advanced_results['exner'] = True
+                    
+                    # 4. 사면 안정성 분석
+                    if enable_slope_stability:
+                        from engine.lem.advanced_physics import SlopeStability
+                        stability = SlopeStability(lem_grid_size)
+                        slope = lem.calculate_slope()
+                        stability_result = stability.infinite_slope(
+                            slope, lem.soil_depth, 
+                            cohesion=cohesion, friction_angle=friction_angle
+                        )
+                        st.session_state['lem_stability'] = stability_result
+                        advanced_results['stability'] = True
+                    
+                    # 5. 해안 지형 모델
+                    if enable_coastal:
+                        from engine.lem.advanced_physics import CoastalModels
+                        coastal = CoastalModels(lem_grid_size)
+                        wave_erosion = coastal.wave_ravinement(
+                            final_elevation, sea_level=sea_level, 
+                            wave_height=wave_height, dt=100.0
+                        )
+                        final_elevation -= wave_erosion
+                        st.session_state['lem_wave_erosion'] = wave_erosion
+                        advanced_results['coastal'] = True
+                    
+                    # 6. Flexural Isostasy
+                    if enable_isostasy:
+                        from engine.lem.advanced_physics import Isostasy
+                        iso = Isostasy(lem_grid_size)
+                        load = (initial_elevation - final_elevation) * 2700  # 침식량 × 밀도
+                        deflection = iso.flexural(load)
+                        final_elevation += deflection
+                        st.session_state['lem_isostasy'] = deflection
+                        advanced_results['isostasy'] = True
+                    
+                    # 최종 결과 업데이트
+                    history[-1] = final_elevation
+                    st.session_state['lem_advanced'] = advanced_results
+                    
                     # 결과를 session_state에 저장
                     st.session_state['lem_history'] = history
                     st.session_state['lem_times'] = times
@@ -757,7 +831,12 @@ with tab3:
                     st.session_state['lem_total_time'] = total_time
                     st.session_state['lem_weathering_enabled'] = enable_weathering
                     
-                    st.success(f"✅ 시뮬레이션 완료! ({len(history)}개 프레임)")
+                    # 적용된 고급 모델 표시
+                    if advanced_results:
+                        applied = ", ".join(advanced_results.keys())
+                        st.success(f"✅ 시뮬레이션 완료! ({len(history)}개 프레임) | 🔬 고급: {applied}")
+                    else:
+                        st.success(f"✅ 시뮬레이션 완료! ({len(history)}개 프레임)")
                     
                 except Exception as e:
                     st.error(f"❌ 오류: {str(e)}")
