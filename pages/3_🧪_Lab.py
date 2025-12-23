@@ -274,10 +274,10 @@ elevation = landform_func(grid_size={load_size}, stage={load_stage})
     4. `water_depth`로 물 표시
     """)
 
-# ========== 침식 시뮬레이션 탭 ==========
+# ========== 지형 시뮬레이션 탭 ==========
 with tab3:
-    st.subheader("🌊 침식 시뮬레이션 (LEM)")
-    st.markdown("_Stream Power Law + Hillslope Diffusion 기반 지형 발달 모형_")
+    st.subheader("🌍 지형 발달 시뮬레이터")
+    st.markdown("_침식 · 풍화 · 단층 · 화산 · 빙하 · 해안 · 기후 · 인간활동 통합 모델_")
     
     # 설명
     with st.expander("📚 물리 법칙 설명", expanded=False):
@@ -305,16 +305,30 @@ with tab3:
     with col_params:
         st.markdown("### 🎯 시나리오 선택")
         
-        # 시나리오 프리셋
+        # 시나리오 프리셋 (Gallery 지형 포함)
         scenario = st.selectbox(
             "시뮬레이션 시나리오",
             [
+                "--- 🏔️ 산지/침식 ---",
                 "🏔️ 산지 형성 (융기+침식)",
+                "🗻 V자곡 (하천침식)",
+                "❄️ U자곡 (빙하침식)",
+                "⛰️ 단층 산지",
+                "--- 🌊 하천/퇴적 ---",
+                "🔄 곡류 하천 (사행)",
+                "🏖️ 삼각주 (Delta)",
+                "📐 선상지 (Alluvial Fan)",
+                "--- 🏜️ 건조/바람 ---",
                 "🏜️ 사막 지형 (바람침식)",
-                "❄️ 빙하 지형 (U자곡)",
-                "🌊 해안 지형 (해식애)",
+                "🌙 바르한 사구",
+                "--- 🌊 해안 ---",
+                "🌊 해안 절벽 (해식애)",
+                "🏖️ 해안단구",
+                "--- 🌋 화산/특수 ---",
                 "🌋 화산 지형 (성층화산)",
                 "🕳️ 카르스트 (돌리네)",
+                "🧊 권곡/빙하호",
+                "--- ⚙️ 사용자 ---",
                 "⚙️ 자유 설정"
             ],
             key="lem_scenario"
@@ -333,6 +347,72 @@ with tab3:
                 "enable_bioerosion": True, "enable_lake": False,
                 "enable_glacial_deposit": False
             },
+            "🗻 V자곡 (하천침식)": {
+                "initial_topo": "V자곡",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": True, "enable_glacial": False,
+                "enable_marine": False, "enable_landslides": True,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": True, "enable_lake": False,
+                "enable_glacial_deposit": False
+            },
+            "❄️ U자곡 (빙하침식)": {
+                "initial_topo": "U자곡",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": False, "enable_glacial": True,
+                "enable_marine": False, "enable_landslides": False,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": True,
+                "enable_bioerosion": False, "enable_lake": True,
+                "enable_glacial_deposit": True
+            },
+            "⛰️ 단층 산지": {
+                "initial_topo": "경사면",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": False, "enable_glacial": False,
+                "enable_marine": False, "enable_landslides": True,
+                "enable_faulting": True, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": True, "enable_lake": False,
+                "enable_glacial_deposit": False
+            },
+            "🔄 곡류 하천 (사행)": {
+                "initial_topo": "곡류",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": True, "enable_glacial": False,
+                "enable_marine": False, "enable_landslides": False,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": True, "enable_lake": True,
+                "enable_glacial_deposit": False
+            },
+            "🏖️ 삼각주 (Delta)": {
+                "initial_topo": "삼각주",
+                "enable_weathering": False, "enable_sediment": True,
+                "enable_lateral": True, "enable_glacial": False,
+                "enable_marine": True, "enable_landslides": False,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": True, "enable_lake": False,
+                "enable_glacial_deposit": False
+            },
+            "📐 선상지 (Alluvial Fan)": {
+                "initial_topo": "선상지",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": True, "enable_glacial": False,
+                "enable_marine": False, "enable_landslides": True,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": False, "enable_lake": False,
+                "enable_glacial_deposit": False
+            },
             "🏜️ 사막 지형 (바람침식)": {
                 "initial_topo": "경사면",
                 "enable_weathering": True, "enable_sediment": False,
@@ -344,23 +424,34 @@ with tab3:
                 "enable_bioerosion": False, "enable_lake": False,
                 "enable_glacial_deposit": False
             },
-            "❄️ 빙하 지형 (U자곡)": {
-                "initial_topo": "돔형 산지",
-                "enable_weathering": True, "enable_sediment": True,
-                "enable_lateral": False, "enable_glacial": True,
+            "🌙 바르한 사구": {
+                "initial_topo": "바르한",
+                "enable_weathering": False, "enable_sediment": False,
+                "enable_lateral": False, "enable_glacial": False,
                 "enable_marine": False, "enable_landslides": False,
                 "enable_faulting": False, "enable_karst": False,
-                "enable_aeolian": False, "enable_volcanic": False,
-                "enable_groundwater": False, "enable_freeze_thaw": True,
-                "enable_bioerosion": False, "enable_lake": True,
-                "enable_glacial_deposit": True
+                "enable_aeolian": True, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": False, "enable_lake": False,
+                "enable_glacial_deposit": False
             },
-            "🌊 해안 지형 (해식애)": {
-                "initial_topo": "경사면",
+            "🌊 해안 절벽 (해식애)": {
+                "initial_topo": "해안절벽",
                 "enable_weathering": True, "enable_sediment": True,
                 "enable_lateral": False, "enable_glacial": False,
                 "enable_marine": True, "enable_landslides": True,
                 "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": True, "enable_lake": False,
+                "enable_glacial_deposit": False
+            },
+            "🏖️ 해안단구": {
+                "initial_topo": "경사면",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": False, "enable_glacial": False,
+                "enable_marine": True, "enable_landslides": False,
+                "enable_faulting": True, "enable_karst": False,
                 "enable_aeolian": False, "enable_volcanic": False,
                 "enable_groundwater": False, "enable_freeze_thaw": False,
                 "enable_bioerosion": True, "enable_lake": False,
@@ -387,6 +478,17 @@ with tab3:
                 "enable_groundwater": True, "enable_freeze_thaw": False,
                 "enable_bioerosion": True, "enable_lake": True,
                 "enable_glacial_deposit": False
+            },
+            "🧊 권곡/빙하호": {
+                "initial_topo": "돔형 산지",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": False, "enable_glacial": True,
+                "enable_marine": False, "enable_landslides": True,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": True,
+                "enable_bioerosion": False, "enable_lake": True,
+                "enable_glacial_deposit": True
             }
         }
         
