@@ -411,6 +411,65 @@ with tab3:
         
         Kk = st.number_input("용해율 (Kk)", value=0.0001, format="%.4f", disabled=not enable_karst)
         
+        st.markdown("**🏜️ 바람 침식**")
+        
+        enable_aeolian = st.checkbox("바람 침식 활성화", value=False, help="사막 사구 형성")
+        
+        col_a1, col_a2 = st.columns(2)
+        with col_a1:
+            Ka = st.number_input("바람 침식계수 (Ka)", value=0.0001, format="%.4f", disabled=not enable_aeolian)
+        with col_a2:
+            wind_direction = st.slider("풍향 (rad)", 0.0, 6.28, 0.0, disabled=not enable_aeolian)
+        
+        st.markdown("**🌋 화산 활동**")
+        
+        enable_volcanic = st.checkbox("화산 활성화", value=False, help="용암류/화산체")
+        
+        col_v1, col_v2 = st.columns(2)
+        with col_v1:
+            volcanic_rate = st.number_input("분출량 (m/yr)", value=0.01, format="%.3f", disabled=not enable_volcanic)
+        with col_v2:
+            volcanic_pos = st.slider("화구 위치", 0.2, 0.8, 0.5, disabled=not enable_volcanic)
+        volcanic_position = (volcanic_pos, volcanic_pos)
+        
+        st.markdown("**💧 지하수**")
+        
+        enable_groundwater = st.checkbox("지하수 활성화", value=False, help="용천/파이핑")
+        
+        col_gw1, col_gw2 = st.columns(2)
+        with col_gw1:
+            water_table = st.number_input("지하수면 (m)", value=50.0, disabled=not enable_groundwater)
+        with col_gw2:
+            spring_rate = st.number_input("용천율", value=0.001, format="%.4f", disabled=not enable_groundwater)
+        
+        st.markdown("**❄️ 동결파쇄**")
+        
+        enable_freeze_thaw = st.checkbox("동결파쇄 활성화", value=False, help="고산 암석 파쇄")
+        
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            Kf = st.number_input("동결계수 (Kf)", value=0.0005, format="%.4f", disabled=not enable_freeze_thaw)
+        with col_f2:
+            freeze_elevation = st.number_input("동결 고도 (m)", value=300.0, disabled=not enable_freeze_thaw)
+        
+        st.markdown("**🌿 식생 보호**")
+        
+        enable_bioerosion = st.checkbox("식생 보호 활성화", value=False, help="식생이 침식 감소")
+        
+        vegetation_factor = st.slider("식생 보호계수", 0.0, 1.0, 0.5, disabled=not enable_bioerosion)
+        
+        st.markdown("**🏞️ 호수 형성**")
+        
+        enable_lake = st.checkbox("호수 형성 활성화", value=False, help="저지대 침수")
+        
+        lake_threshold = st.number_input("호수 임계값", value=0.001, format="%.4f", disabled=not enable_lake)
+        
+        st.markdown("**🏔️ 빙하 퇴적**")
+        
+        enable_glacial_deposit = st.checkbox("빙하 퇴적 활성화", value=False, help="모레인/드럼린")
+        
+        moraine_rate = st.slider("모레인 퇴적률", 0.1, 0.9, 0.3, disabled=not enable_glacial_deposit)
+        
         st.markdown("---")
         
         # 시간 설정
@@ -451,7 +510,15 @@ with tab3:
                         Km=Km, sea_level=sea_level, enable_marine=enable_marine,
                         critical_slope=critical_slope, enable_landslides=enable_landslides,
                         fault_rate=fault_rate, fault_position=fault_position, enable_faulting=enable_faulting,
-                        Kk=Kk, enable_karst=enable_karst
+                        Kk=Kk, enable_karst=enable_karst,
+                        # 추가 기능
+                        Ka=Ka, wind_direction=wind_direction, enable_aeolian=enable_aeolian,
+                        volcanic_rate=volcanic_rate, volcanic_position=volcanic_position, enable_volcanic=enable_volcanic,
+                        water_table=water_table, spring_rate=spring_rate, enable_groundwater=enable_groundwater,
+                        Kf=Kf, freeze_elevation=freeze_elevation, enable_freeze_thaw=enable_freeze_thaw,
+                        vegetation_factor=vegetation_factor, enable_bioerosion=enable_bioerosion,
+                        lake_threshold=lake_threshold, enable_lake=enable_lake,
+                        moraine_rate=moraine_rate, enable_glacial_deposit=enable_glacial_deposit
                     )
                     
                     # 초기 지형 생성
