@@ -1,10 +1,11 @@
 """
 🌊 Simple Landscape Evolution Model (LEM)
-경량화된 지형 발달 모형 - Stream Power Law + Hillslope Diffusion
+경량화된 지형 발달 모형 - Stream Power Law + Hillslope Diffusion + Weathering
 
 물리 법칙:
 1. Stream Power Law: E = K × A^m × S^n (하천 침식)
 2. Linear Diffusion: ∂z/∂t = D × ∇²z (사면 확산)
+3. Exponential Weathering: W = W0 × exp(-H/H*) (지수적 풍화)
 """
 import numpy as np
 from scipy import ndimage
@@ -27,7 +28,11 @@ class SimpleLEM:
         U: float = 0.0005,         # 융기율 (uplift rate, m/year)
         m: float = 0.5,            # 유역면적 지수
         n: float = 1.0,            # 경사 지수
-        precipitation: float = 1.0  # 강수량 배율
+        precipitation: float = 1.0, # 강수량 배율
+        # 풍화 파라미터
+        W0: float = 0.001,         # 최대 풍화율 (m/year)
+        H_star: float = 1.0,       # 특성 토양 깊이 (m)
+        enable_weathering: bool = True  # 풍화 활성화 여부
     ):
         """
         Args:
@@ -39,6 +44,9 @@ class SimpleLEM:
             m: 유역면적 지수 (보통 0.3-0.6)
             n: 경사 지수 (보통 0.7-1.5)
             precipitation: 강수량 배율
+            W0: 최대 풍화율 - 토양이 없을 때 기반암 풍화 속도
+            H_star: 특성 토양 깊이 - 풍화가 e^-1로 감소하는 깊이
+            enable_weathering: 풍화 과정 활성화 여부
         """
         self.grid_size = grid_size
         self.cell_size = cell_size
@@ -49,24 +57,46 @@ class SimpleLEM:
         self.n = n
         self.precipitation = precipitation
         
+        # 풍화 파라미터
+        self.W0 = W0
+        self.H_star = H_star
+        self.enable_weathering = enable_weathering
+        
         # 그리드 초기화
-        self.elevation = np.zeros((grid_size, grid_size))
+        self.elevation = np.zeros((grid_size, grid_size))  # 전체 고도 (기반암 + 토양)
+        self.bedrock = np.zeros((grid_size, grid_size))    # 기반암 고도
+        self.soil_depth = np.zeros((grid_size, grid_size)) # 토양(레골리스) 두께
         self.drainage_area = np.ones((grid_size, grid_size))
         self.erosion_rate = np.zeros((grid_size, grid_size))
+        self.weathering_rate = np.zeros((grid_size, grid_size))
         
         # 이력 저장
         self.history: List[np.ndarray] = []
         self.time_steps: List[float] = []
         
-    def set_initial_topography(self, elevation: np.ndarray):
-        """초기 지형 설정"""
+    def set_initial_topography(self, elevation: np.ndarray, initial_soil: float = 0.5):
+        """초기 지형 설정
+        
+        Args:
+            elevation: 초기 고도 배열
+            initial_soil: 초기 토양 두께 (m)
+        """
         self.elevation = elevation.copy()
         self.grid_size = elevation.shape[0]
+        self.soil_depth = np.full_like(elevation, initial_soil)
+        self.bedrock = self.elevation - self.soil_depth
         self.drainage_area = np.ones_like(elevation)
         self.erosion_rate = np.zeros_like(elevation)
+        self.weathering_rate = np.zeros_like(elevation)
         
-    def create_initial_mountain(self, peak_height: float = 500.0, noise_amp: float = 10.0):
-        """초기 산지 지형 생성"""
+    def create_initial_mountain(self, peak_height: float = 500.0, noise_amp: float = 10.0, initial_soil: float = 0.5):
+        """초기 산지 지형 생성
+        
+        Args:
+            peak_height: 봉우리 높이 (m)
+            noise_amp: 노이즈 진폭 (m)
+            initial_soil: 초기 토양 두께 (m)
+        """
         y, x = np.mgrid[0:self.grid_size, 0:self.grid_size]
         center = self.grid_size / 2
         
@@ -76,6 +106,10 @@ class SimpleLEM:
         
         # 노이즈 추가
         self.elevation += noise_amp * np.random.randn(self.grid_size, self.grid_size)
+        
+        # 토양층 초기화
+        self.soil_depth = np.full((self.grid_size, self.grid_size), initial_soil)
+        self.bedrock = self.elevation - self.soil_depth
         
         # 경계 고정 (해수면)
         self._fix_boundaries()
@@ -209,6 +243,38 @@ class SimpleLEM:
         
         return dz
     
+    def exponential_weathering(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Exponential Weathering (지수적 풍화)
+        W = W0 × exp(-H/H*)
+        
+        기반암이 토양으로 변환되는 과정.
+        토양이 두꺼울수록 풍화가 느려진다.
+        
+        Args:
+            dt: 시간 간격 (년)
+        Returns: 풍화량 배열 (m) - 기반암에서 토양으로 변환된 두께
+        """
+        if not self.enable_weathering:
+            return np.zeros_like(self.elevation)
+        
+        # 지수적 풍화: W = W0 * exp(-H/H*)
+        # H: 토양 두께, H*: 특성 깊이
+        weathering = self.W0 * np.exp(-self.soil_depth / self.H_star) * dt
+        
+        # 기반암보다 더 많이 풍화할 수 없음
+        weathering = np.minimum(weathering, np.maximum(self.bedrock, 0))
+        
+        # 경계 고정
+        weathering[0, :] = 0
+        weathering[-1, :] = 0
+        weathering[:, 0] = 0
+        weathering[:, -1] = 0
+        
+        self.weathering_rate = weathering / dt
+        return weathering
+    
+    
     def step(self, dt: float = 100.0) -> Dict[str, float]:
         """
         한 시간 단계 진행
@@ -226,17 +292,30 @@ class SimpleLEM:
         # 3. 사면 확산 (Diffusion)
         diffusion = self.hillslope_diffusion(dt)
         
-        # 4. 지각 융기
+        # 4. 풍화 (Weathering) - 기반암 → 토양 변환
+        weathering = self.exponential_weathering(dt)
+        
+        # 5. 지각 융기
         uplift = self.U * dt
         
-        # 5. 고도 업데이트
-        self.elevation = self.elevation - erosion + diffusion + uplift
+        # 6. 토양층 업데이트
+        # 침식은 먼저 토양에서 제거, 토양이 없으면 기반암 침식
+        soil_erosion = np.minimum(erosion, self.soil_depth)
+        bedrock_erosion = erosion - soil_erosion
         
-        # 6. 경계 조건 적용
+        self.soil_depth = self.soil_depth - soil_erosion + weathering
+        self.bedrock = self.bedrock - bedrock_erosion + uplift
+        
+        # 7. 전체 고도 업데이트
+        self.elevation = self.bedrock + self.soil_depth + diffusion
+        
+        # 8. 경계 조건 적용
         self._fix_boundaries()
         
-        # 7. 음수 방지
+        # 9. 음수 방지
         self.elevation = np.maximum(self.elevation, 0)
+        self.soil_depth = np.maximum(self.soil_depth, 0)
+        self.bedrock = np.maximum(self.bedrock, 0)
         
         # 통계 반환
         return {
@@ -244,7 +323,10 @@ class SimpleLEM:
             'max_elevation': float(self.elevation.max()),
             'mean_erosion_rate': float(self.erosion_rate.mean()),
             'max_erosion_rate': float(self.erosion_rate.max()),
+            'mean_weathering_rate': float(self.weathering_rate.mean()),
+            'mean_soil_depth': float(self.soil_depth.mean()),
             'total_erosion': float(erosion.sum()),
+            'total_weathering': float(weathering.sum()),
             'total_uplift': float(uplift * self.grid_size**2)
         }
     
@@ -297,6 +379,18 @@ class SimpleLEM:
     def get_drainage_map(self) -> np.ndarray:
         """유역면적 맵 반환 (로그 스케일)"""
         return np.log10(self.drainage_area + 1)
+    
+    def get_soil_depth_map(self) -> np.ndarray:
+        """토양 두께 맵 반환"""
+        return self.soil_depth
+    
+    def get_weathering_map(self) -> np.ndarray:
+        """풍화율 맵 반환"""
+        return self.weathering_rate
+    
+    def get_bedrock_map(self) -> np.ndarray:
+        """기반암 고도 맵 반환"""
+        return self.bedrock
 
 
 def create_demo_simulation(

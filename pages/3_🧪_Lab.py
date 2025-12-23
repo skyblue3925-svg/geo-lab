@@ -319,6 +319,20 @@ with tab3:
             help="지각 융기 속도 (m/year)"
         )
         
+        st.markdown("**🪨 풍화 설정**")
+        
+        enable_weathering = st.checkbox("풍화 활성화", value=True, help="기반암 → 토양 변환 과정")
+        
+        W0 = st.slider(
+            "최대 풍화율 (W0)",
+            min_value=0.0001,
+            max_value=0.01,
+            value=0.001,
+            step=0.0001,
+            format="%.4f",
+            help="토양이 없을 때 기반암 풍화 속도 (m/year)"
+        )
+        
         st.markdown("---")
         
         # 시간 설정
@@ -343,13 +357,15 @@ with tab3:
         run_lem = st.button("▶️ 시뮬레이션 실행", type="primary", use_container_width=True)
     
     with col_results:
+        # 시뮬레이션 실행
         if run_lem:
             with st.spinner("🌊 침식 시뮬레이션 실행 중..."):
                 try:
-                    # LEM 객체 생성
+                    # LEM 객체 생성 (풍화 파라미터 포함)
                     lem = SimpleLEM(
                         grid_size=lem_grid_size,
-                        K=K, D=D, U=U
+                        K=K, D=D, U=U,
+                        W0=W0, enable_weathering=enable_weathering
                     )
                     
                     # 초기 지형 생성
@@ -376,101 +392,159 @@ with tab3:
                         verbose=False
                     )
                     
+                    # 결과를 session_state에 저장
+                    st.session_state['lem_history'] = history
+                    st.session_state['lem_times'] = times
+                    st.session_state['lem_initial'] = initial_elevation
+                    st.session_state['lem_erosion_map'] = lem.get_erosion_map()
+                    st.session_state['lem_drainage_map'] = lem.get_drainage_map()
+                    st.session_state['lem_soil_map'] = lem.get_soil_depth_map()
+                    st.session_state['lem_weathering_map'] = lem.get_weathering_map()
+                    st.session_state['lem_total_time'] = total_time
+                    st.session_state['lem_weathering_enabled'] = enable_weathering
+                    
                     st.success(f"✅ 시뮬레이션 완료! ({len(history)}개 프레임)")
                     
-                    # 결과 표시
-                    result_tabs = st.tabs(["🗺️ 최종 지형", "📊 비교", "🎬 애니메이션", "📈 침식률"])
-                    
-                    with result_tabs[0]:
-                        # 최종 지형 3D
-                        fig_final = render_terrain_plotly(
-                            history[-1],
-                            f"최종 지형 ({total_time:,}년 후)",
-                            add_water=True,
-                            water_level=0,
-                            force_camera=False
-                        )
-                        st.plotly_chart(fig_final, use_container_width=True)
-                    
-                    with result_tabs[1]:
-                        # 초기 vs 최종 비교
-                        import matplotlib.pyplot as plt
-                        
-                        fig_compare, axes = plt.subplots(1, 2, figsize=(14, 5))
-                        
-                        im1 = axes[0].imshow(initial_elevation, cmap='terrain', origin='lower')
-                        axes[0].set_title("초기 지형")
-                        plt.colorbar(im1, ax=axes[0], label='고도 (m)')
-                        
-                        im2 = axes[1].imshow(history[-1], cmap='terrain', origin='lower')
-                        axes[1].set_title(f"최종 지형 ({total_time:,}년 후)")
-                        plt.colorbar(im2, ax=axes[1], label='고도 (m)')
-                        
-                        plt.tight_layout()
-                        st.pyplot(fig_compare)
-                        plt.close(fig_compare)
-                        
-                        # 변화량
-                        col_m1, col_m2, col_m3 = st.columns(3)
-                        elev_change = history[-1] - initial_elevation
-                        col_m1.metric("최대 침식", f"{-elev_change.min():.1f}m")
-                        col_m2.metric("최대 융기/퇴적", f"{elev_change.max():.1f}m")
-                        col_m3.metric("평균 고도 변화", f"{elev_change.mean():.1f}m")
-                    
-                    with result_tabs[2]:
-                        # 시간별 애니메이션
-                        import plotly.graph_objects as go
-                        
-                        st.info("▶️ 슬라이더를 움직여 시간별 지형 변화를 확인하세요.")
-                        
-                        frame_idx = st.slider(
-                            "시간",
-                            0, len(history)-1, len(history)-1,
-                            format=f"%.0f"
-                        )
-                        
-                        current_time = times[frame_idx]
-                        st.markdown(f"**현재 시간: {current_time:,.0f}년**")
-                        
-                        fig_anim = render_terrain_plotly(
-                            history[frame_idx],
-                            f"지형 ({current_time:,.0f}년)",
-                            add_water=True,
-                            water_level=0,
-                            force_camera=False
-                        )
-                        st.plotly_chart(fig_anim, use_container_width=True)
-                    
-                    with result_tabs[3]:
-                        # 침식률 맵
-                        erosion_map = lem.get_erosion_map()
-                        drainage_map = lem.get_drainage_map()
-                        
-                        fig_maps, axes = plt.subplots(1, 2, figsize=(14, 5))
-                        
-                        im1 = axes[0].imshow(erosion_map, cmap='Reds', origin='lower')
-                        axes[0].set_title("침식률 (m/year)")
-                        plt.colorbar(im1, ax=axes[0])
-                        
-                        im2 = axes[1].imshow(drainage_map, cmap='Blues', origin='lower')
-                        axes[1].set_title("유역면적 (log10)")
-                        plt.colorbar(im2, ax=axes[1])
-                        
-                        plt.tight_layout()
-                        st.pyplot(fig_maps)
-                        plt.close(fig_maps)
-                        
-                        st.markdown("""
-                        **해석:**
-                        - **침식률**: 빨간색이 진할수록 침식이 빠른 곳 (하천)
-                        - **유역면적**: 파란색이 진할수록 상류 집수 면적이 넓은 곳
-                        """)
-                
                 except Exception as e:
                     st.error(f"❌ 오류: {str(e)}")
                     import traceback
                     st.code(traceback.format_exc())
+        
+        # 저장된 결과가 있으면 표시
+        if 'lem_history' in st.session_state:
+            history = st.session_state['lem_history']
+            times = st.session_state['lem_times']
+            initial_elevation = st.session_state['lem_initial']
+            erosion_map = st.session_state['lem_erosion_map']
+            drainage_map = st.session_state['lem_drainage_map']
+            soil_map = st.session_state.get('lem_soil_map', None)
+            weathering_map = st.session_state.get('lem_weathering_map', None)
+            saved_total_time = st.session_state['lem_total_time']
+            weathering_enabled = st.session_state.get('lem_weathering_enabled', False)
+            
+            # 결과 표시 (풍화 활성화 시 토양두께 탭 추가)
+            if weathering_enabled and soil_map is not None:
+                result_tabs = st.tabs(["🗺️ 최종 지형", "📊 비교", "🎬 애니메이션", "📈 침식률", "🪨 토양두께"])
+            else:
+                result_tabs = st.tabs(["🗺️ 최종 지형", "📊 비교", "🎬 애니메이션", "📈 침식률"])
+            
+            with result_tabs[0]:
+                # 최종 지형 3D
+                fig_final = render_terrain_plotly(
+                    history[-1],
+                    f"최종 지형 ({saved_total_time:,}년 후)",
+                    add_water=True,
+                    water_level=0,
+                    force_camera=False
+                )
+                st.plotly_chart(fig_final, use_container_width=True)
+            
+            with result_tabs[1]:
+                # 초기 vs 최종 비교
+                import matplotlib.pyplot as plt
+                
+                fig_compare, axes = plt.subplots(1, 2, figsize=(14, 5))
+                
+                im1 = axes[0].imshow(initial_elevation, cmap='terrain', origin='lower')
+                axes[0].set_title("초기 지형")
+                plt.colorbar(im1, ax=axes[0], label='고도 (m)')
+                
+                im2 = axes[1].imshow(history[-1], cmap='terrain', origin='lower')
+                axes[1].set_title(f"최종 지형 ({saved_total_time:,}년 후)")
+                plt.colorbar(im2, ax=axes[1], label='고도 (m)')
+                
+                plt.tight_layout()
+                st.pyplot(fig_compare)
+                plt.close(fig_compare)
+                
+                # 변화량
+                col_m1, col_m2, col_m3 = st.columns(3)
+                elev_change = history[-1] - initial_elevation
+                col_m1.metric("최대 침식", f"{-elev_change.min():.1f}m")
+                col_m2.metric("최대 융기/퇴적", f"{elev_change.max():.1f}m")
+                col_m3.metric("평균 고도 변화", f"{elev_change.mean():.1f}m")
+            
+            with result_tabs[2]:
+                # 시간별 애니메이션
+                st.info("▶️ 슬라이더를 움직여 시간별 지형 변화를 확인하세요.")
+                
+                frame_idx = st.slider(
+                    "시간 프레임",
+                    0, len(history)-1, len(history)-1,
+                    key="lem_frame_slider"
+                )
+                
+                current_time = times[frame_idx]
+                st.markdown(f"**현재 시간: {current_time:,.0f}년**")
+                
+                fig_anim = render_terrain_plotly(
+                    history[frame_idx],
+                    f"지형 ({current_time:,.0f}년)",
+                    add_water=True,
+                    water_level=0,
+                    force_camera=False
+                )
+                st.plotly_chart(fig_anim, use_container_width=True)
+            
+            with result_tabs[3]:
+                # 침식률 맵
+                import matplotlib.pyplot as plt
+                
+                fig_maps, axes = plt.subplots(1, 2, figsize=(14, 5))
+                
+                im1 = axes[0].imshow(erosion_map, cmap='Reds', origin='lower')
+                axes[0].set_title("침식률 (m/year)")
+                plt.colorbar(im1, ax=axes[0])
+                
+                im2 = axes[1].imshow(drainage_map, cmap='Blues', origin='lower')
+                axes[1].set_title("유역면적 (log10)")
+                plt.colorbar(im2, ax=axes[1])
+                
+                plt.tight_layout()
+                st.pyplot(fig_maps)
+                plt.close(fig_maps)
+                
+                st.markdown("""
+                **해석:**
+                - **침식률**: 빨간색이 진할수록 침식이 빠른 곳 (하천)
+                - **유역면적**: 파란색이 진할수록 상류 집수 면적이 넓은 곳
+                """)
+            
+            # 토양두께 탭 (풍화 활성화 시에만)
+            if weathering_enabled and soil_map is not None:
+                with result_tabs[4]:
+                    st.markdown("### 🪨 토양 두께 및 풍화율")
+                    
+                    import matplotlib.pyplot as plt
+                    
+                    fig_soil, axes = plt.subplots(1, 2, figsize=(14, 5))
+                    
+                    im1 = axes[0].imshow(soil_map, cmap='YlOrBr', origin='lower')
+                    axes[0].set_title(f"토양 두께 (평균: {soil_map.mean():.3f}m)")
+                    plt.colorbar(im1, ax=axes[0], label='두께 (m)')
+                    
+                    im2 = axes[1].imshow(weathering_map, cmap='Greens', origin='lower')
+                    axes[1].set_title("풍화율 (m/year)")
+                    plt.colorbar(im2, ax=axes[1])
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig_soil)
+                    plt.close(fig_soil)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("평균 토양 두께", f"{soil_map.mean():.3f}m")
+                    col2.metric("최대 토양 두께", f"{soil_map.max():.3f}m")
+                    col3.metric("평균 풍화율", f"{weathering_map.mean():.6f} m/yr")
+                    
+                    st.markdown("""
+                    **해석:**
+                    - **토양 두께**: 갈색이 진할수록 토양층(레골리스)이 두꺼운 곳
+                    - **풍화율**: 녹색이 진할수록 기반암 → 토양 변환이 빠른 곳
+                    - 토양이 두꺼워지면 풍화율이 감소 (지수적 감소)
+                    """)
+        
         else:
+            # 결과 없을 때 안내 표시
             st.info("👈 왼쪽에서 파라미터를 설정하고 **시뮬레이션 실행** 버튼을 누르세요.")
             
             # 예시 이미지/설명
