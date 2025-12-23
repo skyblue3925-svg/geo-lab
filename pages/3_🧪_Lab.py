@@ -789,13 +789,15 @@ with tab3:
                 progress = (frame_idx + 1) / len(history)
                 st.progress(progress, text=f"⏱️ {current_time:,.0f}년 / {saved_total_time:,.0f}년")
                 
-                # 3D 지형 표시
+                # 3D 지형 표시 (하천 네트워크 포함)
                 fig_anim = render_terrain_plotly(
                     history[frame_idx],
                     f"지형 진화 ({current_time:,.0f}년)",
                     add_water=True,
                     water_level=0,
-                    force_camera=False
+                    force_camera=False,
+                    drainage_area=drainage_map,
+                    river_threshold_percentile=95
                 )
                 st.plotly_chart(fig_anim, use_container_width=True, key=f"anim_chart_{frame_idx}")
                 
