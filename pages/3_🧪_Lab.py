@@ -743,25 +743,87 @@ with tab3:
             
             with result_tabs[2]:
                 # 시간별 애니메이션
-                st.info("▶️ 슬라이더를 움직여 시간별 지형 변화를 확인하세요.")
+                st.markdown("### 🎬 지형 진화 애니메이션")
                 
+                col_ctrl1, col_ctrl2, col_ctrl3 = st.columns([1, 1, 1])
+                
+                with col_ctrl1:
+                    auto_play = st.checkbox("▶️ 자동 재생", value=False, key="lem_autoplay")
+                with col_ctrl2:
+                    play_speed = st.slider("재생 속도", 0.1, 2.0, 0.5, key="lem_speed")
+                with col_ctrl3:
+                    gen_gif = st.button("📥 GIF 생성", key="lem_gif_btn")
+                
+                # 프레임 슬라이더
                 frame_idx = st.slider(
                     "시간 프레임",
-                    0, len(history)-1, len(history)-1,
+                    0, len(history)-1, 
+                    st.session_state.get('lem_current_frame', len(history)-1),
                     key="lem_frame_slider"
                 )
                 
-                current_time = times[frame_idx]
-                st.markdown(f"**현재 시간: {current_time:,.0f}년**")
+                # 현재 프레임 저장
+                st.session_state['lem_current_frame'] = frame_idx
                 
+                current_time = times[frame_idx]
+                
+                # 프로그레스 바
+                progress = (frame_idx + 1) / len(history)
+                st.progress(progress, text=f"⏱️ {current_time:,.0f}년 / {saved_total_time:,.0f}년")
+                
+                # 3D 지형 표시
                 fig_anim = render_terrain_plotly(
                     history[frame_idx],
-                    f"지형 ({current_time:,.0f}년)",
+                    f"지형 진화 ({current_time:,.0f}년)",
                     add_water=True,
                     water_level=0,
                     force_camera=False
                 )
-                st.plotly_chart(fig_anim, use_container_width=True)
+                st.plotly_chart(fig_anim, use_container_width=True, key=f"anim_chart_{frame_idx}")
+                
+                # 자동 재생 (Streamlit 제한으로 rerun 사용)
+                if auto_play and frame_idx < len(history) - 1:
+                    import time
+                    time.sleep(play_speed)
+                    st.session_state['lem_current_frame'] = frame_idx + 1
+                    st.rerun()
+                elif auto_play and frame_idx >= len(history) - 1:
+                    st.session_state['lem_current_frame'] = 0  # 처음으로 돌아가기
+                    st.rerun()
+                
+                # GIF 생성
+                if gen_gif:
+                    with st.spinner("🎥 GIF 생성 중..."):
+                        try:
+                            import matplotlib.pyplot as plt
+                            from matplotlib import animation
+                            import io
+                            
+                            fig, ax = plt.subplots(figsize=(8, 6))
+                            
+                            def update(frame):
+                                ax.clear()
+                                ax.imshow(history[frame], cmap='terrain', origin='lower')
+                                ax.set_title(f"{times[frame]:,.0f}년")
+                                ax.axis('off')
+                            
+                            anim = animation.FuncAnimation(fig, update, frames=len(history), interval=200)
+                            
+                            # GIF 저장
+                            gif_path = "lem_animation.gif"
+                            anim.save(gif_path, writer='pillow', fps=5)
+                            plt.close(fig)
+                            
+                            with open(gif_path, 'rb') as f:
+                                st.download_button(
+                                    "📥 GIF 다운로드",
+                                    data=f.read(),
+                                    file_name="landform_evolution.gif",
+                                    mime="image/gif"
+                                )
+                            st.success("✅ GIF 생성 완료!")
+                        except Exception as e:
+                            st.error(f"GIF 생성 실패: {e}")
             
             with result_tabs[3]:
                 # 침식률 맵
