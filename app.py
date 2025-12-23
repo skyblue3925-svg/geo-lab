@@ -1,120 +1,170 @@
 """
 🌍 Geo-Lab AI - 홈
-HuggingFace Spaces Entry Point (Multi-Page Streamlit)
+Ultimate Hybrid UI (Apple + Scientific + Glassmorphism)
 """
 import streamlit as st
 
+# ========== Page Config ==========
 st.set_page_config(
     page_title="🌍 Geo-Lab AI",
     page_icon="🌍",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ========== 최상단: 제작자 정보 ==========
+# ========== CSS 로드 ==========
+def load_css():
+    """Ultimate Hybrid CSS 로드"""
+    css_path = "assets/style.css"
+    try:
+        with open(css_path, 'r', encoding='utf-8') as f:
+            css = f.read()
+        st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        pass
+
+load_css()
+
+# ========== 메인 헤더 ==========
 st.markdown("""
-<div style='background: linear-gradient(90deg, #1565C0, #42A5F5); padding: 12px 20px; border-radius: 10px; margin-bottom: 15px;'>
-    <div style='display: flex; justify-content: space-between; align-items: center; color: white;'>
-        <span style='font-size: 1.1rem;'>🌍 <b>Geo-Lab AI</b> - 이상적 지형 시뮬레이터</span>
-        <span style='font-size: 0.85rem;'>제작: 2025 한백고등학교 김한솔T</span>
-    </div>
+<div style='text-align: center; padding: 3rem 0 2rem 0;'>
+    <h1 style='font-size: 3.5rem; font-weight: 800; margin-bottom: 0.5rem; 
+               background: linear-gradient(135deg, #007AFF, #5AC8FA); 
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>
+        🌍 Geo-Lab AI
+    </h1>
+    <p style='font-size: 1.3rem; color: #86868b; font-weight: 400;'>
+        교사를 위한 지형 형성과정 시각화 도구
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
-st.title("🌍 Geo-Lab AI")
-st.subheader("_교사를 위한 지형 형성과정 시각화 도구_")
+# ========== 기능 카드 ==========
+st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
 
-st.markdown("---")
-
-# ========== 기능 소개 ==========
-col1, col2, col3 = st.columns(3)
+col1, col2, col3 = st.columns(3, gap="large")
 
 with col1:
     st.markdown("""
-    ### 📖 이상적 지형 갤러리
-    - 31종+ 교과서적 지형 모델
-    - 7개 카테고리 분류
-    - 2D/3D 시각화
-    
-    **👈 왼쪽 사이드바에서 페이지 선택**
-    """)
+    <div style='background: rgba(255,255,255,0.75); backdrop-filter: blur(20px);
+                border: 1px solid rgba(255,255,255,0.3); border-radius: 20px;
+                padding: 2rem; text-align: center; height: 280px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+                transition: all 0.3s ease;'>
+        <div style='font-size: 3rem; margin-bottom: 1rem;'>📖</div>
+        <h3 style='font-size: 1.3rem; font-weight: 600; margin-bottom: 0.75rem;'>이상적 지형 갤러리</h3>
+        <p style='color: #86868b; font-size: 0.95rem; line-height: 1.6;'>
+            36종+ 교과서적 지형 모델<br>
+            7개 카테고리 분류<br>
+            2D/3D 인터랙티브 시각화
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col2:
     st.markdown("""
-    ### 🎬 형성 과정 애니메이션
-    - 0% → 100% 슬라이더
-    - 실시간 지형 변화 관찰
-    - 물리 기반 시뮬레이션
-    """)
+    <div style='background: rgba(255,255,255,0.75); backdrop-filter: blur(20px);
+                border: 1px solid rgba(255,255,255,0.3); border-radius: 20px;
+                padding: 2rem; text-align: center; height: 280px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+                transition: all 0.3s ease;'>
+        <div style='font-size: 3rem; margin-bottom: 1rem;'>🎬</div>
+        <h3 style='font-size: 1.3rem; font-weight: 600; margin-bottom: 0.75rem;'>형성 과정 애니메이션</h3>
+        <p style='color: #86868b; font-size: 0.95rem; line-height: 1.6;'>
+            0% → 100% 슬라이더<br>
+            실시간 지형 변화 관찰<br>
+            물리 기반 시뮬레이션
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col3:
     st.markdown("""
-    ### 🌍 지형 시나리오
-    - 다중 이론 모델 비교
-    - 파라미터 조절
-    - 과학적 시뮬레이션
-    """)
+    <div style='background: rgba(255,255,255,0.75); backdrop-filter: blur(20px);
+                border: 1px solid rgba(255,255,255,0.3); border-radius: 20px;
+                padding: 2rem; text-align: center; height: 280px;
+                box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+                transition: all 0.3s ease;'>
+        <div style='font-size: 3rem; margin-bottom: 1rem;'>🧪</div>
+        <h3 style='font-size: 1.3rem; font-weight: 600; margin-bottom: 0.75rem;'>고급 시뮬레이션</h3>
+        <p style='color: #86868b; font-size: 0.95rem; line-height: 1.6;'>
+            18+ 지질학적 프로세스<br>
+            시나리오 기반 설정<br>
+            과학적 파라미터 조절
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown("---")
+# ========== 시작하기 ==========
+st.markdown("<div style='height: 2rem;'></div>", unsafe_allow_html=True)
 
-# ========== 사용법 ==========
-st.info("""
-### 💡 사용법
+st.markdown("""
+<div style='background: linear-gradient(135deg, rgba(0,122,255,0.1), rgba(90,200,250,0.1));
+            border-radius: 16px; padding: 2rem; text-align: center;
+            border: 1px solid rgba(0,122,255,0.2);'>
+    <h3 style='font-weight: 600; margin-bottom: 0.5rem;'>👈 시작하기</h3>
+    <p style='color: #86868b; margin: 0;'>왼쪽 사이드바에서 원하는 페이지를 선택하세요</p>
+</div>
+""", unsafe_allow_html=True)
 
-1. **왼쪽 사이드바**에서 원하는 페이지 선택
-2. **📖 이상적 지형 갤러리** - 교과서적 지형 확인
-3. **🌍 지형 시나리오** - 상세 시뮬레이션 실행
+# ========== 지원 지형 ==========
+st.markdown("<div style='height: 2rem;'></div>", unsafe_allow_html=True)
 
-> ⚠️ **각 페이지는 독립적으로 로드됩니다** - 페이지 이동 시 이전 3D가 해제되어 안정적으로 작동합니다.
-""")
-
-# ========== 지원 지형 목록 ==========
 with st.expander("📋 지원 지형 목록 (36종)", expanded=False):
     st.markdown("""
     | 카테고리 | 지형 |
     |----------|------|
-    | 🌊 하천 | 선상지, 자유곡류, 감입곡류, V자곡, 망상하천, 폭포 |
-    | 🔺 삼각주 | 일반, 조족상, 호상, 첨두상 |
-    | ❄️ 빙하 | U자곡, 권곡, 호른, 피오르드, 드럼린, 빙퇴석 |
-    | 🌋 화산 | 순상화산, 성층화산, 칼데라, 화구호, 용암대지 |
-    | 🦇 카르스트 | 돌리네, **우발라, 탑카르스트, 카렌** |
-    | 🏜️ 건조 | 바르한, **횡사구, 성사구**, 메사/뷰트 |
-    | 🏖️ 해안 | 해안절벽, 사취+석호, 육계사주, 리아스해안, 해식아치, 해안사구 |
+    | 🌊 **하천** | 선상지, 자유곡류, 감입곡류, V자곡, 망상하천, 폭포 |
+    | 🔺 **삼각주** | 일반, 조족상, 호상, 첨두상 |
+    | ❄️ **빙하** | U자곡, 권곡, 호른, 피오르드, 드럼린, 빙퇴석 |
+    | 🌋 **화산** | 순상화산, 성층화산, 칼데라, 화구호, 용암대지 |
+    | 🦇 **카르스트** | 돌리네, 우발라, 탑카르스트, 카렌 |
+    | 🏜️ **건조** | 바르한, 횡사구, 성사구, 메사/뷰트 |
+    | 🏖️ **해안** | 해안절벽, 사취+석호, 육계사주, 리아스해안 |
     """)
 
-# ========== 업데이트 내역 ==========
+# ========== 업데이트 ==========
 with st.expander("📋 업데이트 내역", expanded=False):
     st.markdown("""
-    **v4.3 (2025-12-14)** 🆕
-    - 새 지형 추가: 우발라, 탑카르스트, 카렌, 횡사구, 성사구
-    - 리아스 해안, 해식아치 개선
-    - 형성과정 애니메이션 개선 (폭포 두부침식, 피오르드 빙하→물)
+    **v5.0** (2025-12-23) 🆕
+    - Ultimate Hybrid UI 완전 개편
+    - Apple + Scientific + Glassmorphism 디자인
     
-    **v4.2 (2025-12-14)**
-    - Multi-Page 구조로 변경 (안정성 향상)
-    - WebGL 컨텍스트 관리 개선
-    
-    **v4.1 (2025-12-14)**
-    - 이상적 지형 갤러리 31종 추가
-    - 형성과정 애니메이션 기능
+    **v4.5** (2025-12-16)
+    - 18+ 지질학적 프로세스 LEM 구현
+    - 시나리오 기반 UI 추가
     """)
 
-st.markdown("---")
-st.caption("© 2025 한백고등학교 김한솔T | Geo-Lab AI")
+# ========== Footer ==========
+st.markdown("<div style='height: 3rem;'></div>", unsafe_allow_html=True)
+st.markdown("""
+<div style='text-align: center; padding: 1rem 0; border-top: 1px solid rgba(0,0,0,0.08);'>
+    <p style='color: #86868b; font-size: 0.85rem; margin: 0;'>
+        © 2025 한백고등학교 김한솔T | Geo-Lab AI
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-# ========== 사이드바 하단 정보 ==========
+# ========== 사이드바 ==========
+st.sidebar.markdown("""
+<div style='text-align: center; padding: 1rem 0;'>
+    <span style='font-size: 2rem;'>🌍</span>
+    <h2 style='font-size: 1.2rem; font-weight: 600; margin: 0.5rem 0 0 0;'>Geo-Lab AI</h2>
+    <p style='color: #86868b; font-size: 0.8rem; margin: 0;'>v5.0</p>
+</div>
+""", unsafe_allow_html=True)
+
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📊 방문자 통계")
 
-# 방문자 카운터 (Supabase DB 연동)
+# 방문자 카운터
 from datetime import datetime
 import json
 
 def get_visitor_count():
-    """Supabase에서 방문자 수 조회/업데이트 (경쟁 조건 수정)"""
+    """방문자 수 조회/업데이트"""
     today = datetime.now().strftime("%Y-%m-%d")
     
     try:
-        # Supabase 연결 시도
         if 'supabase' in st.secrets:
             from supabase import create_client
             
@@ -123,125 +173,46 @@ def get_visitor_count():
                 st.secrets["supabase"]["key"]
             )
             
-            # 새 방문자 카운트 (세션당 1회) - 먼저 증가 처리
             if 'visitor_counted' not in st.session_state:
                 st.session_state['visitor_counted'] = True
                 
-                # 오늘 데이터 확인
                 result = supabase.table("visitors").select("*").eq("date", today).execute()
                 
                 if result.data:
-                    # 기존 데이터 있으면 +1 업데이트 (SQL로 안전하게)
                     current_count = result.data[0]["count"]
                     supabase.table("visitors").update({"count": current_count + 1}).eq("date", today).execute()
                 else:
-                    # 새 날짜면 1로 시작
                     supabase.table("visitors").insert({"date": today, "count": 1}).execute()
             
-            # 증가 후 최신 데이터 조회
             today_result = supabase.table("visitors").select("count").eq("date", today).execute()
             today_count = today_result.data[0]["count"] if today_result.data else 0
             
-            # 총 방문자 (모든 날짜 합계)
             total_result = supabase.table("visitors").select("count").execute()
             total_count = sum(row["count"] for row in total_result.data)
             
             return {"today": today_count, "total": total_count}
         else:
-            # Supabase 미설정 시 로컬 fallback
-            return get_local_visitor_count()
-    except Exception as e:
-        # 오류 시 로컬 fallback
-        return get_local_visitor_count()
-
-def get_local_visitor_count():
-    """로컬 파일 기반 방문자 카운터 (fallback)"""
-    import os
-    
-    VISITOR_FILE = "visitor_count.json"
-    
-    def load_data():
-        if os.path.exists(VISITOR_FILE):
-            try:
-                with open(VISITOR_FILE, 'r') as f:
-                    return json.load(f)
-            except:
-                pass
-        return {"total": 0, "today": 0, "date": ""}
-    
-    def save_data(data):
-        try:
-            with open(VISITOR_FILE, 'w') as f:
-                json.dump(data, f)
-        except:
-            pass
-    
-    today = datetime.now().strftime("%Y-%m-%d")
-    
-    if 'visitor_counted' not in st.session_state:
-        st.session_state['visitor_counted'] = True
-        
-        visitor_data = load_data()
-        
-        if visitor_data["date"] != today:
-            visitor_data["date"] = today
-            visitor_data["today"] = 0
-        
-        visitor_data["total"] += 1
-        visitor_data["today"] += 1
-        
-        save_data(visitor_data)
-    else:
-        visitor_data = load_data()
-    
-    return {"today": visitor_data.get("today", 0), "total": visitor_data.get("total", 0)}
+            return {"today": 0, "total": 0}
+    except:
+        return {"today": 0, "total": 0}
 
 visitor_data = get_visitor_count()
-st.sidebar.metric("오늘 방문자", f"{visitor_data['today']}명")
-st.sidebar.metric("총 방문자", f"{visitor_data['total']}명")
+
+st.sidebar.markdown("### 📊 방문자")
+col_v1, col_v2 = st.sidebar.columns(2)
+col_v1.metric("오늘", f"{visitor_data['today']}")
+col_v2.metric("총", f"{visitor_data['total']}")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📋 업데이트 내역")
+
+st.sidebar.markdown("### 💬 피드백")
 st.sidebar.markdown("""
-**v4.5** (2025-12-16) 🆕
-- Phase 2 지형 메타데이터 완료 (20종)
-- 빙하 하얀색 시각화 추가
-- 칼데라호 명칭 정정
-
-**v4.4** (2025-12-15)
-- 다중 시점 카메라 (X/Y/Z축)
-- 지형 형성과정 정확도 개선
-
-**v4.3** (2025-12-14) 🎂 시작
-- 31종 이상적 지형 시뮬레이션
-- 형성 과정 애니메이션
+[📝 블로그 댓글](https://archiplex.tistory.com/7)
 """)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📖 사용 설명서")
-st.sidebar.markdown("""
-1. **📖 Gallery**: 지형 선택 → 2D/3D 보기
-2. **🎬 애니메이션**: 형성 단계 슬라이더
-3. **📐 시점 변경**: 드롭다운에서 각도 선택
-4. **🔬 Research**: 고급 분석 (개발중)
-""")
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 💬 문의 및 피드백")
-st.sidebar.markdown("""
-🔗 [티스토리 블로그](https://archiplex.tistory.com/7)
-
-버그 제보, 기능 요청, 수업 활용 사례 등  
-블로그 댓글로 남겨주세요!
-""")
-
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 👨‍🏫 제작자")
 st.sidebar.caption("""
-**2025 한백고등학교 김한솔T**  
-지리 교육용 지형 시뮬레이터
-
-📅 시작: 2025-12-14  
-© 2025 Geo-Lab AI
+**제작자**: 한백고 김한솔T  
+**시작**: 2025-12-14
 """)
-

@@ -17,10 +17,23 @@ from app.components.animation_renderer import create_animated_terrain_figure
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
 from engine.simple_lem import SimpleLEM, create_demo_simulation
 
+# ========== CSS 로드 ==========
+def load_css():
+    css_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "style.css")
+    if os.path.exists(css_path):
+        with open(css_path, 'r', encoding='utf-8') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+load_css()
 st.set_page_config(page_title="🧪 Lab Script", page_icon="🧪", layout="wide")
 
-st.header("🧪 Geo-Lab Script")
-st.markdown("_Python 코드로 직접 지형을 생성하고 조작합니다._")
+# ========== 헤더 ==========
+st.markdown("""
+<div style='margin-bottom: 1.5rem;'>
+    <h1 style='font-size: 2.2rem; font-weight: 700; margin-bottom: 0.25rem;'>🧪 Geo-Lab Script</h1>
+    <p style='color: #86868b; font-size: 1rem;'>Python 코드로 직접 지형을 생성하고 조작합니다.</p>
+</div>
+""", unsafe_allow_html=True)
 
 # 사이드바 설정
 st.sidebar.subheader("⚙️ 그리드 설정")

@@ -31,10 +31,23 @@ from engine.dem_io import (
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
 from app.components.renderer import render_terrain_plotly
 
+# ========== CSS 로드 ==========
+def load_css():
+    css_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "style.css")
+    if os.path.exists(css_path):
+        with open(css_path, 'r', encoding='utf-8') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+load_css()
 st.set_page_config(page_title="🔬 Research Lab", page_icon="🔬", layout="wide")
 
-st.header("🔬 Research Lab")
-st.markdown("_대학 연구자를 위한 고급 지형 분석 도구_")
+# ========== 헤더 ==========
+st.markdown("""
+<div style='margin-bottom: 1.5rem;'>
+    <h1 style='font-size: 2.2rem; font-weight: 700; margin-bottom: 0.25rem;'>🔬 Research Lab</h1>
+    <p style='color: #86868b; font-size: 1rem;'>대학 연구자를 위한 고급 지형 분석 도구</p>
+</div>
+""", unsafe_allow_html=True)
 
 # 세션 상태 초기화
 if 'research_elevation' not in st.session_state:

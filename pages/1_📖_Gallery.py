@@ -17,6 +17,15 @@ from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_
 from app.components.renderer import render_terrain_plotly
 from app.components.animation_renderer import create_animated_terrain_figure
 
+# ========== CSS 로드 ==========
+def load_css():
+    css_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "style.css")
+    if os.path.exists(css_path):
+        with open(css_path, 'r', encoding='utf-8') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+load_css()
+
 # ========== 시네마틱 영상 메타데이터 로드 ==========
 def load_cinematic_metadata():
     """시네마틱 영상 메타데이터를 로드합니다."""
@@ -28,8 +37,13 @@ def load_cinematic_metadata():
     except FileNotFoundError:
         return {"videos": []}
 
-st.header("📖 이상적 지형 갤러리")
-st.markdown("_교과서적인 지형 형태를 기하학적 모델로 시각화합니다._")
+# ========== 헤더 ==========
+st.markdown("""
+<div style='margin-bottom: 1.5rem;'>
+    <h1 style='font-size: 2.2rem; font-weight: 700; margin-bottom: 0.25rem;'>📖 이상적 지형 갤러리</h1>
+    <p style='color: #86868b; font-size: 1rem;'>교과서적인 지형 형태를 기하학적 모델로 시각화합니다.</p>
+</div>
+""", unsafe_allow_html=True)
 
 # ========== 메인 탭 구조 ==========
 main_tab1, main_tab2 = st.tabs(["🎮 3D 시뮬레이션", "🎬 시네마틱 영상"])

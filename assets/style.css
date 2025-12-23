@@ -1,0 +1,410 @@
+/* ================================================
+   GEO-LAB Ultimate Hybrid Design System
+   Apple + Scientific + Glassmorphism
+   ================================================ */
+
+/* Pretendard 폰트 임포트 */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+/* ================================================
+   CSS Variables (Design Tokens)
+   ================================================ */
+:root {
+    /* Primary Colors */
+    --primary: #007AFF;
+    --primary-hover: #0056CC;
+    --primary-light: #5AC8FA;
+    
+    /* Background */
+    --bg-main: #f5f5f7;
+    --bg-card: rgba(255, 255, 255, 0.75);
+    --bg-card-hover: rgba(255, 255, 255, 0.9);
+    --bg-sidebar: rgba(255, 255, 255, 0.6);
+    
+    /* Text */
+    --text-primary: #1d1d1f;
+    --text-secondary: #86868b;
+    --text-muted: #a1a1a6;
+    
+    /* Scientific Chart Colors */
+    --chart-blue: #0071e3;
+    --chart-green: #34c759;
+    --chart-red: #ff3b30;
+    --chart-orange: #ff9500;
+    --chart-purple: #af52de;
+    
+    /* Glassmorphism */
+    --glass-blur: 20px;
+    --glass-border: rgba(255, 255, 255, 0.3);
+    
+    /* Spacing */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+/* ================================================
+   Global Styles
+   ================================================ */
+html, body, [class*="css"] {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Main App Background */
+.stApp {
+    background: var(--bg-main) !important;
+}
+
+/* Main Content Area */
+.main .block-container {
+    padding: 2rem 3rem !important;
+    max-width: 1400px !important;
+}
+
+/* ================================================
+   Sidebar (Glassmorphism)
+   ================================================ */
+[data-testid="stSidebar"] {
+    background: var(--bg-sidebar) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+    border-right: 1px solid var(--glass-border) !important;
+}
+
+[data-testid="stSidebar"] > div {
+    background: transparent !important;
+    padding: 1.5rem 1rem !important;
+}
+
+/* Sidebar Navigation */
+[data-testid="stSidebarNav"] a {
+    border-radius: var(--radius-md) !important;
+    padding: 0.75rem 1rem !important;
+    margin: 0.25rem 0 !important;
+    transition: all 0.2s ease !important;
+}
+
+[data-testid="stSidebarNav"] a:hover {
+    background: rgba(0, 122, 255, 0.1) !important;
+}
+
+[data-testid="stSidebarNav"] a[aria-selected="true"] {
+    background: var(--primary) !important;
+    color: white !important;
+}
+
+/* ================================================
+   Headers & Typography
+   ================================================ */
+h1 {
+    font-size: 2.5rem !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.02em !important;
+    margin-bottom: 0.5rem !important;
+}
+
+h2 {
+    font-size: 1.75rem !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.01em !important;
+}
+
+h3 {
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+}
+
+p, span, div {
+    color: var(--text-primary) !important;
+    line-height: 1.6 !important;
+}
+
+/* ================================================
+   Buttons
+   ================================================ */
+.stButton > button {
+    background: var(--primary) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    transition: all 0.2s ease !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.stButton > button:hover {
+    background: var(--primary-hover) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+.stButton > button:active {
+    transform: translateY(0) !important;
+}
+
+/* Secondary Button */
+.stButton > button[kind="secondary"] {
+    background: white !important;
+    color: var(--primary) !important;
+    border: 1px solid var(--primary) !important;
+}
+
+/* ================================================
+   Inputs & Sliders
+   ================================================ */
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input,
+.stTextArea > div > div > textarea {
+    background: white !important;
+    border: 1px solid #e5e5e7 !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
+    transition: border-color 0.2s ease !important;
+}
+
+.stTextInput > div > div > input:focus,
+.stNumberInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1) !important;
+}
+
+/* Slider */
+.stSlider > div > div > div[role="slider"] {
+    background: var(--primary) !important;
+}
+
+.stSlider > div > div > div {
+    background: #e5e5e7 !important;
+}
+
+/* ================================================
+   Select Box
+   ================================================ */
+.stSelectbox > div > div {
+    background: white !important;
+    border: 1px solid #e5e5e7 !important;
+    border-radius: var(--radius-md) !important;
+}
+
+/* ================================================
+   Cards (Glassmorphism)
+   ================================================ */
+.stExpander {
+    background: var(--bg-card) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow-md) !important;
+    overflow: hidden !important;
+}
+
+.stExpander > div:first-child {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Metric Cards */
+[data-testid="metric-container"] {
+    background: var(--bg-card) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 1.25rem !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    color: var(--primary) !important;
+}
+
+/* ================================================
+   Tabs
+   ================================================ */
+.stTabs [data-baseweb="tab-list"] {
+    background: transparent !important;
+    gap: 0.5rem !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    background: rgba(255, 255, 255, 0.5) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.75rem 1.25rem !important;
+    font-weight: 500 !important;
+    border: 1px solid transparent !important;
+    transition: all 0.2s ease !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    background: rgba(255, 255, 255, 0.8) !important;
+}
+
+.stTabs [aria-selected="true"] {
+    background: white !important;
+    border: 1px solid var(--glass-border) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+/* ================================================
+   Data Displays (Scientific)
+   ================================================ */
+.stDataFrame {
+    border: 1px solid #e5e5e7 !important;
+    border-radius: var(--radius-md) !important;
+    overflow: hidden !important;
+}
+
+.stDataFrame th {
+    background: var(--bg-main) !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* ================================================
+   Charts Container
+   ================================================ */
+[data-testid="stPlotlyChart"],
+.stPlotlyChart {
+    background: var(--bg-card) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 1rem !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+/* ================================================
+   Info/Success/Warning/Error
+   ================================================ */
+.stAlert > div {
+    border-radius: var(--radius-md) !important;
+    border: none !important;
+}
+
+[data-testid="stNotification"] {
+    border-radius: var(--radius-md) !important;
+}
+
+/* Info */
+.stAlert[data-baseweb="notification"] > div[role="alert"] {
+    background: rgba(0, 122, 255, 0.1) !important;
+    color: var(--primary) !important;
+}
+
+/* ================================================
+   Progress Bar
+   ================================================ */
+.stProgress > div > div {
+    background: #e5e5e7 !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+.stProgress > div > div > div {
+    background: linear-gradient(90deg, var(--primary), var(--primary-light)) !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+/* ================================================
+   Checkbox & Radio
+   ================================================ */
+.stCheckbox > label > div:first-child {
+    border-radius: var(--radius-sm) !important;
+}
+
+.stCheckbox > label > div:first-child[data-checked="true"] {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
+/* ================================================
+   Markdown Content
+   ================================================ */
+.stMarkdown {
+    line-height: 1.7 !important;
+}
+
+.stMarkdown code {
+    background: rgba(0, 0, 0, 0.05) !important;
+    padding: 0.2rem 0.4rem !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 0.9em !important;
+}
+
+/* ================================================
+   Divider
+   ================================================ */
+hr {
+    border: none !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+    margin: 1.5rem 0 !important;
+}
+
+/* ================================================
+   Scrollbar (Apple Style)
+   ================================================ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* ================================================
+   Special: Glass Card Class
+   ================================================ */
+.glass-card {
+    background: var(--bg-card) !important;
+    backdrop-filter: blur(var(--glass-blur)) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 1.5rem !important;
+    box-shadow: var(--shadow-md) !important;
+    transition: all 0.3s ease !important;
+}
+
+.glass-card:hover {
+    background: var(--bg-card-hover) !important;
+    box-shadow: var(--shadow-lg) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* ================================================
+   Animation
+   ================================================ */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.stApp > div {
+    animation: fadeIn 0.3s ease-out;
+}

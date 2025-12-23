@@ -13,9 +13,23 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
 
+# ========== CSS 로드 ==========
+def load_css():
+    css_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "style.css")
+    if os.path.exists(css_path):
+        with open(css_path, 'r', encoding='utf-8') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+load_css()
 st.set_page_config(layout="wide")
-st.header("🗺️ 카테고리 전체 뷰")
-st.markdown("_각 카테고리의 모든 지형을 한눈에 비교합니다._")
+
+# ========== 헤더 ==========
+st.markdown("""
+<div style='margin-bottom: 1.5rem;'>
+    <h1 style='font-size: 2.2rem; font-weight: 700; margin-bottom: 0.25rem;'>🗺️ 카테고리 전체 뷰</h1>
+    <p style='color: #86868b; font-size: 1rem;'>각 카테고리의 모든 지형을 한눈에 비교합니다.</p>
+</div>
+""", unsafe_allow_html=True)
 
 # 카테고리 정의
 CATEGORIES = {
