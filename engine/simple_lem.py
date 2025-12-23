@@ -56,7 +56,32 @@ class SimpleLEM:
         enable_faulting: bool = False,  # 단층 활성화
         # 카르스트 파라미터
         Kk: float = 0.0001,        # 용해율
-        enable_karst: bool = False  # 카르스트 용해 활성화
+        enable_karst: bool = False,  # 카르스트 용해 활성화
+        # 바람 침식 파라미터 (사막 사구)
+        Ka: float = 0.0001,        # 바람 침식계수
+        wind_direction: float = 0.0, # 풍향 (라디안)
+        enable_aeolian: bool = False,  # 바람 침식 활성화
+        # 화산 파라미터
+        volcanic_rate: float = 0.01,  # 분출량 (m/year)
+        volcanic_position: tuple = (0.5, 0.5),  # 화구 위치
+        enable_volcanic: bool = False,  # 화산 활성화
+        # 지하수 파라미터
+        water_table: float = 50.0,  # 지하수면 고도 (m)
+        spring_rate: float = 0.001,  # 용천 침식률
+        enable_groundwater: bool = False,  # 지하수 활성화
+        # 동결파쇄 파라미터
+        Kf: float = 0.0005,        # 동결파쇄 계수
+        freeze_elevation: float = 300.0, # 동결 고도 (m)
+        enable_freeze_thaw: bool = False,  # 동결파쇄 활성화
+        # 생물 침식 파라미터
+        vegetation_factor: float = 0.5,  # 식생 보호 계수 (0-1)
+        enable_bioerosion: bool = False,  # 생물 침식 활성화
+        # 호수 파라미터
+        lake_threshold: float = 0.001,  # 호수 형성 임계값
+        enable_lake: bool = False,  # 호수 형성 활성화
+        # 빙하 퇴적 파라미터
+        moraine_rate: float = 0.3,  # 모레인 퇴적률
+        enable_glacial_deposit: bool = False  # 빙하 퇴적 활성화
     ):
         """
         Args:
@@ -119,6 +144,39 @@ class SimpleLEM:
         self.Kk = Kk
         self.enable_karst = enable_karst
         
+        # 바람 침식 파라미터
+        self.Ka = Ka
+        self.wind_direction = wind_direction
+        self.enable_aeolian = enable_aeolian
+        
+        # 화산 파라미터
+        self.volcanic_rate = volcanic_rate
+        self.volcanic_position = volcanic_position
+        self.enable_volcanic = enable_volcanic
+        
+        # 지하수 파라미터
+        self.water_table = water_table
+        self.spring_rate = spring_rate
+        self.enable_groundwater = enable_groundwater
+        
+        # 동결파쇄 파라미터
+        self.Kf = Kf
+        self.freeze_elevation = freeze_elevation
+        self.enable_freeze_thaw = enable_freeze_thaw
+        
+        # 생물 침식 파라미터
+        self.vegetation_factor = vegetation_factor
+        self.enable_bioerosion = enable_bioerosion
+        
+        # 호수 파라미터
+        self.lake_threshold = lake_threshold
+        self.enable_lake = enable_lake
+        self.lake_depth = np.zeros((grid_size, grid_size))  # 호수 수심
+        
+        # 빙하 퇴적 파라미터
+        self.moraine_rate = moraine_rate
+        self.enable_glacial_deposit = enable_glacial_deposit
+        
         # 그리드 초기화
         self.elevation = np.zeros((grid_size, grid_size))  # 전체 고도 (기반암 + 토양)
         self.bedrock = np.zeros((grid_size, grid_size))    # 기반암 고도
@@ -129,6 +187,8 @@ class SimpleLEM:
         self.glacial_erosion_rate = np.zeros((grid_size, grid_size))  # 빙하 침식률
         self.marine_erosion_rate = np.zeros((grid_size, grid_size))   # 해안 침식률
         self.landslide_rate = np.zeros((grid_size, grid_size))        # 산사태율
+        self.aeolian_rate = np.zeros((grid_size, grid_size))          # 바람 침식률
+        self.freeze_thaw_rate = np.zeros((grid_size, grid_size))      # 동결파쇄율
         self.drainage_area = np.ones((grid_size, grid_size))
         self.erosion_rate = np.zeros((grid_size, grid_size))
         self.weathering_rate = np.zeros((grid_size, grid_size))
@@ -581,6 +641,158 @@ class SimpleLEM:
         erosion_array[:, 0] = 0
         erosion_array[:, -1] = 0
     
+    def aeolian_erosion(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Aeolian Erosion (바람 침식) - 사막 사구 형성
+        바람에 의한 모래 이동 및 사구 형성
+        """
+        if not self.enable_aeolian:
+            return np.zeros_like(self.elevation)
+        
+        aeolian = np.zeros_like(self.elevation)
+        
+        # 풍향에 따른 침식/퇴적 패턴
+        # 바람이 부는 쪽(windward) 침식, 반대쪽(leeward) 퇴적
+        dx = int(np.cos(self.wind_direction) * 2)
+        dy = int(np.sin(self.wind_direction) * 2)
+        
+        for i in range(2, self.grid_size-2):
+            for j in range(2, self.grid_size-2):
+                # 풍상측 침식
+                aeolian[i, j] = self.Ka * self.soil_depth[i, j] * dt
+                
+                # 풍하측 퇴적 (이동된 물질)
+                ni, nj = i + dy, j + dx
+                if 0 < ni < self.grid_size-1 and 0 < nj < self.grid_size-1:
+                    aeolian[ni, nj] -= self.Ka * self.soil_depth[i, j] * dt * 0.8
+        
+        self._fix_boundary_erosion(aeolian)
+        self.aeolian_rate = np.abs(aeolian) / dt
+        return aeolian
+    
+    def volcanic_activity(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Volcanic Activity (화산 활동) - 용암류, 화산체 형성
+        화구에서 물질 분출 및 사면 흘러내림
+        """
+        if not self.enable_volcanic:
+            return np.zeros_like(self.elevation)
+        
+        volcanic = np.zeros_like(self.elevation)
+        
+        # 화구 위치
+        ci = int(self.volcanic_position[0] * self.grid_size)
+        cj = int(self.volcanic_position[1] * self.grid_size)
+        
+        # 화구 주변 융기 (원추형)
+        y, x = np.mgrid[0:self.grid_size, 0:self.grid_size]
+        dist = np.sqrt((y - ci)**2 + (x - cj)**2)
+        
+        # 분출물 분포 (거리에 반비례)
+        volcanic = self.volcanic_rate * np.exp(-dist / (self.grid_size * 0.1)) * dt
+        
+        self._fix_boundary_erosion(volcanic)
+        return volcanic
+    
+    def groundwater_erosion(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Groundwater Erosion (지하수 침식) - 용천, 파이핑
+        지하수면 부근에서 침식 증가
+        """
+        if not self.enable_groundwater:
+            return np.zeros_like(self.elevation)
+        
+        gw_erosion = np.zeros_like(self.elevation)
+        
+        # 지하수면 부근 (±5m) 침식 증가
+        near_water_table = np.abs(self.elevation - self.water_table) < 5.0
+        
+        gw_erosion = self.spring_rate * near_water_table * dt
+        
+        self._fix_boundary_erosion(gw_erosion)
+        return gw_erosion
+    
+    def freeze_thaw_weathering(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Freeze-thaw Weathering (동결파쇄) - 고산 풍화
+        동결 고도 이상에서 암석 파쇄
+        """
+        if not self.enable_freeze_thaw:
+            return np.zeros_like(self.elevation)
+        
+        freeze = np.zeros_like(self.elevation)
+        
+        # 동결 고도 이상
+        above_freeze = self.elevation > self.freeze_elevation
+        
+        # 동결파쇄: 고도가 높을수록 강함
+        excess_elev = np.maximum(0, self.elevation - self.freeze_elevation)
+        freeze = self.Kf * excess_elev * above_freeze * dt
+        
+        self._fix_boundary_erosion(freeze)
+        self.freeze_thaw_rate = freeze / dt
+        return freeze
+    
+    def apply_vegetation_protection(self, erosion: np.ndarray) -> np.ndarray:
+        """
+        Bioerosion/Vegetation (식생 보호) - 침식 감소
+        식생이 있는 곳에서 침식률 감소
+        """
+        if not self.enable_bioerosion:
+            return erosion
+        
+        # 식생 밀도: 중간 고도에서 최대 (0-300m 선형 증가, 300m 이상 감소)
+        veg_density = np.clip(1 - np.abs(self.elevation - 150) / 300, 0.1, 1.0)
+        
+        # 식생 보호 효과
+        protection = 1 - (self.vegetation_factor * veg_density)
+        
+        return erosion * protection
+    
+    def lake_formation(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Lake Formation (호수 형성) - 저지대 침수
+        배수가 막힌 저지대에 물이 고임
+        """
+        if not self.enable_lake:
+            return np.zeros_like(self.elevation)
+        
+        # 주변보다 낮은 지역 찾기 (sink)
+        from scipy import ndimage
+        local_min = ndimage.minimum_filter(self.elevation, size=5)
+        is_sink = (self.elevation == local_min) & (self.drainage_area > 10)
+        
+        # 호수 수심 업데이트
+        self.lake_depth += is_sink * self.lake_threshold * self.precipitation * dt
+        self.lake_depth = np.minimum(self.lake_depth, 50)  # 최대 50m
+        
+        # 호수 침식 (해안선 침식과 유사)
+        lake_erosion = np.zeros_like(self.elevation)
+        lake_edge = (self.lake_depth > 0) & (self.lake_depth < 5)
+        lake_erosion = lake_edge * 0.0001 * dt
+        
+        self._fix_boundary_erosion(lake_erosion)
+        return lake_erosion
+    
+    def glacial_deposition(self, glacial_erosion: np.ndarray, dt: float = 1.0) -> np.ndarray:
+        """
+        Glacial Deposition (빙하 퇴적) - 모레인, 드럼린
+        빙하가 녹으면 운반된 물질 퇴적
+        """
+        if not self.enable_glacial_deposit or not self.enable_glacial:
+            return np.zeros_like(self.elevation)
+        
+        deposition = np.zeros_like(self.elevation)
+        
+        # 빙하 가장자리 (ELA 근처) 퇴적
+        near_ela = np.abs(self.elevation - self.glacier_ela) < 20
+        
+        # 종단 모레인: 빙하 침식물의 일부가 ELA 부근에 퇴적
+        deposition = near_ela * glacial_erosion * self.moraine_rate
+        
+        self._fix_boundary_erosion(deposition)
+        return deposition
+    
     def step(self, dt: float = 100.0) -> Dict[str, float]:
         """
         한 시간 단계 진행
@@ -622,26 +834,48 @@ class SimpleLEM:
         # 11. 카르스트 용해 (Karst)
         karst = self.karst_dissolution(dt)
         
-        # 12. 지각 융기
+        # 12. 바람 침식 (Aeolian) - 사막 사구
+        aeolian = self.aeolian_erosion(dt)
+        
+        # 13. 화산 활동 (Volcanic) - 용암류
+        volcanic = self.volcanic_activity(dt)
+        
+        # 14. 지하수 침식 (Groundwater)
+        groundwater = self.groundwater_erosion(dt)
+        
+        # 15. 동결파쇄 (Freeze-thaw)
+        freeze_thaw = self.freeze_thaw_weathering(dt)
+        
+        # 16. 호수 형성 (Lake)
+        lake = self.lake_formation(dt)
+        
+        # 17. 빙하 퇴적 (Moraine)
+        moraine = self.glacial_deposition(glacial, dt)
+        
+        # 18. 지각 융기
         uplift = self.U * dt
         
-        # 13. 토양층 업데이트
+        # 19. 토양층 업데이트
         # 모든 침식 합산
-        total_erosion = erosion + lateral + glacial + marine + landslide + karst
+        total_erosion = erosion + lateral + glacial + marine + landslide + karst + aeolian + groundwater + freeze_thaw + lake
+        
+        # 식생 보호 효과 적용
+        total_erosion = self.apply_vegetation_protection(total_erosion)
+        
         soil_erosion = np.minimum(total_erosion, self.soil_depth)
         bedrock_erosion = total_erosion - soil_erosion
         
-        # 토양에 풍화 추가, 퇴적물 추가
-        self.soil_depth = self.soil_depth - soil_erosion + weathering + deposition
-        self.bedrock = self.bedrock - bedrock_erosion + uplift + fault_uplift
+        # 토양에 풍화 추가, 퇴적물 추가, 화산물질 추가, 모레인 추가
+        self.soil_depth = self.soil_depth - soil_erosion + weathering + deposition + moraine
+        self.bedrock = self.bedrock - bedrock_erosion + uplift + fault_uplift + volcanic
         
-        # 14. 전체 고도 업데이트
+        # 20. 전체 고도 업데이트
         self.elevation = self.bedrock + self.soil_depth + diffusion
         
-        # 15. 경계 조건 적용
+        # 21. 경계 조건 적용
         self._fix_boundaries()
         
-        # 16. 음수 방지
+        # 22. 음수 방지
         self.elevation = np.maximum(self.elevation, 0)
         self.soil_depth = np.maximum(self.soil_depth, 0)
         self.bedrock = np.maximum(self.bedrock, 0)
