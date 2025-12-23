@@ -277,18 +277,139 @@ with tab3:
     col_params, col_results = st.columns([1, 2])
     
     with col_params:
-        st.markdown("### ⚙️ 파라미터")
+        st.markdown("### 🎯 시나리오 선택")
         
-        # 초기 지형 선택
-        initial_topo = st.selectbox(
-            "초기 지형",
-            ["🏔️ 돔형 산지", "📐 경사면", "🗻 V자곡"],
-            key="lem_initial"
+        # 시나리오 프리셋
+        scenario = st.selectbox(
+            "시뮬레이션 시나리오",
+            [
+                "🏔️ 산지 형성 (융기+침식)",
+                "🏜️ 사막 지형 (바람침식)",
+                "❄️ 빙하 지형 (U자곡)",
+                "🌊 해안 지형 (해식애)",
+                "🌋 화산 지형 (성층화산)",
+                "🕳️ 카르스트 (돌리네)",
+                "⚙️ 자유 설정"
+            ],
+            key="lem_scenario"
         )
+        
+        # 시나리오별 프리셋 정의
+        SCENARIO_PRESETS = {
+            "🏔️ 산지 형성 (융기+침식)": {
+                "initial_topo": "돔형 산지",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": False, "enable_glacial": False,
+                "enable_marine": False, "enable_landslides": True,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": True, "enable_lake": False,
+                "enable_glacial_deposit": False
+            },
+            "🏜️ 사막 지형 (바람침식)": {
+                "initial_topo": "경사면",
+                "enable_weathering": True, "enable_sediment": False,
+                "enable_lateral": False, "enable_glacial": False,
+                "enable_marine": False, "enable_landslides": False,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": True, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": False, "enable_lake": False,
+                "enable_glacial_deposit": False
+            },
+            "❄️ 빙하 지형 (U자곡)": {
+                "initial_topo": "돔형 산지",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": False, "enable_glacial": True,
+                "enable_marine": False, "enable_landslides": False,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": True,
+                "enable_bioerosion": False, "enable_lake": True,
+                "enable_glacial_deposit": True
+            },
+            "🌊 해안 지형 (해식애)": {
+                "initial_topo": "경사면",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": False, "enable_glacial": False,
+                "enable_marine": True, "enable_landslides": True,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": True, "enable_lake": False,
+                "enable_glacial_deposit": False
+            },
+            "🌋 화산 지형 (성층화산)": {
+                "initial_topo": "경사면",
+                "enable_weathering": True, "enable_sediment": True,
+                "enable_lateral": True, "enable_glacial": False,
+                "enable_marine": False, "enable_landslides": True,
+                "enable_faulting": False, "enable_karst": False,
+                "enable_aeolian": False, "enable_volcanic": True,
+                "enable_groundwater": False, "enable_freeze_thaw": False,
+                "enable_bioerosion": True, "enable_lake": True,
+                "enable_glacial_deposit": False
+            },
+            "🕳️ 카르스트 (돌리네)": {
+                "initial_topo": "경사면",
+                "enable_weathering": True, "enable_sediment": False,
+                "enable_lateral": False, "enable_glacial": False,
+                "enable_marine": False, "enable_landslides": False,
+                "enable_faulting": False, "enable_karst": True,
+                "enable_aeolian": False, "enable_volcanic": False,
+                "enable_groundwater": True, "enable_freeze_thaw": False,
+                "enable_bioerosion": True, "enable_lake": True,
+                "enable_glacial_deposit": False
+            }
+        }
+        
+        # 모드 선택
+        advanced_mode = st.checkbox("⚙️ 고급 모드", value=False, help="모든 파라미터 직접 설정")
         
         st.markdown("---")
         
-        # 침식 파라미터
+        # 시나리오 프리셋 적용 (자유 설정 아닌 경우)
+        if scenario != "⚙️ 자유 설정" and scenario in SCENARIO_PRESETS:
+            preset = SCENARIO_PRESETS[scenario]
+            # 프리셋에서 값 가져오기
+            initial_topo_name = preset["initial_topo"]
+            if initial_topo_name == "돔형 산지":
+                initial_topo = "🏔️ 돔형 산지"
+            elif initial_topo_name == "경사면":
+                initial_topo = "📐 경사면"
+            else:
+                initial_topo = "🗻 V자곡"
+            
+            # 프리셋 플래그
+            enable_weathering = preset["enable_weathering"]
+            enable_sediment = preset["enable_sediment"]
+            enable_lateral = preset["enable_lateral"]
+            enable_glacial = preset["enable_glacial"]
+            enable_marine = preset["enable_marine"]
+            enable_landslides = preset["enable_landslides"]
+            enable_faulting = preset["enable_faulting"]
+            enable_karst = preset["enable_karst"]
+            enable_aeolian = preset["enable_aeolian"]
+            enable_volcanic = preset["enable_volcanic"]
+            enable_groundwater = preset["enable_groundwater"]
+            enable_freeze_thaw = preset["enable_freeze_thaw"]
+            enable_bioerosion = preset["enable_bioerosion"]
+            enable_lake = preset["enable_lake"]
+            enable_glacial_deposit = preset["enable_glacial_deposit"]
+            
+            st.info(f"📍 **{scenario}** 시나리오 적용됨")
+        else:
+            # 자유 설정: 초기 지형 선택
+            initial_topo = st.selectbox(
+                "초기 지형",
+                ["🏔️ 돔형 산지", "📐 경사면", "🗻 V자곡"],
+                key="lem_initial_free"
+            )
+        
+        # 핵심 파라미터 (기본 모드에서도 표시)
+        st.markdown("**📊 핵심 파라미터**")
+        
         K = st.slider(
             "침식계수 (K)",
             min_value=0.00001,
@@ -296,7 +417,7 @@ with tab3:
             value=0.0001,
             step=0.00001,
             format="%.5f",
-            help="높을수록 침식이 빠름 (암석 저항성 역수)"
+            help="높을수록 침식이 빠름"
         )
         
         D = st.slider(
@@ -319,7 +440,10 @@ with tab3:
             help="지각 융기 속도 (m/year)"
         )
         
-        st.markdown("**🪨 풍화 설정**")
+        # 고급 모드: 상세 파라미터 표시
+        if advanced_mode or scenario == "⚙️ 자유 설정":
+            with st.expander("🔧 상세 프로세스 설정", expanded=True):
+                st.markdown("**🪨 풍화 설정**")
         
         enable_weathering = st.checkbox("풍화 활성화", value=True, help="기반암 → 토양 변환 과정")
         
