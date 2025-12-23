@@ -362,6 +362,55 @@ with tab3:
             disabled=not enable_lateral
         )
         
+        st.markdown("**❄️ 빙하 침식**")
+        
+        enable_glacial = st.checkbox("빙하 침식 활성화", value=False, help="U자곡 형성")
+        
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            Kg = st.number_input("빙하 침식계수 (Kg)", value=0.0001, format="%.4f", disabled=not enable_glacial)
+        with col_g2:
+            glacier_ela = st.number_input("평형선 고도 (ELA)", value=200.0, step=50.0, disabled=not enable_glacial)
+        
+        st.markdown("**🌊 해안 침식**")
+        
+        enable_marine = st.checkbox("해안 침식 활성화", value=False, help="해식애/파식대 형성")
+        
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            Km = st.number_input("해안 침식계수 (Km)", value=0.001, format="%.4f", disabled=not enable_marine)
+        with col_m2:
+            sea_level = st.number_input("해수면 고도 (m)", value=0.0, step=10.0, disabled=not enable_marine)
+        
+        st.markdown("**⛰️ 산사태**")
+        
+        enable_landslides = st.checkbox("산사태 활성화", value=False, help="급경사면 붕괴")
+        
+        critical_slope = st.slider(
+            "임계 경사 (rad)",
+            min_value=0.3,
+            max_value=1.0,
+            value=0.6,
+            step=0.05,
+            disabled=not enable_landslides
+        )
+        
+        st.markdown("**🔀 단층 운동**")
+        
+        enable_faulting = st.checkbox("단층 활성화", value=False, help="단층 변위/단층애")
+        
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            fault_rate = st.number_input("변위율 (m/yr)", value=0.001, format="%.4f", disabled=not enable_faulting)
+        with col_f2:
+            fault_position = st.slider("단층 위치", 0.1, 0.9, 0.5, disabled=not enable_faulting)
+        
+        st.markdown("**🕳️ 카르스트**")
+        
+        enable_karst = st.checkbox("카르스트 활성화", value=False, help="석회암 용해/돌리네")
+        
+        Kk = st.number_input("용해율 (Kk)", value=0.0001, format="%.4f", disabled=not enable_karst)
+        
         st.markdown("---")
         
         # 시간 설정
@@ -396,7 +445,13 @@ with tab3:
                         K=K, D=D, U=U,
                         W0=W0, enable_weathering=enable_weathering,
                         Vs=Vs, enable_sediment_transport=enable_sediment,
-                        Kl=Kl, enable_lateral_erosion=enable_lateral
+                        Kl=Kl, enable_lateral_erosion=enable_lateral,
+                        # 고급 기능
+                        Kg=Kg, glacier_ela=glacier_ela, enable_glacial=enable_glacial,
+                        Km=Km, sea_level=sea_level, enable_marine=enable_marine,
+                        critical_slope=critical_slope, enable_landslides=enable_landslides,
+                        fault_rate=fault_rate, fault_position=fault_position, enable_faulting=enable_faulting,
+                        Kk=Kk, enable_karst=enable_karst
                     )
                     
                     # 초기 지형 생성
