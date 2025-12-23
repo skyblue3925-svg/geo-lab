@@ -13,6 +13,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
 
+# ========== Page Config (무조건 첫 번째!) ==========
+st.set_page_config(layout="wide")
+
 # ========== CSS 로드 ==========
 def load_css():
     css_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "style.css")
@@ -21,7 +24,6 @@ def load_css():
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 load_css()
-st.set_page_config(layout="wide")
 
 # ========== 헤더 ==========
 st.markdown("""
