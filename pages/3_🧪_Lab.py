@@ -721,15 +721,18 @@ with tab3:
                 result_tabs = st.tabs(["🗺️ 최종 지형", "📊 비교", "🎬 애니메이션", "📈 침식률"])
             
             with result_tabs[0]:
-                # 최종 지형 3D
+                # 최종 지형 3D (하천 네트워크 포함)
                 fig_final = render_terrain_plotly(
                     history[-1],
                     f"최종 지형 ({saved_total_time:,}년 후)",
                     add_water=True,
                     water_level=0,
-                    force_camera=False
+                    force_camera=False,
+                    drainage_area=drainage_map,
+                    river_threshold_percentile=95  # 상위 5% 배수면적 = 하천
                 )
                 st.plotly_chart(fig_final, use_container_width=True)
+                st.caption("🌊 파란 점 = 하천 네트워크 (배수면적 상위 5%)")
             
             with result_tabs[1]:
                 # 초기 vs 최종 비교

@@ -14,7 +14,8 @@ except ImportError:
 def render_terrain_plotly(elevation, title, add_water=True, water_level=0, 
                           texture_path=None, force_camera=True, 
                           water_depth_grid=None, sediment_grid=None, 
-                          landform_type=None, detailed_type=None):
+                          landform_type=None, detailed_type=None,
+                          drainage_area=None, river_threshold_percentile=95):
     """Plotly 인터랙티브 3D Surface - 사실적 텍스처(Biome) 적용
     
     Args:
@@ -168,6 +169,42 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
             lighting=dict(ambient=0.6, diffuse=0.6, specular=0.5)
         )
         data.append(trace_water)
+    
+    # ========== 하천 네트워크 (River Network) ==========
+    if drainage_area is not None:
+        # 임계값 이상인 셀을 하천으로 표시
+        threshold = np.percentile(drainage_area, river_threshold_percentile)
+        river_mask = drainage_area >= threshold
+        
+        if np.any(river_mask):
+            # 하천 포인트 추출
+            river_y, river_x = np.where(river_mask)
+            river_z = elevation[river_mask] + 0.5  # 약간 위에 표시
+            
+            # 배수면적에 따른 하천 크기 (로그 스케일)
+            river_sizes = np.log10(drainage_area[river_mask] + 1)
+            river_sizes = (river_sizes / river_sizes.max()) * 8 + 2  # 2~10 범위
+            
+            # 배수면적에 따른 색상 (옅은 파랑 -> 진한 파랑)
+            river_colors = drainage_area[river_mask]
+            
+            trace_river = go.Scatter3d(
+                x=river_x,
+                y=river_y,
+                z=river_z,
+                mode='markers',
+                marker=dict(
+                    size=river_sizes,
+                    color=river_colors,
+                    colorscale='Blues',
+                    opacity=0.8,
+                    symbol='circle',
+                    line=dict(width=0)
+                ),
+                name='🌊 하천',
+                hovertemplate='<b>하천</b><br>배수면적: %{marker.color:.0f}<extra></extra>'
+            )
+            data.append(trace_river)
     
     # 지형 유형별 Z축 스케일 (aspect ratio) 설정
     z_scales = {
