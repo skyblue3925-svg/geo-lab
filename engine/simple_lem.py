@@ -32,7 +32,10 @@ class SimpleLEM:
         # 풍화 파라미터
         W0: float = 0.001,         # 최대 풍화율 (m/year)
         H_star: float = 1.0,       # 특성 토양 깊이 (m)
-        enable_weathering: bool = True  # 풍화 활성화 여부
+        enable_weathering: bool = True,  # 풍화 활성화 여부
+        # 퇴적물 운반 파라미터
+        Vs: float = 1.0,           # 퇴적 속도 (settling velocity, m/year)
+        enable_sediment_transport: bool = True  # 퇴적물 운반 활성화
     ):
         """
         Args:
@@ -47,6 +50,8 @@ class SimpleLEM:
             W0: 최대 풍화율 - 토양이 없을 때 기반암 풍화 속도
             H_star: 특성 토양 깊이 - 풍화가 e^-1로 감소하는 깊이
             enable_weathering: 풍화 과정 활성화 여부
+            Vs: 퇴적 속도 - 높을수록 퇴적물이 빨리 가라앉음
+            enable_sediment_transport: 퇴적물 운반/퇴적 과정 활성화
         """
         self.grid_size = grid_size
         self.cell_size = cell_size
@@ -62,10 +67,16 @@ class SimpleLEM:
         self.H_star = H_star
         self.enable_weathering = enable_weathering
         
+        # 퇴적물 운반 파라미터
+        self.Vs = Vs
+        self.enable_sediment_transport = enable_sediment_transport
+        
         # 그리드 초기화
         self.elevation = np.zeros((grid_size, grid_size))  # 전체 고도 (기반암 + 토양)
         self.bedrock = np.zeros((grid_size, grid_size))    # 기반암 고도
         self.soil_depth = np.zeros((grid_size, grid_size)) # 토양(레골리스) 두께
+        self.sediment_flux = np.zeros((grid_size, grid_size))  # 퇴적물 플럭스
+        self.deposition_rate = np.zeros((grid_size, grid_size)) # 퇴적률
         self.drainage_area = np.ones((grid_size, grid_size))
         self.erosion_rate = np.zeros((grid_size, grid_size))
         self.weathering_rate = np.zeros((grid_size, grid_size))
@@ -274,6 +285,82 @@ class SimpleLEM:
         self.weathering_rate = weathering / dt
         return weathering
     
+    def sediment_transport(self, erosion: np.ndarray, dt: float = 1.0) -> np.ndarray:
+        """
+        Sediment Transport (퇴적물 운반 및 퇴적)
+        
+        침식된 토양이 하류로 운반되고, 경사가 완만한 곳에서 퇴적된다.
+        Davy & Lague (2009) 간소화 모델 기반
+        
+        Args:
+            erosion: 현재 스텝의 침식량 (m)
+            dt: 시간 간격 (년)
+        Returns: 퇴적량 배열 (m)
+        """
+        if not self.enable_sediment_transport:
+            return np.zeros_like(self.elevation)
+        
+        slope = self.calculate_slope()
+        
+        # 운반 용량: Tc = k * Q * S (유량 × 경사에 비례)
+        Q = self.drainage_area * self.precipitation * self.cell_size**2
+        transport_capacity = self.K * (Q ** self.m) * (slope ** self.n)
+        
+        # 퇴적물 플럭스 계산 (간단한 근사)
+        # 침식된 물질이 하류 방향으로 누적
+        sediment = np.zeros_like(self.elevation)
+        
+        # 고도 순서대로 정렬 (높은 곳부터)
+        sorted_indices = np.argsort(self.elevation.ravel())[::-1]
+        
+        for idx in sorted_indices:
+            i, j = divmod(idx, self.grid_size)
+            if i == 0 or i == self.grid_size-1 or j == 0 or j == self.grid_size-1:
+                continue
+            
+            # 현재 셀의 침식량 + 상류에서 온 퇴적물
+            local_sediment = erosion[i, j] + sediment[i, j]
+            
+            # 운반 용량과 비교
+            if local_sediment > transport_capacity[i, j] * dt:
+                # 운반 용량 초과 → 퇴적
+                deposition = (local_sediment - transport_capacity[i, j] * dt)
+                local_sediment -= deposition
+            else:
+                deposition = 0
+            
+            # 가장 낮은 이웃에 퇴적물 전달
+            neighbors = [
+                (i-1, j), (i+1, j), (i, j-1), (i, j+1)
+            ]
+            
+            min_elev = self.elevation[i, j]
+            min_neighbor = None
+            
+            for ni, nj in neighbors:
+                if 0 <= ni < self.grid_size and 0 <= nj < self.grid_size:
+                    if self.elevation[ni, nj] < min_elev:
+                        min_elev = self.elevation[ni, nj]
+                        min_neighbor = (ni, nj)
+            
+            # 하류로 퇴적물 전달
+            if min_neighbor is not None:
+                sediment[min_neighbor] += local_sediment
+        
+        # 경계에서 퇴적물 제거 (바다로 유출)
+        sediment[0, :] = 0
+        sediment[-1, :] = 0
+        sediment[:, 0] = 0
+        sediment[:, -1] = 0
+        
+        # 퇴적률 계산: 경사가 완만할수록 퇴적 증가
+        deposition = self.Vs * sediment * np.exp(-slope * 10) * dt
+        deposition = np.minimum(deposition, sediment)  # 퇴적물보다 더 많이 퇴적 불가
+        
+        self.sediment_flux = sediment
+        self.deposition_rate = deposition / dt
+        
+        return deposition
     
     def step(self, dt: float = 100.0) -> Dict[str, float]:
         """
@@ -295,24 +382,28 @@ class SimpleLEM:
         # 4. 풍화 (Weathering) - 기반암 → 토양 변환
         weathering = self.exponential_weathering(dt)
         
-        # 5. 지각 융기
+        # 5. 퇴적물 운반 및 퇴적
+        deposition = self.sediment_transport(erosion, dt)
+        
+        # 6. 지각 융기
         uplift = self.U * dt
         
-        # 6. 토양층 업데이트
+        # 7. 토양층 업데이트
         # 침식은 먼저 토양에서 제거, 토양이 없으면 기반암 침식
         soil_erosion = np.minimum(erosion, self.soil_depth)
         bedrock_erosion = erosion - soil_erosion
         
-        self.soil_depth = self.soil_depth - soil_erosion + weathering
+        # 토양에 풍화 추가, 퇴적물 추가
+        self.soil_depth = self.soil_depth - soil_erosion + weathering + deposition
         self.bedrock = self.bedrock - bedrock_erosion + uplift
         
-        # 7. 전체 고도 업데이트
+        # 8. 전체 고도 업데이트
         self.elevation = self.bedrock + self.soil_depth + diffusion
         
-        # 8. 경계 조건 적용
+        # 9. 경계 조건 적용
         self._fix_boundaries()
         
-        # 9. 음수 방지
+        # 10. 음수 방지
         self.elevation = np.maximum(self.elevation, 0)
         self.soil_depth = np.maximum(self.soil_depth, 0)
         self.bedrock = np.maximum(self.bedrock, 0)
@@ -324,8 +415,10 @@ class SimpleLEM:
             'mean_erosion_rate': float(self.erosion_rate.mean()),
             'max_erosion_rate': float(self.erosion_rate.max()),
             'mean_weathering_rate': float(self.weathering_rate.mean()),
+            'mean_deposition_rate': float(self.deposition_rate.mean()),
             'mean_soil_depth': float(self.soil_depth.mean()),
             'total_erosion': float(erosion.sum()),
+            'total_deposition': float(deposition.sum()),
             'total_weathering': float(weathering.sum()),
             'total_uplift': float(uplift * self.grid_size**2)
         }
@@ -391,6 +484,14 @@ class SimpleLEM:
     def get_bedrock_map(self) -> np.ndarray:
         """기반암 고도 맵 반환"""
         return self.bedrock
+    
+    def get_sediment_flux_map(self) -> np.ndarray:
+        """퇴적물 플럭스 맵 반환"""
+        return self.sediment_flux
+    
+    def get_deposition_map(self) -> np.ndarray:
+        """퇴적률 맵 반환"""
+        return self.deposition_rate
 
 
 def create_demo_simulation(
