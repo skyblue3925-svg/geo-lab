@@ -15,6 +15,7 @@ from engine.script_engine import ScriptExecutor
 from app.components.renderer import render_terrain_plotly
 from app.components.animation_renderer import create_animated_terrain_figure
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
+from engine.simple_lem import SimpleLEM, create_demo_simulation
 
 st.set_page_config(page_title="🧪 Lab Script", page_icon="🧪", layout="wide")
 
@@ -25,8 +26,9 @@ st.markdown("_Python 코드로 직접 지형을 생성하고 조작합니다._")
 st.sidebar.subheader("⚙️ 그리드 설정")
 grid_size = st.sidebar.slider("그리드 크기", 50, 200, 100)
 
-# 탭 구성
-tab1, tab2, tab3 = st.tabs(["📝 코드 편집", "📚 예제 코드", "📖 도움말"])
+# 탭 구성 (침식 시뮬레이션 추가)
+tab1, tab2, tab3, tab4 = st.tabs(["📝 코드 편집", "📚 예제 코드", "🌊 침식 시뮬레이션", "📖 도움말"])
+
 
 with tab1:
     st.subheader("📝 코드 편집기")
@@ -246,7 +248,251 @@ elevation = landform_func(grid_size={load_size}, stage={load_stage})
     4. `water_depth`로 물 표시
     """)
 
+# ========== 침식 시뮬레이션 탭 ==========
 with tab3:
+    st.subheader("🌊 침식 시뮬레이션 (LEM)")
+    st.markdown("_Stream Power Law + Hillslope Diffusion 기반 지형 발달 모형_")
+    
+    # 설명
+    with st.expander("📚 물리 법칙 설명", expanded=False):
+        st.markdown("""
+        ### Stream Power Law (하천 침식)
+        ```
+        E = K × A^m × S^n
+        ```
+        - **E**: 침식률 (m/year)
+        - **K**: 침식계수 - 암석 저항성의 역수
+        - **A**: 상류 유역면적 (m²)
+        - **S**: 경사 (m/m)
+        - **m** ≈ 0.5, **n** ≈ 1.0
+
+        ### Hillslope Diffusion (사면 확산)
+        ```
+        ∂z/∂t = D × ∇²z
+        ```
+        - 시간이 지나면서 사면이 완만해지는 과정
+        - **D**: 확산계수 (m²/year)
+        """)
+    
+    col_params, col_results = st.columns([1, 2])
+    
+    with col_params:
+        st.markdown("### ⚙️ 파라미터")
+        
+        # 초기 지형 선택
+        initial_topo = st.selectbox(
+            "초기 지형",
+            ["🏔️ 돔형 산지", "📐 경사면", "🗻 V자곡"],
+            key="lem_initial"
+        )
+        
+        st.markdown("---")
+        
+        # 침식 파라미터
+        K = st.slider(
+            "침식계수 (K)",
+            min_value=0.00001,
+            max_value=0.001,
+            value=0.0001,
+            step=0.00001,
+            format="%.5f",
+            help="높을수록 침식이 빠름 (암석 저항성 역수)"
+        )
+        
+        D = st.slider(
+            "확산계수 (D)",
+            min_value=0.001,
+            max_value=0.1,
+            value=0.01,
+            step=0.001,
+            format="%.3f",
+            help="높을수록 사면 평탄화가 빠름"
+        )
+        
+        U = st.slider(
+            "융기율 (U)",
+            min_value=0.0,
+            max_value=0.001,
+            value=0.0003,
+            step=0.0001,
+            format="%.4f",
+            help="지각 융기 속도 (m/year)"
+        )
+        
+        st.markdown("---")
+        
+        # 시간 설정
+        total_time = st.slider(
+            "시뮬레이션 시간 (년)",
+            min_value=10000,
+            max_value=500000,
+            value=50000,
+            step=10000,
+            format="%d"
+        )
+        
+        lem_grid_size = st.slider(
+            "해상도",
+            min_value=50,
+            max_value=150,
+            value=80,
+            step=10,
+            key="lem_grid"
+        )
+        
+        run_lem = st.button("▶️ 시뮬레이션 실행", type="primary", use_container_width=True)
+    
+    with col_results:
+        if run_lem:
+            with st.spinner("🌊 침식 시뮬레이션 실행 중..."):
+                try:
+                    # LEM 객체 생성
+                    lem = SimpleLEM(
+                        grid_size=lem_grid_size,
+                        K=K, D=D, U=U
+                    )
+                    
+                    # 초기 지형 생성
+                    if initial_topo == "🏔️ 돔형 산지":
+                        lem.create_initial_mountain(peak_height=300.0, noise_amp=5.0)
+                    elif initial_topo == "📐 경사면":
+                        lem.create_inclined_surface(slope=0.02, noise_amp=3.0)
+                    else:  # V자곡
+                        from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
+                        if 'v_valley' in IDEAL_LANDFORM_GENERATORS:
+                            initial_elev = IDEAL_LANDFORM_GENERATORS['v_valley'](lem_grid_size)
+                            lem.set_initial_topography(initial_elev)
+                        else:
+                            lem.create_initial_mountain(peak_height=300.0, noise_amp=5.0)
+                    
+                    # 초기 상태 저장
+                    initial_elevation = lem.elevation.copy()
+                    
+                    # 시뮬레이션 실행
+                    history, times = lem.run(
+                        total_time=total_time,
+                        dt=100.0,
+                        save_interval=max(1, int(total_time / 100 / 20)),
+                        verbose=False
+                    )
+                    
+                    st.success(f"✅ 시뮬레이션 완료! ({len(history)}개 프레임)")
+                    
+                    # 결과 표시
+                    result_tabs = st.tabs(["🗺️ 최종 지형", "📊 비교", "🎬 애니메이션", "📈 침식률"])
+                    
+                    with result_tabs[0]:
+                        # 최종 지형 3D
+                        fig_final = render_terrain_plotly(
+                            history[-1],
+                            f"최종 지형 ({total_time:,}년 후)",
+                            add_water=True,
+                            water_level=0,
+                            force_camera=False
+                        )
+                        st.plotly_chart(fig_final, use_container_width=True)
+                    
+                    with result_tabs[1]:
+                        # 초기 vs 최종 비교
+                        import matplotlib.pyplot as plt
+                        
+                        fig_compare, axes = plt.subplots(1, 2, figsize=(14, 5))
+                        
+                        im1 = axes[0].imshow(initial_elevation, cmap='terrain', origin='lower')
+                        axes[0].set_title("초기 지형")
+                        plt.colorbar(im1, ax=axes[0], label='고도 (m)')
+                        
+                        im2 = axes[1].imshow(history[-1], cmap='terrain', origin='lower')
+                        axes[1].set_title(f"최종 지형 ({total_time:,}년 후)")
+                        plt.colorbar(im2, ax=axes[1], label='고도 (m)')
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig_compare)
+                        plt.close(fig_compare)
+                        
+                        # 변화량
+                        col_m1, col_m2, col_m3 = st.columns(3)
+                        elev_change = history[-1] - initial_elevation
+                        col_m1.metric("최대 침식", f"{-elev_change.min():.1f}m")
+                        col_m2.metric("최대 융기/퇴적", f"{elev_change.max():.1f}m")
+                        col_m3.metric("평균 고도 변화", f"{elev_change.mean():.1f}m")
+                    
+                    with result_tabs[2]:
+                        # 시간별 애니메이션
+                        import plotly.graph_objects as go
+                        
+                        st.info("▶️ 슬라이더를 움직여 시간별 지형 변화를 확인하세요.")
+                        
+                        frame_idx = st.slider(
+                            "시간",
+                            0, len(history)-1, len(history)-1,
+                            format=f"%.0f"
+                        )
+                        
+                        current_time = times[frame_idx]
+                        st.markdown(f"**현재 시간: {current_time:,.0f}년**")
+                        
+                        fig_anim = render_terrain_plotly(
+                            history[frame_idx],
+                            f"지형 ({current_time:,.0f}년)",
+                            add_water=True,
+                            water_level=0,
+                            force_camera=False
+                        )
+                        st.plotly_chart(fig_anim, use_container_width=True)
+                    
+                    with result_tabs[3]:
+                        # 침식률 맵
+                        erosion_map = lem.get_erosion_map()
+                        drainage_map = lem.get_drainage_map()
+                        
+                        fig_maps, axes = plt.subplots(1, 2, figsize=(14, 5))
+                        
+                        im1 = axes[0].imshow(erosion_map, cmap='Reds', origin='lower')
+                        axes[0].set_title("침식률 (m/year)")
+                        plt.colorbar(im1, ax=axes[0])
+                        
+                        im2 = axes[1].imshow(drainage_map, cmap='Blues', origin='lower')
+                        axes[1].set_title("유역면적 (log10)")
+                        plt.colorbar(im2, ax=axes[1])
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig_maps)
+                        plt.close(fig_maps)
+                        
+                        st.markdown("""
+                        **해석:**
+                        - **침식률**: 빨간색이 진할수록 침식이 빠른 곳 (하천)
+                        - **유역면적**: 파란색이 진할수록 상류 집수 면적이 넓은 곳
+                        """)
+                
+                except Exception as e:
+                    st.error(f"❌ 오류: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
+        else:
+            st.info("👈 왼쪽에서 파라미터를 설정하고 **시뮬레이션 실행** 버튼을 누르세요.")
+            
+            # 예시 이미지/설명
+            st.markdown("""
+            ### 🔬 이 시뮬레이션으로 할 수 있는 것
+            
+            1. **침식계수(K) 변화**: 암석 종류에 따른 침식 속도 차이 관찰
+            2. **확산계수(D) 변화**: 사면 각도 변화 관찰
+            3. **융기율(U) 변화**: 융기와 침식의 균형 → 평형 지형
+            4. **시간 증가**: 지형이 어떻게 진화하는지 관찰
+            
+            ### 💡 추천 실험
+            
+            | 실험 | K | D | U | 예상 결과 |
+            |------|---|---|---|----------|
+            | 빠른 침식 | 0.0005 | 0.01 | 0.0003 | 깊은 계곡 형성 |
+            | 느린 침식 | 0.00005 | 0.05 | 0.0003 | 완만한 사면 |
+            | 융기 우세 | 0.0001 | 0.01 | 0.001 | 산지 높아짐 |
+            | 균형 상태 | 0.0001 | 0.01 | 0.0001 | 평형 지형 |
+            """)
+
+with tab4:
     st.subheader("📖 도움말")
     
     st.markdown("""
@@ -286,3 +532,4 @@ with tab3:
     - `open()`, `exec()`, `eval()` 사용 불가
     - 무한 루프 주의 (브라우저가 멈출 수 있음)
     """)
+
