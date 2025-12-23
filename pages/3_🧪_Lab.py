@@ -50,10 +50,9 @@ st.markdown("""
 st.sidebar.subheader("⚙️ 그리드 설정")
 grid_size = st.sidebar.slider("그리드 크기", 50, 200, 100)
 
-# 탭 구성 (기후/인간 탭 추가)
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📝 코드 편집", "📚 예제 코드", "🌊 침식 시뮬레이션", 
-    "🌧️ 기후/인간 시나리오", "📖 도움말"
+# 탭 구성 (지형 시뮬레이션으로 통합)
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📝 코드 편집", "📚 예제 코드", "🌍 지형 시뮬레이션", "📖 도움말"
 ])
 
 
@@ -671,6 +670,53 @@ with tab3:
         # 등압 조절
         enable_isostasy = st.checkbox("Flexural Isostasy", value=False, help="하중에 의한 지각 변형")
         
+        # ========== 🌧️ 기후 시나리오 ==========
+        st.markdown("---")
+        st.markdown("### 🌧️ 기후 시나리오")
+        st.caption("강우 패턴 및 기후 변화")
+        
+        # 강우 이벤트
+        rain_event = st.selectbox(
+            "강우 이벤트",
+            ["normal (기본)", "storm (폭풍)", "drought (가뭄)", "monsoon (몬순)"],
+            index=0,
+            help="강우 패턴이 침식에 영향"
+        )
+        rain_type = rain_event.split(" ")[0]
+        
+        rain_intensity = st.slider("강우 강도", 0.5, 3.0, 1.0, 0.1, help="1.0=기본, >1.5=폭우")
+        
+        # 기후 변화 시나리오
+        climate_scenario = st.selectbox(
+            "기후 변화 시나리오",
+            ["없음", "RCP 2.6 (저감)", "RCP 4.5 (중간)", "RCP 8.5 (고배출)", "빙하기"],
+            index=0,
+            help="장기 기후 변화 시나리오"
+        )
+        
+        # ========== 🏗️ 인간 활동 ==========
+        st.markdown("---")
+        st.markdown("### 🏗️ 인간 활동")
+        st.caption("댐 건설 및 삼림 벌채")
+        
+        # 댐 건설
+        enable_dam = st.checkbox("댐 건설", value=False, help="하천에 댐 구조물 추가")
+        if enable_dam:
+            col_dam1, col_dam2 = st.columns(2)
+            with col_dam1:
+                dam_position = st.slider("댐 위치 (%)", 20, 80, 50, help="하류에서 상류 방향")
+            with col_dam2:
+                dam_height = st.slider("댐 높이 (m)", 10, 100, 30)
+        else:
+            dam_position, dam_height = 50, 30
+        
+        # 삼림 벌채
+        enable_deforestation = st.checkbox("삼림 벌채", value=False, help="식생 감소 → 침식 증가")
+        if enable_deforestation:
+            deforest_intensity = st.slider("벌채 강도", 0.1, 1.0, 0.5, help="1.0=완전 벌채")
+        else:
+            deforest_intensity = 0.0
+        
         st.markdown("---")
         
         # 시간 설정
@@ -815,6 +861,59 @@ with tab3:
                         final_elevation += deflection
                         st.session_state['lem_isostasy'] = deflection
                         advanced_results['isostasy'] = True
+                    
+                    # ========== 🌧️ 기후 시나리오 적용 ==========
+                    # 강우 이벤트 효과 (침식률 조정)
+                    if rain_type != "normal":
+                        from engine.lem.climate import ClimateSystem
+                        climate = ClimateSystem(lem_grid_size)
+                        rainfall = climate.rainfall_event(rain_type, intensity=rain_intensity)
+                        
+                        # 강우에 따른 추가 침식
+                        erosion_factor = rainfall * 0.001 * rain_intensity
+                        final_elevation -= erosion_factor
+                        advanced_results['rain'] = rain_type
+                    
+                    # 기후 변화 시나리오
+                    if climate_scenario != "없음":
+                        scenario_map = {
+                            "RCP 2.6 (저감)": "rcp26",
+                            "RCP 4.5 (중간)": "rcp45",
+                            "RCP 8.5 (고배출)": "rcp85",
+                            "빙하기": "ice_age"
+                        }
+                        from engine.lem.climate import ClimateSystem
+                        climate = ClimateSystem(lem_grid_size)
+                        clim_result = climate.climate_change(scenario_map.get(climate_scenario, "rcp45"), total_time)
+                        
+                        # 해수면 변화 적용
+                        new_sea_level = clim_result['sea_level']
+                        final_elevation = np.where(final_elevation < new_sea_level, new_sea_level, final_elevation)
+                        advanced_results['climate'] = climate_scenario
+                    
+                    # ========== 🏗️ 인간 활동 적용 ==========
+                    # 댐 건설
+                    if enable_dam:
+                        from engine.lem.human import HumanActivity
+                        human = HumanActivity(lem_grid_size)
+                        dam_row = int(lem_grid_size * dam_position / 100)
+                        dam_col = lem_grid_size // 2
+                        dam = human.build_dam((dam_row, dam_col), height=dam_height)
+                        
+                        # 댐 지형 적용
+                        for dy in range(-2, 3):
+                            for dx in range(-5, 6):
+                                r, c = dam_row + dy, dam_col + dx
+                                if 0 <= r < lem_grid_size and 0 <= c < lem_grid_size:
+                                    final_elevation[r, c] += dam_height * 0.5
+                        advanced_results['dam'] = dam_height
+                    
+                    # 삼림 벌채 (침식 증가)
+                    if enable_deforestation and deforest_intensity > 0:
+                        # 벌채 지역 침식 증가
+                        erosion_boost = deforest_intensity * 0.005
+                        final_elevation -= erosion_boost
+                        advanced_results['deforest'] = deforest_intensity
                     
                     # 최종 결과 업데이트
                     history[-1] = final_elevation
@@ -1066,137 +1165,26 @@ with tab3:
             | 균형 상태 | 0.0001 | 0.01 | 0.0001 | 평형 지형 |
             """)
 
-# ========== 🌧️ 기후/인간 시나리오 탭 ==========
-with tab4:
-    st.subheader("🌧️ 기후 및 인간 활동 시나리오")
-    
-    if not LEM_EXTENSIONS:
-        st.warning("확장 모듈이 로드되지 않았습니다.")
-    else:
-        st.markdown("**새로운 기능!** 기후 변화, 강우 이벤트, 댐 건설, 삼림 벌채 시뮬레이션")
-        
-        scenario_type = st.radio(
-            "시나리오 유형",
-            ["🌧️ 기후 이벤트", "🏗️ 인간 활동", "📊 결과 비교"],
-            horizontal=True
-        )
-        
-        if scenario_type == "🌧️ 기후 이벤트":
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("### 강우 이벤트")
-                rain_type = st.selectbox("이벤트 유형", ["normal", "storm", "drought", "monsoon"])
-                rain_intensity = st.slider("강도", 0.1, 3.0, 1.0, 0.1)
-                
-                if st.button("🌧️ 강우 시뮬레이션", type="primary", key="rain_btn"):
-                    climate = ClimateSystem(100)
-                    rainfall = climate.rainfall_event(rain_type, intensity=rain_intensity)
-                    st.session_state['climate_rainfall'] = rainfall
-                    st.session_state['climate_rain_type'] = rain_type
-                
-                # 결과 표시 (session_state에서)
-                if 'climate_rainfall' in st.session_state:
-                    import plotly.graph_objects as go
-                    fig = go.Figure(data=go.Heatmap(
-                        z=st.session_state['climate_rainfall'], 
-                        colorscale='Blues'
-                    ))
-                    fig.update_layout(
-                        title=f"강우 분포 ({st.session_state.get('climate_rain_type', '')})", 
-                        height=400,
-                        template='plotly_dark'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                st.markdown("### 기후 변화")
-                climate_scenario = st.selectbox("시나리오", ["rcp26", "rcp45", "rcp60", "rcp85", "ice_age"])
-                years = st.number_input("경과 년수", 10, 10000, 100)
-                
-                if st.button("🌡️ 기후 변화 적용", key="climate_btn"):
-                    climate = ClimateSystem(100)
-                    result = climate.climate_change(climate_scenario, years)
-                    st.session_state['climate_change_result'] = result
-                
-                # 결과 표시
-                if 'climate_change_result' in st.session_state:
-                    result = st.session_state['climate_change_result']
-                    col_a, col_b, col_c = st.columns(3)
-                    col_a.metric("🌡️ 온도", f"{result['temperature']:.1f}°C")
-                    col_b.metric("💧 강수량", f"{result['precipitation']:.2f}x")
-                    col_c.metric("🌊 해수면", f"{result['sea_level']:.1f}m")
-        
-        elif scenario_type == "🏗️ 인간 활동":
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("### 🏗️ 댐 건설")
-                dam_row = st.slider("댐 위치 (행)", 10, 90, 50)
-                dam_col = st.slider("댐 위치 (열)", 10, 90, 50)
-                dam_height = st.slider("댐 높이 (m)", 10, 100, 30)
-                
-                if st.button("🏗️ 댐 건설", key="dam_btn"):
-                    human = HumanActivity(100)
-                    dam = human.build_dam((dam_row, dam_col), height=dam_height, name="Test Dam")
-                    st.session_state['dam_result'] = dam
-                
-                if 'dam_result' in st.session_state:
-                    dam = st.session_state['dam_result']
-                    st.success(f"✅ 댐 건설 완료: {dam.name} ({dam.height}m)")
-                    st.info(f"📍 위치: ({dam.position[0]}, {dam.position[1]})")
-            
-            with col2:
-                st.markdown("### 🌲 삼림 벌채")
-                deforest_row = st.slider("벌채 중심 (행)", 10, 90, 30, key="df_row")
-                deforest_col = st.slider("벌채 중심 (열)", 10, 90, 30, key="df_col")
-                deforest_radius = st.slider("벌채 반경", 5, 30, 15)
-                deforest_intensity = st.slider("벌채 강도", 0.1, 1.0, 0.8)
-                
-                if st.button("🌲 삼림 벌채", key="deforest_btn"):
-                    human = HumanActivity(100)
-                    veg = human.deforest((deforest_row, deforest_col), radius=deforest_radius, intensity=deforest_intensity)
-                    st.session_state['deforest_veg'] = veg
-                    st.session_state['deforest_summary'] = human.get_summary()
-                
-                if 'deforest_veg' in st.session_state:
-                    import plotly.graph_objects as go
-                    fig = go.Figure(data=go.Heatmap(
-                        z=st.session_state['deforest_veg'], 
-                        colorscale='Greens'
-                    ))
-                    fig.update_layout(title="식생 분포", height=400, template='plotly_dark')
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    summary = st.session_state['deforest_summary']
-                    st.metric("🌲 벌채 면적", f"{summary['deforested_area']} 셀")
-        
-        else:  # 결과 비교
-            st.markdown("---")
-            st.info("LEM 시뮬레이션 후 결과를 비교할 수 있습니다. 침식 시뮬레이션 탭에서 먼저 실행해주세요.")
-            
-            visualizer = LEMVisualizer()
-            
-            if 'lem_history' in st.session_state:
-                st.markdown("### 📊 시뮬레이션 통계")
-                history = st.session_state['lem_history']
-                times = st.session_state['lem_times']
-                
-                for i, (elev, t) in enumerate(zip(history, times)):
-                    visualizer.record_stats(elev, np.zeros_like(elev), t)
-                
-                fig = visualizer.create_realtime_graph()
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning("아직 시뮬레이션 결과가 없습니다.")
 
-with tab5:
+with tab4:
     st.subheader("📖 도움말")
     
     st.markdown("""
-    ### 사용 가능한 변수
+    ### 🌍 지형 시뮬레이션 기능
+    
+    | 카테고리 | 기능 |
+    |----------|------|
+    | **침식** | Stream Power, 측방침식, 빙하침식, 해안침식 |
+    | **퇴적** | 퇴적물 운반, Exner, 소류사/부유사 |
+    | **풍화** | 지수풍화, 동결파쇄, 토양 생성 |
+    | **대지형** | 단층, 화산, 등압조절(Isostasy) |
+    | **수문** | D8/MFD 유역, Priority Flood, 호수 |
+    | **사면** | 확산(4종), 산사태, 사면안정성 |
+    | **기후** | 강우이벤트, 기후변화, 해수면 |
+    | **인간** | 댐, 삼림벌채 |
+    | **해안** | 파랑, 연안류, 해식애 |
+    
+    ### 사용 가능한 변수 (코드 편집)
     
     | 변수 | 타입 | 설명 |
     |------|------|------|
@@ -1207,30 +1195,12 @@ with tab5:
     | `np` | module | NumPy 모듈 |
     | `math` | module | math 모듈 |
     
-    ### 기본 패턴
-    
-    ```python
-    # 그리드 크기 가져오기
-    h, w = elevation.shape
-    
-    # 전체 고도 설정
-    elevation[:, :] = 10.0
-    
-    # 특정 영역 수정
-    elevation[10:20, 30:40] = 50.0
-    
-    # 거리 기반 지형
-    for y in range(h):
-        for x in range(w):
-            dist = np.sqrt((y - center_y)**2 + (x - center_x)**2)
-            elevation[y, x] = some_function(dist)
-    ```
-    
     ### 주의사항
     
     - `import` 문은 사용할 수 없습니다 (보안)
     - `open()`, `exec()`, `eval()` 사용 불가
     - 무한 루프 주의 (브라우저가 멈출 수 있음)
     """)
+
 
 
