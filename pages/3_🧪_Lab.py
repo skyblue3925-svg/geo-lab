@@ -347,6 +347,21 @@ with tab3:
             help="높을수록 퇴적물이 빨리 쌓임"
         )
         
+        st.markdown("**🌊 측방 침식 (곡류)**")
+        
+        enable_lateral = st.checkbox("측방 침식 활성화", value=False, help="하천이 옆으로 침식 → 골짜기 확장")
+        
+        Kl = st.slider(
+            "측방 침식계수 (Kl)",
+            min_value=0.000001,
+            max_value=0.0001,
+            value=0.00001,
+            step=0.000001,
+            format="%.6f",
+            help="높을수록 하천이 옆으로 빠르게 침식",
+            disabled=not enable_lateral
+        )
+        
         st.markdown("---")
         
         # 시간 설정
@@ -380,7 +395,8 @@ with tab3:
                         grid_size=lem_grid_size,
                         K=K, D=D, U=U,
                         W0=W0, enable_weathering=enable_weathering,
-                        Vs=Vs, enable_sediment_transport=enable_sediment
+                        Vs=Vs, enable_sediment_transport=enable_sediment,
+                        Kl=Kl, enable_lateral_erosion=enable_lateral
                     )
                     
                     # 초기 지형 생성
