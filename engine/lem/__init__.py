@@ -5,16 +5,22 @@ LEM (Landscape Evolution Model) 모듈
 사용법:
     from engine.lem import SimpleLEM
     from engine.lem import DiffusionModels, FlowRouting, ErosionModels, ChannelAnalysis
+    from engine.lem import SedimentModels, SlopeStability, CoastalModels, Isostasy
 """
 from engine.lem.simple_lem import SimpleLEM
 from engine.lem.climate import ClimateSystem
 from engine.lem.human import HumanActivity
 from engine.lem.visualization import LEMVisualizer
-from engine.lem.advanced_physics import DiffusionModels, FlowRouting, ErosionModels, ChannelAnalysis
+from engine.lem.advanced_physics import (
+    DiffusionModels, FlowRouting, ErosionModels, ChannelAnalysis,
+    SedimentModels, SlopeStability, CoastalModels, Isostasy
+)
 
 __all__ = [
     'SimpleLEM', 
     'ClimateSystem', 'HumanActivity', 'LEMVisualizer',
-    'DiffusionModels', 'FlowRouting', 'ErosionModels', 'ChannelAnalysis'
+    'DiffusionModels', 'FlowRouting', 'ErosionModels', 'ChannelAnalysis',
+    'SedimentModels', 'SlopeStability', 'CoastalModels', 'Isostasy'
 ]
+
 

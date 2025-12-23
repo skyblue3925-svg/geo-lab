@@ -364,3 +364,377 @@ class ChannelAnalysis:
             chi[i] = chi[i-1] + (A0 / areas[i]) ** concavity * (distances[i] - distances[i-1])
         
         return ChannelProfile(distances, elevations, slopes, areas, chi)
+
+
+# ================================================
+# 🪨 퇴적 모델 (Sediment Models)
+# ================================================
+@dataclass
+class ExnerResult:
+    """Exner 방정식 결과"""
+    bedload_flux: np.ndarray
+    bed_change: np.ndarray
+    suspended_load: np.ndarray
+
+class SedimentModels:
+    """
+    퇴적물 운반/퇴적 모델
+    
+    - exner: Exner 방정식 (하상 변동)
+    - bedload_mpm: Meyer-Peter-Müller 소류사
+    - suspended_rouse: Rouse 부유사
+    """
+    
+    def __init__(self, grid_size: int, cell_size: float = 100.0):
+        self.grid_size = grid_size
+        self.cell_size = cell_size
+    
+    def exner(self, elevation: np.ndarray, 
+              sediment_flux: np.ndarray,
+              porosity: float = 0.4,
+              dt: float = 1.0) -> ExnerResult:
+        """
+        Exner 방정식: 하상 변동
+        
+        ∂η/∂t = -1/(1-λ) × ∂qs/∂x
+        
+        Args:
+            elevation: 하상 고도
+            sediment_flux: 퇴적물 플럭스 (m³/m/s)
+            porosity: 공극률
+            dt: 시간 간격
+            
+        Returns:
+            ExnerResult (소류사, 하상변화, 부유사)
+        """
+        # 플럭스 발산 계산
+        dqs_dx = np.gradient(sediment_flux, self.cell_size, axis=1)
+        dqs_dy = np.gradient(sediment_flux, self.cell_size, axis=0)
+        divergence = dqs_dx + dqs_dy
+        
+        # 하상 변화
+        bed_change = -1.0 / (1 - porosity) * divergence * dt
+        
+        # 부유사 (간단한 근사)
+        velocity = np.sqrt(np.abs(sediment_flux)) * 0.1
+        suspended = sediment_flux * 0.2  # 20%가 부유
+        
+        return ExnerResult(
+            bedload_flux=sediment_flux * 0.8,
+            bed_change=bed_change,
+            suspended_load=suspended
+        )
+    
+    def bedload_mpm(self, slope: np.ndarray, 
+                    depth: np.ndarray,
+                    grain_size: float = 0.01,  # 10mm
+                    rho_s: float = 2650.0,
+                    rho_w: float = 1000.0) -> np.ndarray:
+        """
+        Meyer-Peter-Müller 소류사 공식
+        
+        qs = 8 × (τ* - τ*c)^1.5 × √((ρs/ρw - 1) × g × D³)
+        
+        Args:
+            slope: 수면 경사
+            depth: 수심
+            grain_size: 입자 크기 (m)
+            
+        Returns:
+            소류사 운반률 (m²/s)
+        """
+        g = 9.81
+        tau = rho_w * g * depth * slope  # 전단응력
+        tau_star = tau / ((rho_s - rho_w) * g * grain_size)  # 무차원 전단응력
+        tau_star_c = 0.047  # 임계값 (Shields)
+        
+        excess = np.maximum(0, tau_star - tau_star_c)
+        qs = 8 * (excess ** 1.5) * np.sqrt((rho_s/rho_w - 1) * g * grain_size**3)
+        
+        return qs
+    
+    def suspended_rouse(self, velocity: np.ndarray,
+                        depth: np.ndarray,
+                        settling_velocity: float = 0.01) -> np.ndarray:
+        """
+        Rouse 부유사 농도 프로파일
+        
+        C/Ca = ((d-z)/z × a/(d-a))^P
+        P = ws/(κ×u*)
+        
+        Returns:
+            부유사 농도 그리드
+        """
+        kappa = 0.41  # von Karman 상수
+        u_star = velocity * 0.1  # 마찰 속도 근사
+        
+        P = settling_velocity / (kappa * u_star + 1e-10)
+        P = np.clip(P, 0.1, 5.0)  # 합리적 범위
+        
+        # 깊이 평균 농도
+        concentration = (1 / (P + 1)) * (velocity / (settling_velocity + 0.01))
+        
+        return np.clip(concentration, 0, 1)
+
+
+# ================================================
+# ⛰️ 사면 안정성 (Slope Stability)
+# ================================================
+@dataclass
+class StabilityResult:
+    """사면 안정성 결과"""
+    factor_of_safety: np.ndarray
+    failure_probability: np.ndarray
+    critical_zones: np.ndarray
+
+class SlopeStability:
+    """
+    사면 안정성 분석
+    
+    - infinite_slope: 무한사면 모델
+    - factor_of_safety: 안정계수 계산
+    """
+    
+    def __init__(self, grid_size: int, cell_size: float = 100.0):
+        self.grid_size = grid_size
+        self.cell_size = cell_size
+    
+    def infinite_slope(self, slope: np.ndarray,
+                       soil_depth: np.ndarray,
+                       cohesion: float = 5000.0,  # Pa
+                       friction_angle: float = 30.0,  # degrees
+                       soil_density: float = 1800.0,  # kg/m³
+                       water_table_ratio: float = 0.5) -> StabilityResult:
+        """
+        무한사면 안정 분석
+        
+        FS = (c' + (γ-m×γw)×z×cos²β×tanφ') / (γ×z×sinβ×cosβ)
+        
+        Args:
+            slope: 사면 경사 (m/m)
+            soil_depth: 토양 깊이 (m)
+            cohesion: 점착력 (Pa)
+            friction_angle: 내부마찰각 (도)
+            soil_density: 토양 밀도 (kg/m³)
+            water_table_ratio: 지하수면 비율 (0-1)
+            
+        Returns:
+            StabilityResult
+        """
+        g = 9.81
+        gamma = soil_density * g  # 단위중량
+        gamma_w = 1000 * g  # 물 단위중량
+        
+        phi_rad = np.radians(friction_angle)
+        beta = np.arctan(slope)  # 경사각
+        
+        # 분자: 저항력
+        m = water_table_ratio
+        effective_stress = (gamma - m * gamma_w) * soil_depth * np.cos(beta)**2
+        resistance = cohesion + effective_stress * np.tan(phi_rad)
+        
+        # 분모: 활동력
+        driving = gamma * soil_depth * np.sin(beta) * np.cos(beta)
+        driving = np.maximum(driving, 1e-6)  # 0 방지
+        
+        # 안전율
+        fs = resistance / driving
+        
+        # 파괴 확률 (log-normal 가정 간소화)
+        failure_prob = 1 / (1 + np.exp(2 * (fs - 1)))
+        
+        # 임계 구역 (FS < 1.3)
+        critical = fs < 1.3
+        
+        return StabilityResult(
+            factor_of_safety=fs,
+            failure_probability=failure_prob,
+            critical_zones=critical.astype(float)
+        )
+
+
+# ================================================
+# 🌊 해안 모델 (Coastal Models)
+# ================================================
+class CoastalModels:
+    """
+    해안 지형 모델
+    
+    - wave_ravinement: 파랑 침식 (해수면 변동)
+    - longshore_drift: 연안류 퇴적
+    - cliff_retreat: 해식애 후퇴
+    """
+    
+    def __init__(self, grid_size: int, cell_size: float = 100.0):
+        self.grid_size = grid_size
+        self.cell_size = cell_size
+    
+    def wave_ravinement(self, elevation: np.ndarray,
+                        sea_level: float = 0.0,
+                        wave_height: float = 2.0,
+                        erosion_rate: float = 0.01,
+                        dt: float = 1.0) -> np.ndarray:
+        """
+        파랑 침식 (Wave Ravinement)
+        
+        해수면 부근에서 파도에 의한 침식
+        해수면 변동 시 ravinement surface 형성
+        
+        Args:
+            elevation: 고도
+            sea_level: 해수면 (m)
+            wave_height: 파고 (m)
+            erosion_rate: 침식률 (m/yr)
+            dt: 시간 간격
+            
+        Returns:
+            침식량 그리드
+        """
+        # 파도 영향권: sea_level ± wave_height
+        wave_zone = np.abs(elevation - sea_level) < wave_height
+        
+        # 침식량: 해수면에 가까울수록 강함
+        distance_from_sl = np.abs(elevation - sea_level)
+        intensity = np.exp(-distance_from_sl / (wave_height / 2))
+        
+        erosion = erosion_rate * intensity * wave_zone * dt
+        
+        return erosion
+    
+    def longshore_drift(self, elevation: np.ndarray,
+                        sediment: np.ndarray,
+                        sea_level: float = 0.0,
+                        wave_angle: float = 45.0,  # degrees from north
+                        transport_rate: float = 0.1) -> np.ndarray:
+        """
+        연안류 퇴적물 이동
+        
+        Args:
+            elevation: 고도
+            sediment: 현재 퇴적물
+            sea_level: 해수면
+            wave_angle: 파향 (도)
+            transport_rate: 운반률
+            
+        Returns:
+            퇴적물 변화량
+        """
+        # 해안선 마스크
+        coastal = np.abs(elevation - sea_level) < 5.0
+        
+        angle_rad = np.radians(wave_angle)
+        dy = int(np.cos(angle_rad) * 2)
+        dx = int(np.sin(angle_rad) * 2)
+        
+        change = np.zeros_like(elevation)
+        
+        for i in range(2, self.grid_size - 2):
+            for j in range(2, self.grid_size - 2):
+                if coastal[i, j]:
+                    # 상류에서 퇴적물 가져오기
+                    ni, nj = i - dy, j - dx
+                    if 0 <= ni < self.grid_size and 0 <= nj < self.grid_size:
+                        transport = sediment[ni, nj] * transport_rate
+                        change[i, j] += transport
+                        change[ni, nj] -= transport
+        
+        return change
+    
+    def cliff_retreat(self, elevation: np.ndarray,
+                      sea_level: float = 0.0,
+                      retreat_rate: float = 0.5,
+                      cliff_threshold: float = 0.5,
+                      dt: float = 1.0) -> np.ndarray:
+        """
+        해식애 후퇴
+        
+        Args:
+            elevation: 고도
+            sea_level: 해수면
+            retreat_rate: 후퇴율 (m/yr)
+            cliff_threshold: 절벽 판단 경사
+            dt: 시간 간격
+            
+        Returns:
+            침식량
+        """
+        dy, dx = np.gradient(elevation, self.cell_size)
+        slope = np.sqrt(dx**2 + dy**2)
+        
+        # 해수면 부근의 급경사 = 절벽
+        near_sea = np.abs(elevation - sea_level) < 10.0
+        is_cliff = (slope > cliff_threshold) & near_sea
+        
+        erosion = retreat_rate * is_cliff * dt
+        
+        return erosion
+
+
+# ================================================
+# 🌍 지각 평형 (Isostasy)
+# ================================================
+class Isostasy:
+    """
+    등압 조절 모델
+    
+    - flexural: 탄성판 flexure
+    - airy: Airy 모델
+    """
+    
+    def __init__(self, grid_size: int, cell_size: float = 100.0):
+        self.grid_size = grid_size
+        self.cell_size = cell_size
+    
+    def flexural(self, load: np.ndarray,
+                 elastic_thickness: float = 25000.0,  # m
+                 mantle_density: float = 3300.0,
+                 crust_density: float = 2700.0) -> np.ndarray:
+        """
+        Flexural Isostasy (탄성판 모델)
+        
+        D × ∇⁴w + (ρm - ρc) × g × w = q(x,y)
+        
+        Args:
+            load: 표면 하중 (kg/m²)
+            elastic_thickness: 탄성 두께 (m)
+            mantle_density: 맨틀 밀도
+            crust_density: 지각 밀도
+            
+        Returns:
+            지각 변형량 (m)
+        """
+        g = 9.81
+        E = 7e10  # Young's modulus (Pa)
+        nu = 0.25  # Poisson's ratio
+        
+        # Flexural rigidity
+        D = E * elastic_thickness**3 / (12 * (1 - nu**2))
+        
+        # Flexural parameter
+        alpha = ((mantle_density - crust_density) * g / D) ** 0.25 if (mantle_density - crust_density) > 0 else 1e-6
+        
+        # 간소화: 가우시안 필터로 하중 분산
+        from scipy.ndimage import gaussian_filter
+        flexural_wavelength = 1.0 / alpha
+        sigma = flexural_wavelength / self.cell_size / 4
+        
+        deflection = gaussian_filter(load / ((mantle_density - crust_density) * g), sigma)
+        
+        return deflection
+    
+    def airy(self, elevation: np.ndarray,
+             crust_density: float = 2700.0,
+             mantle_density: float = 3300.0) -> np.ndarray:
+        """
+        Airy 등압 모델
+        
+        지형 고도에 비례하여 뿌리 깊이 결정
+        
+        Returns:
+            모호면 깊이 (m, 양수 = 아래)
+        """
+        # 산 높이에 비례한 뿌리
+        root_depth = elevation * crust_density / (mantle_density - crust_density)
+        
+        return root_depth
+

@@ -961,13 +961,24 @@ with tab4:
                 rain_type = st.selectbox("이벤트 유형", ["normal", "storm", "drought", "monsoon"])
                 rain_intensity = st.slider("강도", 0.1, 3.0, 1.0, 0.1)
                 
-                if st.button("강우 시뮬레이션", type="primary"):
+                if st.button("🌧️ 강우 시뮬레이션", type="primary", key="rain_btn"):
                     climate = ClimateSystem(100)
                     rainfall = climate.rainfall_event(rain_type, intensity=rain_intensity)
-                    
+                    st.session_state['climate_rainfall'] = rainfall
+                    st.session_state['climate_rain_type'] = rain_type
+                
+                # 결과 표시 (session_state에서)
+                if 'climate_rainfall' in st.session_state:
                     import plotly.graph_objects as go
-                    fig = go.Figure(data=go.Heatmap(z=rainfall, colorscale='Blues'))
-                    fig.update_layout(title=f"강우 분포 ({rain_type})", height=400)
+                    fig = go.Figure(data=go.Heatmap(
+                        z=st.session_state['climate_rainfall'], 
+                        colorscale='Blues'
+                    ))
+                    fig.update_layout(
+                        title=f"강우 분포 ({st.session_state.get('climate_rain_type', '')})", 
+                        height=400,
+                        template='plotly_dark'
+                    )
                     st.plotly_chart(fig, use_container_width=True)
             
             with col2:
@@ -975,13 +986,18 @@ with tab4:
                 climate_scenario = st.selectbox("시나리오", ["rcp26", "rcp45", "rcp60", "rcp85", "ice_age"])
                 years = st.number_input("경과 년수", 10, 10000, 100)
                 
-                if st.button("기후 변화 적용"):
+                if st.button("🌡️ 기후 변화 적용", key="climate_btn"):
                     climate = ClimateSystem(100)
                     result = climate.climate_change(climate_scenario, years)
-                    
-                    st.metric("온도 변화", f"{result['temperature']:.1f}°C")
-                    st.metric("강수량 변화", f"{result['precipitation']:.2f}x")
-                    st.metric("해수면", f"{result['sea_level']:.1f}m")
+                    st.session_state['climate_change_result'] = result
+                
+                # 결과 표시
+                if 'climate_change_result' in st.session_state:
+                    result = st.session_state['climate_change_result']
+                    col_a, col_b, col_c = st.columns(3)
+                    col_a.metric("🌡️ 온도", f"{result['temperature']:.1f}°C")
+                    col_b.metric("💧 강수량", f"{result['precipitation']:.2f}x")
+                    col_c.metric("🌊 해수면", f"{result['sea_level']:.1f}m")
         
         elif scenario_type == "🏗️ 인간 활동":
             st.markdown("---")
@@ -993,10 +1009,15 @@ with tab4:
                 dam_col = st.slider("댐 위치 (열)", 10, 90, 50)
                 dam_height = st.slider("댐 높이 (m)", 10, 100, 30)
                 
-                if st.button("댐 건설 시뮬레이션"):
+                if st.button("🏗️ 댐 건설", key="dam_btn"):
                     human = HumanActivity(100)
                     dam = human.build_dam((dam_row, dam_col), height=dam_height, name="Test Dam")
-                    st.success(f"댐 건설 완료: {dam.name} ({dam.height}m)")
+                    st.session_state['dam_result'] = dam
+                
+                if 'dam_result' in st.session_state:
+                    dam = st.session_state['dam_result']
+                    st.success(f"✅ 댐 건설 완료: {dam.name} ({dam.height}m)")
+                    st.info(f"📍 위치: ({dam.position[0]}, {dam.position[1]})")
             
             with col2:
                 st.markdown("### 🌲 삼림 벌채")
@@ -1005,17 +1026,23 @@ with tab4:
                 deforest_radius = st.slider("벌채 반경", 5, 30, 15)
                 deforest_intensity = st.slider("벌채 강도", 0.1, 1.0, 0.8)
                 
-                if st.button("삼림 벌채 시뮬레이션"):
+                if st.button("🌲 삼림 벌채", key="deforest_btn"):
                     human = HumanActivity(100)
                     veg = human.deforest((deforest_row, deforest_col), radius=deforest_radius, intensity=deforest_intensity)
-                    
+                    st.session_state['deforest_veg'] = veg
+                    st.session_state['deforest_summary'] = human.get_summary()
+                
+                if 'deforest_veg' in st.session_state:
                     import plotly.graph_objects as go
-                    fig = go.Figure(data=go.Heatmap(z=veg, colorscale='Greens'))
-                    fig.update_layout(title="식생 분포", height=400)
+                    fig = go.Figure(data=go.Heatmap(
+                        z=st.session_state['deforest_veg'], 
+                        colorscale='Greens'
+                    ))
+                    fig.update_layout(title="식생 분포", height=400, template='plotly_dark')
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    summary = human.get_summary()
-                    st.metric("벌채 면적", f"{summary['deforested_area']} 셀")
+                    summary = st.session_state['deforest_summary']
+                    st.metric("🌲 벌채 면적", f"{summary['deforested_area']} 셀")
         
         else:  # 결과 비교
             st.markdown("---")
