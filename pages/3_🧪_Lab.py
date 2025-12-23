@@ -621,6 +621,56 @@ with tab3:
         
         moraine_rate = st.slider("모레인 퇴적률", 0.1, 0.9, 0.3, disabled=not enable_glacial_deposit)
         
+        # ========== 🔬 고급 Landlab 물리 모델 ==========
+        st.markdown("---")
+        st.markdown("### 🔬 고급 물리 모델")
+        st.caption("Landlab 기반 추가 물리 과정")
+        
+        # 확산 모델 선택
+        diffusion_model = st.selectbox(
+            "확산 모델",
+            ["Linear (기본)", "Nonlinear (급경사)", "Depth-Dependent (토양)", "Taylor Nonlinear"],
+            index=0,
+            help="사면 확산 모델 선택"
+        )
+        
+        if diffusion_model == "Nonlinear (급경사)":
+            Sc_critical = st.slider("임계 경사 (Sc)", 0.5, 2.0, 1.0, 0.1, help="이 경사에서 확산 무한대")
+        else:
+            Sc_critical = 1.0
+        
+        # 유역 계산 선택
+        flow_model = st.selectbox(
+            "유역 계산 방식",
+            ["D8 (기본)", "MFD (다중유향)"],
+            index=0,
+            help="유역면적 계산 알고리즘"
+        )
+        
+        # 퇴적물 모델
+        enable_exner = st.checkbox("Exner 방정식", value=False, help="하상 변동 정밀 계산")
+        
+        # 사면 안정성
+        enable_slope_stability = st.checkbox("사면 안정성 분석", value=False, help="무한사면 안전율 계산")
+        if enable_slope_stability:
+            col_ss1, col_ss2 = st.columns(2)
+            with col_ss1:
+                cohesion = st.number_input("점착력 (Pa)", value=5000.0, step=1000.0)
+            with col_ss2:
+                friction_angle = st.number_input("내부마찰각 (°)", value=30.0, step=5.0)
+        else:
+            cohesion, friction_angle = 5000.0, 30.0
+        
+        # 해안 모델
+        enable_coastal = st.checkbox("해안 지형 모델", value=False, help="파랑침식/연안류")
+        if enable_coastal:
+            wave_height = st.slider("파고 (m)", 0.5, 5.0, 2.0)
+        else:
+            wave_height = 2.0
+        
+        # 등압 조절
+        enable_isostasy = st.checkbox("Flexural Isostasy", value=False, help="하중에 의한 지각 변형")
+        
         st.markdown("---")
         
         # 시간 설정
