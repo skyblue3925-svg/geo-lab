@@ -35,7 +35,10 @@ class SimpleLEM:
         enable_weathering: bool = True,  # 풍화 활성화 여부
         # 퇴적물 운반 파라미터
         Vs: float = 1.0,           # 퇴적 속도 (settling velocity, m/year)
-        enable_sediment_transport: bool = True  # 퇴적물 운반 활성화
+        enable_sediment_transport: bool = True,  # 퇴적물 운반 활성화
+        # 측방 침식 파라미터
+        Kl: float = 0.00001,       # 측방 침식계수 (lateral erosion coefficient)
+        enable_lateral_erosion: bool = False  # 측방 침식 활성화 (곡류 형성)
     ):
         """
         Args:
@@ -71,12 +74,17 @@ class SimpleLEM:
         self.Vs = Vs
         self.enable_sediment_transport = enable_sediment_transport
         
+        # 측방 침식 파라미터
+        self.Kl = Kl
+        self.enable_lateral_erosion = enable_lateral_erosion
+        
         # 그리드 초기화
         self.elevation = np.zeros((grid_size, grid_size))  # 전체 고도 (기반암 + 토양)
         self.bedrock = np.zeros((grid_size, grid_size))    # 기반암 고도
         self.soil_depth = np.zeros((grid_size, grid_size)) # 토양(레골리스) 두께
         self.sediment_flux = np.zeros((grid_size, grid_size))  # 퇴적물 플럭스
         self.deposition_rate = np.zeros((grid_size, grid_size)) # 퇴적률
+        self.lateral_erosion_rate = np.zeros((grid_size, grid_size))  # 측방 침식률
         self.drainage_area = np.ones((grid_size, grid_size))
         self.erosion_rate = np.zeros((grid_size, grid_size))
         self.weathering_rate = np.zeros((grid_size, grid_size))
@@ -362,6 +370,56 @@ class SimpleLEM:
         
         return deposition
     
+    def lateral_erosion(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Lateral Erosion (측방 침식)
+        
+        하천이 옆으로 침식하여 골짜기를 넓힌다.
+        유역면적이 크고 고도 차이가 큰 곳에서 측방 침식이 활발.
+        
+        Args:
+            dt: 시간 간격 (년)
+        Returns: 측방 침식량 배열 (m)
+        """
+        if not self.enable_lateral_erosion:
+            return np.zeros_like(self.elevation)
+        
+        lateral = np.zeros_like(self.elevation)
+        
+        # 하천 위치 식별 (유역면적이 큰 곳)
+        threshold = np.percentile(self.drainage_area, 90)  # 상위 10%
+        
+        for i in range(1, self.grid_size-1):
+            for j in range(1, self.grid_size-1):
+                if self.drainage_area[i, j] < threshold:
+                    continue
+                
+                # 이웃과의 고도 차이 계산
+                neighbors = [(i-1, j), (i+1, j), (i, j-1), (i, j+1)]
+                
+                for ni, nj in neighbors:
+                    elev_diff = self.elevation[ni, nj] - self.elevation[i, j]
+                    
+                    # 하천보다 높은 이웃에서 측방 침식
+                    if elev_diff > 0:
+                        # 측방 침식량: Kl * Q * 고도차이
+                        Q = self.drainage_area[i, j] * self.precipitation * self.cell_size**2
+                        erosion = self.Kl * (Q ** 0.5) * elev_diff * dt
+                        
+                        # 침식량 제한
+                        erosion = min(erosion, elev_diff * 0.1)  # 고도차의 10%까지만
+                        
+                        lateral[ni, nj] += erosion
+        
+        # 경계 고정
+        lateral[0, :] = 0
+        lateral[-1, :] = 0
+        lateral[:, 0] = 0
+        lateral[:, -1] = 0
+        
+        self.lateral_erosion_rate = lateral / dt
+        return lateral
+    
     def step(self, dt: float = 100.0) -> Dict[str, float]:
         """
         한 시간 단계 진행
@@ -385,25 +443,29 @@ class SimpleLEM:
         # 5. 퇴적물 운반 및 퇴적
         deposition = self.sediment_transport(erosion, dt)
         
-        # 6. 지각 융기
+        # 6. 측방 침식 (Lateral Erosion) - 곡류 형성
+        lateral = self.lateral_erosion(dt)
+        
+        # 7. 지각 융기
         uplift = self.U * dt
         
-        # 7. 토양층 업데이트
+        # 8. 토양층 업데이트
         # 침식은 먼저 토양에서 제거, 토양이 없으면 기반암 침식
-        soil_erosion = np.minimum(erosion, self.soil_depth)
-        bedrock_erosion = erosion - soil_erosion
+        total_erosion = erosion + lateral
+        soil_erosion = np.minimum(total_erosion, self.soil_depth)
+        bedrock_erosion = total_erosion - soil_erosion
         
         # 토양에 풍화 추가, 퇴적물 추가
         self.soil_depth = self.soil_depth - soil_erosion + weathering + deposition
         self.bedrock = self.bedrock - bedrock_erosion + uplift
         
-        # 8. 전체 고도 업데이트
+        # 9. 전체 고도 업데이트
         self.elevation = self.bedrock + self.soil_depth + diffusion
         
-        # 9. 경계 조건 적용
+        # 10. 경계 조건 적용
         self._fix_boundaries()
         
-        # 10. 음수 방지
+        # 11. 음수 방지
         self.elevation = np.maximum(self.elevation, 0)
         self.soil_depth = np.maximum(self.soil_depth, 0)
         self.bedrock = np.maximum(self.bedrock, 0)
@@ -416,8 +478,10 @@ class SimpleLEM:
             'max_erosion_rate': float(self.erosion_rate.max()),
             'mean_weathering_rate': float(self.weathering_rate.mean()),
             'mean_deposition_rate': float(self.deposition_rate.mean()),
+            'mean_lateral_erosion': float(self.lateral_erosion_rate.mean()),
             'mean_soil_depth': float(self.soil_depth.mean()),
             'total_erosion': float(erosion.sum()),
+            'total_lateral': float(lateral.sum()),
             'total_deposition': float(deposition.sum()),
             'total_weathering': float(weathering.sum()),
             'total_uplift': float(uplift * self.grid_size**2)

@@ -333,6 +333,20 @@ with tab3:
             help="토양이 없을 때 기반암 풍화 속도 (m/year)"
         )
         
+        st.markdown("**🏔️ 퇴적물 운반**")
+        
+        enable_sediment = st.checkbox("퇴적물 운반 활성화", value=True, help="침식 물질의 하류 이동 및 퇴적")
+        
+        Vs = st.slider(
+            "퇴적 속도 (Vs)",
+            min_value=0.1,
+            max_value=5.0,
+            value=1.0,
+            step=0.1,
+            format="%.1f",
+            help="높을수록 퇴적물이 빨리 쌓임"
+        )
+        
         st.markdown("---")
         
         # 시간 설정
@@ -361,11 +375,12 @@ with tab3:
         if run_lem:
             with st.spinner("🌊 침식 시뮬레이션 실행 중..."):
                 try:
-                    # LEM 객체 생성 (풍화 파라미터 포함)
+                    # LEM 객체 생성 (풍화 + 퇴적물 파라미터 포함)
                     lem = SimpleLEM(
                         grid_size=lem_grid_size,
                         K=K, D=D, U=U,
-                        W0=W0, enable_weathering=enable_weathering
+                        W0=W0, enable_weathering=enable_weathering,
+                        Vs=Vs, enable_sediment_transport=enable_sediment
                     )
                     
                     # 초기 지형 생성
