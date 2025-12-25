@@ -1,64 +1,66 @@
 /* ================================================
-   GEO-LAB Ultimate Hybrid Design System
-   Apple + Scientific + Glassmorphism
+   GEO-LAB SCHOLAR Design System
+   National Geographic + Academic Style
+   v6.0 - December 2025
    ================================================ */
 
 /* Pretendard 폰트 임포트 */
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
 /* ================================================
-   CSS Variables (Design Tokens)
+   CSS Variables - GeoLab Scholar Palette
    ================================================ */
 :root {
-    /* Primary Colors */
-    --primary: #007AFF;
-    --primary-hover: #0056CC;
-    --primary-light: #5AC8FA;
-    
+    /* Primary Colors - Earth Tones */
+    --geo-earth: #3D2B1F;
+    --geo-terracotta: #E07C3E;
+    --geo-ocean: #2D6A8F;
+    --geo-forest: #4A7C59;
+
+    /* Neutral Colors */
+    --geo-sandstone: #F5E6D3;
+    --geo-cream: #FFF8F0;
+    --geo-charcoal: #2C2C2C;
+    --geo-stone: #8B7355;
+
+    /* Functional Colors */
+    --geo-success: #4A7C59;
+    --geo-warning: #D4A03A;
+    --geo-error: #C44536;
+    --geo-info: #2D6A8F;
+
     /* Background */
-    --bg-main: #f5f5f7;
-    --bg-card: rgba(255, 255, 255, 0.75);
-    --bg-card-hover: rgba(255, 255, 255, 0.9);
-    --bg-sidebar: rgba(255, 255, 255, 0.6);
-    
-    /* Text */
-    --text-primary: #1d1d1f;
-    --text-secondary: #86868b;
-    --text-muted: #a1a1a6;
-    
-    /* Scientific Chart Colors */
-    --chart-blue: #0071e3;
-    --chart-green: #34c759;
-    --chart-red: #ff3b30;
-    --chart-orange: #ff9500;
-    --chart-purple: #af52de;
-    
-    /* Glassmorphism */
-    --glass-blur: 20px;
-    --glass-border: rgba(255, 255, 255, 0.3);
-    
+    --bg-main: #F5E6D3;
+    --bg-card: #FFF8F0;
+    --bg-sidebar: linear-gradient(180deg, #3D2B1F 0%, #5C4033 100%);
+
     /* Spacing */
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
     --radius-xl: 20px;
-    
+
     /* Shadows */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08);
+    --shadow-sm: 0 2px 8px rgba(61, 43, 31, 0.08);
+    --shadow-md: 0 4px 16px rgba(61, 43, 31, 0.12);
+    --shadow-lg: 0 8px 32px rgba(61, 43, 31, 0.16);
 }
 
 /* ================================================
    Global Styles
    ================================================ */
-html, body, [class*="css"] {
-    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+html,
+body,
+[class*="css"] {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif !important;
 }
 
-/* Main App Background */
+/* Main App Background - Sandstone texture */
 .stApp {
     background: var(--bg-main) !important;
+    background-image:
+        radial-gradient(circle at 20% 50%, rgba(224, 124, 62, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(45, 106, 143, 0.05) 0%, transparent 50%) !important;
 }
 
 /* Main Content Area */
@@ -68,18 +70,25 @@ html, body, [class*="css"] {
 }
 
 /* ================================================
-   Sidebar (Glassmorphism)
+   Sidebar - Earth Dark Theme
    ================================================ */
 [data-testid="stSidebar"] {
     background: var(--bg-sidebar) !important;
-    backdrop-filter: blur(var(--glass-blur)) !important;
-    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
-    border-right: 1px solid var(--glass-border) !important;
 }
 
-[data-testid="stSidebar"] > div {
+[data-testid="stSidebar"]>div {
     background: transparent !important;
     padding: 1.5rem 1rem !important;
+}
+
+/* Sidebar Text */
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label {
+    color: var(--geo-sandstone) !important;
 }
 
 /* Sidebar Navigation */
@@ -88,15 +97,27 @@ html, body, [class*="css"] {
     padding: 0.75rem 1rem !important;
     margin: 0.25rem 0 !important;
     transition: all 0.2s ease !important;
+    color: var(--geo-sandstone) !important;
 }
 
 [data-testid="stSidebarNav"] a:hover {
-    background: rgba(0, 122, 255, 0.1) !important;
+    background: rgba(224, 124, 62, 0.2) !important;
 }
 
 [data-testid="stSidebarNav"] a[aria-selected="true"] {
-    background: var(--primary) !important;
+    background: var(--geo-terracotta) !important;
     color: white !important;
+}
+
+/* Sidebar Radio Buttons */
+[data-testid="stSidebar"] .stRadio>div {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 0.5rem !important;
+}
+
+[data-testid="stSidebar"] .stRadio label {
+    color: var(--geo-sandstone) !important;
 }
 
 /* ================================================
@@ -105,7 +126,7 @@ html, body, [class*="css"] {
 h1 {
     font-size: 2.5rem !important;
     font-weight: 700 !important;
-    color: var(--text-primary) !important;
+    color: var(--geo-earth) !important;
     letter-spacing: -0.02em !important;
     margin-bottom: 0.5rem !important;
 }
@@ -113,115 +134,119 @@ h1 {
 h2 {
     font-size: 1.75rem !important;
     font-weight: 600 !important;
-    color: var(--text-primary) !important;
+    color: var(--geo-earth) !important;
     letter-spacing: -0.01em !important;
+    border-bottom: 2px solid var(--geo-terracotta) !important;
+    padding-bottom: 0.5rem !important;
 }
 
 h3 {
     font-size: 1.25rem !important;
     font-weight: 600 !important;
-    color: var(--text-primary) !important;
+    color: var(--geo-charcoal) !important;
 }
 
-p, span, div {
-    color: var(--text-primary) !important;
-    line-height: 1.6 !important;
+p,
+span,
+div {
+    color: var(--geo-charcoal) !important;
+    line-height: 1.7 !important;
 }
 
 /* ================================================
-   Buttons
+   Buttons - Terracotta Accent
    ================================================ */
-.stButton > button {
-    background: var(--primary) !important;
+.stButton>button {
+    background: var(--geo-terracotta) !important;
     color: white !important;
     border: none !important;
     border-radius: var(--radius-md) !important;
     padding: 0.75rem 1.5rem !important;
     font-weight: 600 !important;
     font-size: 0.95rem !important;
-    transition: all 0.2s ease !important;
+    transition: all 0.25s ease !important;
     box-shadow: var(--shadow-sm) !important;
 }
 
-.stButton > button:hover {
-    background: var(--primary-hover) !important;
-    transform: translateY(-1px) !important;
+.stButton>button:hover {
+    background: #C86A2F !important;
+    transform: translateY(-2px) !important;
     box-shadow: var(--shadow-md) !important;
 }
 
-.stButton > button:active {
+.stButton>button:active {
     transform: translateY(0) !important;
 }
 
-/* Secondary Button */
-.stButton > button[kind="secondary"] {
-    background: white !important;
-    color: var(--primary) !important;
-    border: 1px solid var(--primary) !important;
+/* Secondary Button (Ocean Blue) */
+.stButton>button[kind="secondary"] {
+    background: var(--geo-ocean) !important;
+    color: white !important;
 }
 
 /* ================================================
    Inputs & Sliders
    ================================================ */
-.stTextInput > div > div > input,
-.stNumberInput > div > div > input,
-.stTextArea > div > div > textarea {
-    background: white !important;
-    border: 1px solid #e5e5e7 !important;
+.stTextInput>div>div>input,
+.stNumberInput>div>div>input,
+.stTextArea>div>div>textarea {
+    background: var(--bg-card) !important;
+    border: 2px solid rgba(61, 43, 31, 0.15) !important;
     border-radius: var(--radius-md) !important;
     padding: 0.75rem 1rem !important;
     font-size: 0.95rem !important;
     transition: border-color 0.2s ease !important;
 }
 
-.stTextInput > div > div > input:focus,
-.stNumberInput > div > div > input:focus,
-.stTextArea > div > div > textarea:focus {
-    border-color: var(--primary) !important;
-    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1) !important;
+.stTextInput>div>div>input:focus,
+.stNumberInput>div>div>input:focus,
+.stTextArea>div>div>textarea:focus {
+    border-color: var(--geo-terracotta) !important;
+    box-shadow: 0 0 0 3px rgba(224, 124, 62, 0.15) !important;
 }
 
-/* Slider */
-.stSlider > div > div > div[role="slider"] {
-    background: var(--primary) !important;
+/* Slider - Terracotta */
+.stSlider>div>div>div[role="slider"] {
+    background: var(--geo-terracotta) !important;
 }
 
-.stSlider > div > div > div {
-    background: #e5e5e7 !important;
+.stSlider>div>div>div {
+    background: rgba(61, 43, 31, 0.2) !important;
 }
 
 /* ================================================
    Select Box
    ================================================ */
-.stSelectbox > div > div {
-    background: white !important;
-    border: 1px solid #e5e5e7 !important;
+.stSelectbox>div>div {
+    background: var(--bg-card) !important;
+    border: 2px solid rgba(61, 43, 31, 0.15) !important;
     border-radius: var(--radius-md) !important;
 }
 
 /* ================================================
-   Cards (Glassmorphism)
+   Cards & Expanders
    ================================================ */
 .stExpander {
     background: var(--bg-card) !important;
-    backdrop-filter: blur(var(--glass-blur)) !important;
-    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
-    border: 1px solid var(--glass-border) !important;
+    border: 1px solid rgba(61, 43, 31, 0.12) !important;
     border-radius: var(--radius-lg) !important;
-    box-shadow: var(--shadow-md) !important;
+    box-shadow: var(--shadow-sm) !important;
     overflow: hidden !important;
 }
 
-.stExpander > div:first-child {
+.stExpander>div:first-child {
     background: transparent !important;
     border: none !important;
+}
+
+.stExpander>div:first-child:hover {
+    background: rgba(224, 124, 62, 0.05) !important;
 }
 
 /* Metric Cards */
 [data-testid="metric-container"] {
     background: var(--bg-card) !important;
-    backdrop-filter: blur(var(--glass-blur)) !important;
-    border: 1px solid var(--glass-border) !important;
+    border: 1px solid rgba(61, 43, 31, 0.1) !important;
     border-radius: var(--radius-lg) !important;
     padding: 1.25rem !important;
     box-shadow: var(--shadow-sm) !important;
@@ -230,134 +255,104 @@ p, span, div {
 [data-testid="stMetricValue"] {
     font-size: 2rem !important;
     font-weight: 700 !important;
-    color: var(--primary) !important;
+    color: var(--geo-terracotta) !important;
 }
 
 /* ================================================
-   Tabs
+   Tabs - Earth Style
    ================================================ */
 .stTabs [data-baseweb="tab-list"] {
     background: transparent !important;
     gap: 0.5rem !important;
+    border-bottom: 2px solid rgba(61, 43, 31, 0.1) !important;
 }
 
 .stTabs [data-baseweb="tab"] {
-    background: rgba(255, 255, 255, 0.5) !important;
-    border-radius: var(--radius-md) !important;
+    background: transparent !important;
+    border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
     padding: 0.75rem 1.25rem !important;
     font-weight: 500 !important;
-    border: 1px solid transparent !important;
+    border: none !important;
+    border-bottom: 3px solid transparent !important;
     transition: all 0.2s ease !important;
+    color: var(--geo-stone) !important;
 }
 
 .stTabs [data-baseweb="tab"]:hover {
-    background: rgba(255, 255, 255, 0.8) !important;
+    color: var(--geo-earth) !important;
+    background: rgba(224, 124, 62, 0.08) !important;
 }
 
 .stTabs [aria-selected="true"] {
-    background: white !important;
-    border: 1px solid var(--glass-border) !important;
-    box-shadow: var(--shadow-sm) !important;
+    color: var(--geo-terracotta) !important;
+    border-bottom: 3px solid var(--geo-terracotta) !important;
+    background: transparent !important;
 }
 
 /* ================================================
-   Data Displays (Scientific)
-   ================================================ */
-.stDataFrame {
-    border: 1px solid #e5e5e7 !important;
-    border-radius: var(--radius-md) !important;
-    overflow: hidden !important;
-}
-
-.stDataFrame th {
-    background: var(--bg-main) !important;
-    font-weight: 600 !important;
-    text-transform: uppercase !important;
-    font-size: 0.75rem !important;
-    letter-spacing: 0.05em !important;
-}
-
-/* ================================================
-   Charts Container
+   Charts Container - Subtle Border
    ================================================ */
 [data-testid="stPlotlyChart"],
 .stPlotlyChart {
     background: var(--bg-card) !important;
-    backdrop-filter: blur(var(--glass-blur)) !important;
-    border: 1px solid var(--glass-border) !important;
+    border: 1px solid rgba(61, 43, 31, 0.1) !important;
     border-radius: var(--radius-lg) !important;
     padding: 1rem !important;
     box-shadow: var(--shadow-sm) !important;
 }
 
 /* ================================================
-   Info/Success/Warning/Error
+   Info/Success/Warning/Error - Earth Tones
    ================================================ */
-.stAlert > div {
+.stAlert>div {
     border-radius: var(--radius-md) !important;
     border: none !important;
 }
 
-[data-testid="stNotification"] {
-    border-radius: var(--radius-md) !important;
-}
-
-/* Info */
-.stAlert[data-baseweb="notification"] > div[role="alert"] {
-    background: rgba(0, 122, 255, 0.1) !important;
-    color: var(--primary) !important;
+/* Info - Ocean Blue */
+.stAlert[data-baseweb="notification"]>div[role="alert"] {
+    background: rgba(45, 106, 143, 0.12) !important;
+    color: var(--geo-ocean) !important;
+    border-left: 4px solid var(--geo-ocean) !important;
 }
 
 /* ================================================
    Progress Bar
    ================================================ */
-.stProgress > div > div {
-    background: #e5e5e7 !important;
+.stProgress>div>div {
+    background: rgba(61, 43, 31, 0.15) !important;
     border-radius: var(--radius-sm) !important;
 }
 
-.stProgress > div > div > div {
-    background: linear-gradient(90deg, var(--primary), var(--primary-light)) !important;
+.stProgress>div>div>div {
+    background: linear-gradient(90deg, var(--geo-terracotta), var(--geo-forest)) !important;
     border-radius: var(--radius-sm) !important;
 }
 
 /* ================================================
    Checkbox & Radio
    ================================================ */
-.stCheckbox > label > div:first-child {
+.stCheckbox>label>div:first-child {
     border-radius: var(--radius-sm) !important;
+    border: 2px solid var(--geo-stone) !important;
 }
 
-.stCheckbox > label > div:first-child[data-checked="true"] {
-    background: var(--primary) !important;
-    border-color: var(--primary) !important;
+.stCheckbox>label>div:first-child[data-checked="true"] {
+    background: var(--geo-terracotta) !important;
+    border-color: var(--geo-terracotta) !important;
 }
 
 /* ================================================
-   Markdown Content
-   ================================================ */
-.stMarkdown {
-    line-height: 1.7 !important;
-}
-
-.stMarkdown code {
-    background: rgba(0, 0, 0, 0.05) !important;
-    padding: 0.2rem 0.4rem !important;
-    border-radius: var(--radius-sm) !important;
-    font-size: 0.9em !important;
-}
-
-/* ================================================
-   Divider
+   Divider - Subtle
    ================================================ */
 hr {
     border: none !important;
-    border-top: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-top: 1px solid rgba(61, 43, 31, 0.1) !important;
     margin: 1.5rem 0 !important;
 }
 
 /* ================================================
-   Scrollbar (Apple Style)
+   Scrollbar - Earth Style
    ================================================ */
 ::-webkit-scrollbar {
     width: 8px;
@@ -365,46 +360,141 @@ hr {
 }
 
 ::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(61, 43, 31, 0.05);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(61, 43, 31, 0.25);
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.3);
-}
-
-/* ================================================
-   Special: Glass Card Class
-   ================================================ */
-.glass-card {
-    background: var(--bg-card) !important;
-    backdrop-filter: blur(var(--glass-blur)) !important;
-    -webkit-backdrop-filter: blur(var(--glass-blur)) !important;
-    border: 1px solid var(--glass-border) !important;
-    border-radius: var(--radius-lg) !important;
-    padding: 1.5rem !important;
-    box-shadow: var(--shadow-md) !important;
-    transition: all 0.3s ease !important;
-}
-
-.glass-card:hover {
-    background: var(--bg-card-hover) !important;
-    box-shadow: var(--shadow-lg) !important;
-    transform: translateY(-2px) !important;
+    background: rgba(61, 43, 31, 0.4);
 }
 
 /* ================================================
    Animation
    ================================================ */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.stApp > div {
+.stApp>div {
     animation: fadeIn 0.3s ease-out;
+}
+
+/* ================================================
+   Mode Toggle Styling
+   ================================================ */
+.mode-toggle {
+    display: inline-flex;
+    background: rgba(61, 43, 31, 0.08);
+    border-radius: var(--radius-lg);
+    padding: 4px;
+}
+
+.mode-toggle button {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.mode-toggle button.active {
+    background: var(--geo-terracotta);
+    color: white;
+}
+
+/* ================================================
+   Landform Card Grid
+   ================================================ */
+.landform-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.landform-card {
+    background: var(--bg-card);
+    border: 2px solid rgba(61, 43, 31, 0.1);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.landform-card:hover {
+    border-color: var(--geo-terracotta);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.landform-card.selected {
+    border-color: var(--geo-terracotta);
+    background: rgba(224, 124, 62, 0.08);
+}
+
+.landform-card .emoji {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.landform-card .name {
+    font-weight: 600;
+    color: var(--geo-earth);
+    font-size: 0.9rem;
+}
+
+/* ================================================
+   3D Viewer Container
+   ================================================ */
+.viewer-container {
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(61, 43, 31, 0.1);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+
+.viewer-header {
+    background: linear-gradient(90deg, var(--geo-earth), #5C4033);
+    color: var(--geo-sandstone);
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.viewer-header h3 {
+    margin: 0;
+    color: var(--geo-sandstone) !important;
+    font-size: 1.1rem;
+}
+
+/* ================================================
+   Responsive Design
+   ================================================ */
+@media (max-width: 768px) {
+    .main .block-container {
+        padding: 1rem !important;
+    }
+
+    h1 {
+        font-size: 1.75rem !important;
+    }
+
+    .landform-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }

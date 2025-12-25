@@ -125,8 +125,23 @@ with main_tab2:
 
 # ========== 3D 시뮬레이션 탭 ==========
 with main_tab1:
-    # 강조 메시지
-    st.info("💡 **Tip:** 지형 선택 후 **아래로 스크롤**하면 **🎬 형성 과정 애니메이션**을 확인할 수 있습니다!")
+    # 모드 선택 (교사용/전문가)
+    mode_col1, mode_col2 = st.columns([3, 1])
+    with mode_col2:
+        view_mode = st.radio(
+            "모드", 
+            ["🎓 교사용", "⚙️ 전문가"],
+            horizontal=True,
+            key="gallery_mode",
+            label_visibility="collapsed"
+        )
+    is_teacher_mode = (view_mode == "🎓 교사용")
+    
+    # 모드별 안내 메시지
+    if is_teacher_mode:
+        st.success("🎓 **교사 모드** — 3D 애니메이션이 바로 표시됩니다!")
+    else:
+        st.info("⚙️ **전문가 모드** — 모든 파라미터를 조정할 수 있습니다.")
 
     # 카테고리별 지형
     st.sidebar.subheader("🗂️ 지형 카테고리")
@@ -216,94 +231,186 @@ with main_tab1:
             "🏖️ 해안사구 (Coastal Dune)": "coastal_dune",
         }
 
-    col_sel, col_view = st.columns([1, 3])
+    # 지형 선택 (상단에 배치)
+    selected_landform = st.selectbox("🏔️ 지형 선택", list(landform_options.keys()), key="landform_select")
+    landform_key = landform_options[selected_landform]
+    
+    # 모드에 따른 파라미터 설정
+    if is_teacher_mode:
+        # 교사 모드: 기본값 사용
+        gallery_grid_size = 60
+        num_frames = 30
+    else:
+        # 전문가 모드: 슬라이더 표시
+        col_params1, col_params2 = st.columns(2)
+        with col_params1:
+            gallery_grid_size = st.slider("해상도", 30, 200, 60, 10, key="gallery_res")
+        with col_params2:
+            num_frames = st.slider("프레임 수", 10, 100, 30, 5, key="anim_frames")
+    
+    # 지형 생성
+    if landform_key in IDEAL_LANDFORM_GENERATORS:
+        generator = IDEAL_LANDFORM_GENERATORS[landform_key]
+        try:
+            elevation = generator(gallery_grid_size)
+        except TypeError:
+            elevation = generator(gallery_grid_size, 1.0)
+    else:
+        st.error(f"지형 '{landform_key}' 생성기를 찾을 수 없습니다.")
+        elevation = np.zeros((gallery_grid_size, gallery_grid_size))
 
-    with col_sel:
-        selected_landform = st.selectbox("지형 선택", list(landform_options.keys()))
-        landform_key = landform_options[selected_landform]
-        
-        st.markdown("---")
-        st.subheader("⚙️ 파라미터")
-        
-        gallery_grid_size = st.slider("해상도", 30, 200, 50, 10, key="gallery_res")
-        
-        # 애니메이션 프레임 수 설정
-        st.markdown("---")
-        st.caption("🎬 애니메이션 설정")
-        num_frames = st.slider("프레임 수", 10, 100, 40, 5, key="anim_frames", 
-                               help="높을수록 부드럽지만 생성이 느려집니다")
-        
-        # 동적 지형 생성
-        if landform_key in IDEAL_LANDFORM_GENERATORS:
-            generator = IDEAL_LANDFORM_GENERATORS[landform_key]
-            try:
-                elevation = generator(gallery_grid_size)
-            except TypeError:
-                elevation = generator(gallery_grid_size, 1.0)
+    # 지형 설명 (간결하게)
+    descriptions = {
+        "delta": "하천이 바다/호수에 유입될 때 퇴적물이 쌓여 형성",
+        "alluvial_fan": "산지에서 평지로 나오는 경사 급변점에서 퇴적물이 부채꼴로 쌓임",
+        "free_meander": "범람원을 사행하는 곡류. 자연제방과 배후습지 형성",
+        "incised_meander": "융기로 곡류가 기반암을 파며 형성. 하안단구 발달",
+        "v_valley": "하천의 하방 침식이 우세하여 형성된 V자 단면 골짜기",
+        "braided_river": "퇴적물이 많고 경사가 급할 때 수로가 분화/합류",
+        "waterfall": "경암과 연암의 차별침식으로 형성. 점차 후퇴함",
+        "bird_foot_delta": "미시시피강형. 파랑 약하고 퇴적물 많을 때 새발 모양",
+        "arcuate_delta": "나일강형. 파랑과 퇴적물 균형으로 호(Arc) 형태",
+        "cuspate_delta": "티베르강형. 파랑이 강해 뾰족한 화살촉 모양",
+        "u_valley": "빙하 침식으로 형성된 U자 단면의 골짜기",
+        "cirque": "빙하 시작점. 반원형 와지, 융해 후 호수(Tarn) 형성",
+        "horn": "여러 권곡이 만나 침식되지 않고 남은 피라미드형 봉우리",
+        "fjord": "빙하가 파낸 U자곡에 바다가 유입된 좁고 깊은 만",
+        "drumlin": "빙하 퇴적물이 흐름 방향으로 타원형으로 쌓인 언덕",
+        "moraine": "빙하가 운반한 암설이 퇴적된 지형 (측퇴석/종퇴석)",
+        "shield_volcano": "유동성 높은 현무암질 용암이 완만하게 쌓인 방패형",
+        "stratovolcano": "용암과 화산쇄설물이 교대로 쌓인 급경사 원뿔형",
+        "caldera": "대규모 분화 후 마그마방 함몰로 형성된 거대 분지",
+        "crater_lake": "칼데라/화구에 물이 채워진 호수",
+        "lava_plateau": "열극 분출로 현무암 용암이 넓게 펼쳐진 평탄 대지",
+        "barchan": "바람이 한 방향에서 불 때 형성되는 초승달 사구",
+        "mesa_butte": "차별침식으로 남은 탁상지. 메사>뷰트 순으로 작아짐",
+        "karst_doline": "석회암 용식으로 형성된 움푹 파인 와지",
+        "coastal_cliff": "파랑 침식으로 형성된 해안 절벽",
+        "spit_lagoon": "연안류로 퇴적물이 길게 쌓인 사취가 석호를 형성",
+        "tombolo": "연안류 퇴적으로 육지와 섬이 모래톱으로 연결",
+        "ria_coast": "하곡이 해수면 상승으로 침수된 톱니 해안선",
+        "sea_arch": "곶에서 파랑 침식으로 형성된 아치형 지형",
+    }
+    
+    desc = descriptions.get(landform_key, "")
+    if desc:
+        st.caption(f"📖 {desc}")
+    
+    st.markdown("---")
+    
+    # 교사 모드: 3D 애니메이션 먼저 표시
+    if is_teacher_mode:
+        # 3D 애니메이션 바로 표시
+        if landform_key in ANIMATED_LANDFORM_GENERATORS:
+            anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
+            with st.spinner("🎬 애니메이션 생성 중..."):
+                try:
+                    fig_animated = create_animated_terrain_figure(
+                        landform_func=anim_func,
+                        grid_size=gallery_grid_size,
+                        num_frames=num_frames,
+                        title=f"{selected_landform} 형성 과정",
+                        landform_type=landform_type,
+                        detailed_type=landform_key
+                    )
+                    st.plotly_chart(fig_animated, use_container_width=True, key="teacher_anim", 
+                                   config={'scrollZoom': True, 'displayModeBar': True})
+                    st.caption("▶️ **재생** 버튼으로 지형 형성 과정을 확인하세요!")
+                except Exception as e:
+                    st.error(f"애니메이션 오류: {e}")
         else:
-            st.error(f"지형 '{landform_key}' 생성기를 찾을 수 없습니다.")
-            elevation = np.zeros((gallery_grid_size, gallery_grid_size))
-
-    with col_view:
-        # 2D 평면도
-        fig_2d, ax = plt.subplots(figsize=(8, 8))
-        cmap = plt.cm.terrain
-        water_mask = elevation < 0
+            # 애니메이션 없는 지형: 정적 3D
+            fig_3d = render_terrain_plotly(
+                elevation,
+                f"{selected_landform}",
+                add_water=True,
+                water_level=-999,
+                force_camera=True,
+                landform_type=landform_type
+            )
+            st.plotly_chart(fig_3d, use_container_width=True, key="teacher_3d",
+                           config={'scrollZoom': True, 'displayModeBar': True})
         
-        im = ax.imshow(elevation, cmap=cmap, origin='upper')
+        # 2D 보기 옵션 (접혀있음)
+        with st.expander("🗺️ 2D 평면도 보기"):
+            fig_2d, ax = plt.subplots(figsize=(8, 6))
+            im = ax.imshow(elevation, cmap='terrain', origin='upper')
+            ax.set_title(f"{selected_landform}", fontsize=14)
+            ax.axis('off')
+            plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
+            st.pyplot(fig_2d)
+            plt.close(fig_2d)
+    
+    else:
+        # 전문가 모드: 기존 레이아웃 (2D + 3D 버튼)
+        col_sel, col_view = st.columns([1, 3])
         
-        if water_mask.any():
-            water_overlay = np.ma.masked_where(~water_mask, np.ones_like(elevation))
-            ax.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
+        with col_sel:
+            st.caption("📊 통계")
+            st.metric("최고 고도", f"{elevation.max():.1f}m")
+            st.metric("최저 고도", f"{elevation.min():.1f}m")
+            st.metric("고도차", f"{elevation.max() - elevation.min():.1f}m")
         
-        ax.set_title(f"{selected_landform}", fontsize=14)
-        ax.axis('off')
-        plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
-        
-        st.pyplot(fig_2d)
-        plt.close(fig_2d)
-        
-        # 3D 보기 버튼 (두 가지 옵션)
-        col_3d_1, col_3d_2 = st.columns(2)
-        
-        with col_3d_1:
-            if st.button("🔲 3D 뷰 (Plotly)", key="show_3d_view"):
-                fig_3d = render_terrain_plotly(
-                    elevation, 
-                    f"{selected_landform} - 3D",
-                    add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
-                    water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
-                    force_camera=True,
-                    landform_type=landform_type
-                )
-                st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d", config={'scrollZoom': True, 'displayModeBar': True})
-        
-        with col_3d_2:
-            if st.button("🖼️ 3D 뷰 (이미지)", key="show_3d_mpl", help="WebGL이 안 되는 환경용"):
-                from mpl_toolkits.mplot3d import Axes3D
-                
-                fig_mpl = plt.figure(figsize=(10, 8))
-                ax_3d = fig_mpl.add_subplot(111, projection='3d')
-                
-                # 다운샘플링 (성능)
-                step = max(1, gallery_grid_size // 50)
-                h, w = elevation.shape
-                x_mpl = np.arange(0, w, step)
-                y_mpl = np.arange(0, h, step)
-                X, Y = np.meshgrid(x_mpl, y_mpl)
-                Z = elevation[::step, ::step]
-                
-                # 색상 매핑
-                ax_3d.plot_surface(X, Y, Z, cmap='terrain', linewidth=0, antialiased=True, alpha=0.9)
-                ax_3d.set_xlabel('X (m)')
-                ax_3d.set_ylabel('Y (m)')
-                ax_3d.set_zlabel('Elevation (m)')
-                ax_3d.set_title(f"{selected_landform} - 3D")
-                ax_3d.view_init(elev=30, azim=-60)
-                
-                st.pyplot(fig_mpl)
-                plt.close(fig_mpl)
-                st.caption("💡 Matplotlib 3D 이미지 (WebGL 없이 작동)")
+        with col_view:
+            # 2D 평면도
+            fig_2d, ax = plt.subplots(figsize=(8, 8))
+            cmap = plt.cm.terrain
+            water_mask = elevation < 0
+            
+            im = ax.imshow(elevation, cmap=cmap, origin='upper')
+            
+            if water_mask.any():
+                water_overlay = np.ma.masked_where(~water_mask, np.ones_like(elevation))
+                ax.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
+            
+            ax.set_title(f"{selected_landform}", fontsize=14)
+            ax.axis('off')
+            plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
+            
+            st.pyplot(fig_2d)
+            plt.close(fig_2d)
+            
+            # 3D 보기 버튼 (두 가지 옵션)
+            col_3d_1, col_3d_2 = st.columns(2)
+            
+            with col_3d_1:
+                if st.button("🔲 3D 뷰 (Plotly)", key="show_3d_view"):
+                    fig_3d = render_terrain_plotly(
+                        elevation, 
+                        f"{selected_landform} - 3D",
+                        add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
+                        water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
+                        force_camera=True,
+                        landform_type=landform_type
+                    )
+                    st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d", config={'scrollZoom': True, 'displayModeBar': True})
+            
+            with col_3d_2:
+                if st.button("🖼️ 3D 뷰 (이미지)", key="show_3d_mpl", help="WebGL이 안 되는 환경용"):
+                    from mpl_toolkits.mplot3d import Axes3D
+                    
+                    fig_mpl = plt.figure(figsize=(10, 8))
+                    ax_3d = fig_mpl.add_subplot(111, projection='3d')
+                    
+                    # 다운샘플링 (성능)
+                    step = max(1, gallery_grid_size // 50)
+                    h, w = elevation.shape
+                    x_mpl = np.arange(0, w, step)
+                    y_mpl = np.arange(0, h, step)
+                    X, Y = np.meshgrid(x_mpl, y_mpl)
+                    Z = elevation[::step, ::step]
+                    
+                    # 색상 매핑
+                    ax_3d.plot_surface(X, Y, Z, cmap='terrain', linewidth=0, antialiased=True, alpha=0.9)
+                    ax_3d.set_xlabel('X (m)')
+                    ax_3d.set_ylabel('Y (m)')
+                    ax_3d.set_zlabel('Elevation (m)')
+                    ax_3d.set_title(f"{selected_landform} - 3D")
+                    ax_3d.view_init(elev=30, azim=-60)
+                    
+                    st.pyplot(fig_mpl)
+                    plt.close(fig_mpl)
+                    st.caption("💡 Matplotlib 3D 이미지 (WebGL 없이 작동)")
         
         # 설명
         descriptions = {
