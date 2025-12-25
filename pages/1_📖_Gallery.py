@@ -564,7 +564,8 @@ with main_tab1:
                     grid_size=gallery_grid_size,
                     num_frames=num_frames,  # 사용자 설정 사용
                     title=f"{selected_landform} 형성 과정",
-                    landform_type=landform_type
+                    landform_type=landform_type,
+                    detailed_type=landform_key  # 세부 지형 타입 전달
                 )
                 # 선택된 카메라 각도 적용
                 fig_animated.update_layout(

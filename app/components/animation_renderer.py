@@ -192,8 +192,8 @@ def create_animated_terrain_figure(
             }
         ]
     }]
-    # 지형 유형별 최적 카메라 각도
-    camera_settings = _get_optimal_camera(landform_type)
+    # 지형 유형별 최적 카메라 각도 (세부 지형 타입 포함)
+    camera_settings = _get_optimal_camera(landform_type, detailed_type)
     
     # 지형 유형별 Z축 스케일 (aspect ratio)
     # 지형 유형별 Z축 스케일 (aspect ratio)
@@ -274,61 +274,281 @@ def _get_colorscale(landform_type: str):
         ]
 
 
-def _get_optimal_camera(landform_type: str) -> dict:
+def _get_optimal_camera(landform_type: str, detailed_type: str = None) -> dict:
     """지형 유형별 최적 카메라 각도 반환
     
     각 지형 유형의 형성 과정이 잘 보이는 각도로 설정
+    
+    Args:
+        landform_type: 대분류 ('river', 'glacial', 'volcanic', 등)
+        detailed_type: 세부 지형 ('alluvial_fan', 'delta', 'meander', 등)
     """
-    if landform_type == 'river':
-        # 하천/선상지: 산쪽(상류)에서 평지(하류) 방향으로 내려다봄
-        # 선상지가 부채꼴로 펼쳐지는 모습이 잘 보이는 각도
-        return dict(
-            eye=dict(x=-0.3, y=-2.2, z=1.8),
+    # 1. 세부 지형별 카메라 (우선 적용)
+    detailed_cameras = {
+        # === 하천 지형 ===
+        'alluvial_fan': dict(
+            # 선상지: 산지에서 평지로 내려다보는 각도 (부채꼴 전체가 보이게)
+            eye=dict(x=0.0, y=-2.0, z=1.6),
+            center=dict(x=0, y=0.3, z=-0.15),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'delta': dict(
+            # 삼각주: 위에서 분기 수로 패턴이 보이게
+            eye=dict(x=0.0, y=-1.8, z=1.8),
             center=dict(x=0, y=0.2, z=-0.2),
             up=dict(x=0, y=0, z=1)
-        )
-    elif landform_type == 'glacial':
-        # 빙하: 위에서 내려다보는 각도로 U자곡/권곡 잘 보이게
-        return dict(
-            eye=dict(x=0.8, y=-1.5, z=1.5),
+        ),
+        'bird_foot_delta': dict(
+            # 조족상 삼각주: 뻗어나가는 수로가 보이게
+            eye=dict(x=0.0, y=-2.0, z=1.5),
+            center=dict(x=0, y=0.3, z=-0.2),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'free_meander': dict(
+            # 자유곡류: 측면에서 S자 곡선이 보이게
+            eye=dict(x=1.8, y=-0.8, z=1.0),
+            center=dict(x=0, y=0, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'incised_meander': dict(
+            # 감입곡류: 하안단구가 보이도록 약간 높이
+            eye=dict(x=1.5, y=-1.2, z=1.2),
+            center=dict(x=0, y=0, z=-0.15),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'v_valley': dict(
+            # V자곡: 계곡 깊이가 보이게 측면에서
+            eye=dict(x=2.0, y=-0.5, z=0.8),
+            center=dict(x=0, y=0, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'braided_river': dict(
+            # 망상하천: 위에서 패턴 보이게
+            eye=dict(x=0.3, y=-1.8, z=1.6),
+            center=dict(x=0, y=0.1, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'waterfall': dict(
+            # 폭포: 낙차가 보이게 측면에서
+            eye=dict(x=2.0, y=-0.3, z=0.6),
+            center=dict(x=0, y=0, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'perched_river': dict(
+            # 천정천: 자연제방 높이가 보이게
+            eye=dict(x=1.8, y=-1.0, z=0.8),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        
+        # === 빙하 지형 ===
+        'u_valley': dict(
+            # U자곡: 측면에서 U자 단면 보이게
+            eye=dict(x=2.0, y=-0.3, z=0.6),
+            center=dict(x=0, y=0, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'cirque': dict(
+            # 권곡: 내부가 보이게 약간 위에서
+            eye=dict(x=1.2, y=-1.5, z=1.3),
             center=dict(x=0, y=0, z=-0.2),
             up=dict(x=0, y=0, z=1)
-        )
-    elif landform_type == 'volcanic':
-        # 화산: 측면에서 봐서 산체 형태 잘 보이게
-        return dict(
+        ),
+        'horn': dict(
+            # 호른: 뾰족한 봉우리가 보이게 측면에서 낮게
+            eye=dict(x=1.8, y=-1.5, z=0.7),
+            center=dict(x=0, y=0, z=0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'fjord': dict(
+            # 피오르드: 길이가 보이게 상류에서
+            eye=dict(x=0.3, y=-2.2, z=1.0),
+            center=dict(x=0, y=0.2, z=-0.15),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'drumlin': dict(
+            # 드럼린: 유선형 보이게 측면 낮은 각도
+            eye=dict(x=2.0, y=-0.8, z=0.5),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'moraine': dict(
+            # 빙퇴석: 호형 퇴적 보이게 위에서
+            eye=dict(x=0.8, y=-1.8, z=1.5),
+            center=dict(x=0, y=0.1, z=-0.2),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'arete': dict(
+            # 아레트: 날카로운 능선 보이게
+            eye=dict(x=1.5, y=-1.5, z=0.8),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        
+        # === 화산 지형 ===
+        'shield_volcano': dict(
+            # 순상화산: 완만한 경사 보이게 낮은 각도
+            eye=dict(x=2.2, y=-1.0, z=0.5),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'stratovolcano': dict(
+            # 성층화산: 급경사 보이게 측면
+            eye=dict(x=2.0, y=-1.2, z=0.7),
+            center=dict(x=0, y=0, z=0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'caldera': dict(
+            # 칼데라: 분화구 내부 보이게 위에서
+            eye=dict(x=0.8, y=-1.5, z=1.5),
+            center=dict(x=0, y=0, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'crater_lake': dict(
+            # 화구호: 호수 보이게 위에서
+            eye=dict(x=0.6, y=-1.6, z=1.6),
+            center=dict(x=0, y=0, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'lava_plateau': dict(
+            # 용암대지: 평탄면 보이게 낮은 각도
+            eye=dict(x=1.8, y=-1.5, z=0.6),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        
+        # === 해안 지형 ===
+        'coastal_cliff': dict(
+            # 해안절벽: 절벽면 보이게 바다에서
+            eye=dict(x=0.3, y=2.2, z=0.7),
+            center=dict(x=0, y=-0.1, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'spit_lagoon': dict(
+            # 사취+석호: 위에서 형태 보이게
+            eye=dict(x=0.5, y=-1.8, z=1.6),
+            center=dict(x=0, y=0.1, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'tombolo': dict(
+            # 육계사주: 연결부 보이게
+            eye=dict(x=1.5, y=-1.5, z=1.2),
+            center=dict(x=0, y=0, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'ria_coast': dict(
+            # 리아스: 톱니 해안선 보이게 위에서
+            eye=dict(x=0.3, y=-1.8, z=1.8),
+            center=dict(x=0, y=0.1, z=-0.2),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'sea_arch': dict(
+            # 해식아치: 아치 형태 보이게 측면
+            eye=dict(x=1.8, y=0.8, z=0.6),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        
+        # === 건조 지형 ===
+        'barchan': dict(
+            # 바르한: 초승달 형태 보이게 낮은 각도
+            eye=dict(x=2.0, y=-0.8, z=0.5),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'transverse_dune': dict(
+            # 횡사구: 능선 보이게 측면
+            eye=dict(x=2.2, y=-0.5, z=0.5),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'star_dune': dict(
+            # 성사구: 방사형 보이게 위에서
+            eye=dict(x=1.0, y=-1.5, z=1.4),
+            center=dict(x=0, y=0, z=-0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'mesa_butte': dict(
+            # 메사/뷰트: 단애 보이게 측면
+            eye=dict(x=2.0, y=-1.2, z=0.7),
+            center=dict(x=0, y=0, z=0),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'pedestal_rock': dict(
+            # 버섯바위: 줄기 보이게 측면 낮게
+            eye=dict(x=2.2, y=-0.5, z=0.4),
+            center=dict(x=0, y=0, z=0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+        
+        # === 카르스트 지형 ===
+        'karst_doline': dict(
+            # 돌리네: 함몰 보이게 위에서
+            eye=dict(x=0.8, y=-1.5, z=1.6),
+            center=dict(x=0, y=0, z=-0.2),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'uvala': dict(
+            # 우발라: 복합 함몰 보이게 위에서
+            eye=dict(x=0.6, y=-1.6, z=1.7),
+            center=dict(x=0, y=0, z=-0.2),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'tower_karst': dict(
+            # 탑카르스트: 탑 형태 보이게 낮은 각도
+            eye=dict(x=2.0, y=-1.0, z=0.6),
+            center=dict(x=0, y=0, z=0.1),
+            up=dict(x=0, y=0, z=1)
+        ),
+    }
+    
+    # 세부 지형 카메라가 있으면 사용
+    if detailed_type and detailed_type in detailed_cameras:
+        return detailed_cameras[detailed_type]
+    
+    # 2. 대분류 카메라 (fallback)
+    category_cameras = {
+        'river': dict(
+            eye=dict(x=0.0, y=-2.0, z=1.5),
+            center=dict(x=0, y=0.2, z=-0.15),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'glacial': dict(
+            eye=dict(x=1.0, y=-1.5, z=1.3),
+            center=dict(x=0, y=0, z=-0.15),
+            up=dict(x=0, y=0, z=1)
+        ),
+        'volcanic': dict(
             eye=dict(x=1.8, y=-1.2, z=0.8),
             center=dict(x=0, y=0, z=0),
             up=dict(x=0, y=0, z=1)
-        )
-    elif landform_type == 'coastal':
-        # 해안: 바다→육지 방향으로 절벽 잘 보이게
-        return dict(
-            eye=dict(x=0.5, y=2.0, z=0.8),
+        ),
+        'coastal': dict(
+            eye=dict(x=0.5, y=1.8, z=0.9),
             center=dict(x=0, y=0, z=-0.1),
             up=dict(x=0, y=0, z=1)
-        )
-    elif landform_type == 'arid':
-        # 건조: 사구 형태 잘 보이게 낮은 각도
-        return dict(
-            eye=dict(x=2.0, y=-1.0, z=0.6),
-            center=dict(x=0, y=0, z=-0.1),
+        ),
+        'arid': dict(
+            eye=dict(x=2.0, y=-0.8, z=0.5),
+            center=dict(x=0, y=0, z=0),
             up=dict(x=0, y=0, z=1)
-        )
-    elif landform_type == 'karst':
-        # 카르스트: 위에서 돌리네/우발라 잘 보이게
-        return dict(
-            eye=dict(x=1.0, y=-1.0, z=1.8),
+        ),
+        'karst': dict(
+            eye=dict(x=0.8, y=-1.5, z=1.6),
             center=dict(x=0, y=0, z=-0.2),
             up=dict(x=0, y=0, z=1)
-        )
-    else:
-        # 기본값: 대각선 방향
-        return dict(
-            eye=dict(x=1.5, y=-1.5, z=1.0),
-            center=dict(x=0, y=0, z=-0.1),
-            up=dict(x=0, y=0, z=1)
-        )
+        ),
+    }
+    
+    if landform_type in category_cameras:
+        return category_cameras[landform_type]
+    
+    # 3. 기본값
+    return dict(
+        eye=dict(x=1.5, y=-1.5, z=1.0),
+        center=dict(x=0, y=0, z=-0.1),
+        up=dict(x=0, y=0, z=1)
+    )
 
 
 def get_multi_angle_cameras() -> dict:

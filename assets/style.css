@@ -14,35 +14,35 @@
     --primary: #007AFF;
     --primary-hover: #0056CC;
     --primary-light: #5AC8FA;
-    
+
     /* Background */
     --bg-main: #f5f5f7;
     --bg-card: rgba(255, 255, 255, 0.75);
     --bg-card-hover: rgba(255, 255, 255, 0.9);
     --bg-sidebar: rgba(255, 255, 255, 0.6);
-    
+
     /* Text */
     --text-primary: #1d1d1f;
     --text-secondary: #86868b;
     --text-muted: #a1a1a6;
-    
+
     /* Scientific Chart Colors */
     --chart-blue: #0071e3;
     --chart-green: #34c759;
     --chart-red: #ff3b30;
     --chart-orange: #ff9500;
     --chart-purple: #af52de;
-    
+
     /* Glassmorphism */
     --glass-blur: 20px;
     --glass-border: rgba(255, 255, 255, 0.3);
-    
+
     /* Spacing */
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
     --radius-xl: 20px;
-    
+
     /* Shadows */
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
@@ -52,7 +52,9 @@
 /* ================================================
    Global Styles
    ================================================ */
-html, body, [class*="css"] {
+html,
+body,
+[class*="css"] {
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
@@ -77,7 +79,7 @@ html, body, [class*="css"] {
     border-right: 1px solid var(--glass-border) !important;
 }
 
-[data-testid="stSidebar"] > div {
+[data-testid="stSidebar"]>div {
     background: transparent !important;
     padding: 1.5rem 1rem !important;
 }
@@ -123,7 +125,9 @@ h3 {
     color: var(--text-primary) !important;
 }
 
-p, span, div {
+p,
+span,
+div {
     color: var(--text-primary) !important;
     line-height: 1.6 !important;
 }
@@ -131,7 +135,7 @@ p, span, div {
 /* ================================================
    Buttons
    ================================================ */
-.stButton > button {
+.stButton>button {
     background: var(--primary) !important;
     color: white !important;
     border: none !important;
@@ -143,18 +147,18 @@ p, span, div {
     box-shadow: var(--shadow-sm) !important;
 }
 
-.stButton > button:hover {
+.stButton>button:hover {
     background: var(--primary-hover) !important;
     transform: translateY(-1px) !important;
     box-shadow: var(--shadow-md) !important;
 }
 
-.stButton > button:active {
+.stButton>button:active {
     transform: translateY(0) !important;
 }
 
 /* Secondary Button */
-.stButton > button[kind="secondary"] {
+.stButton>button[kind="secondary"] {
     background: white !important;
     color: var(--primary) !important;
     border: 1px solid var(--primary) !important;
@@ -163,9 +167,9 @@ p, span, div {
 /* ================================================
    Inputs & Sliders
    ================================================ */
-.stTextInput > div > div > input,
-.stNumberInput > div > div > input,
-.stTextArea > div > div > textarea {
+.stTextInput>div>div>input,
+.stNumberInput>div>div>input,
+.stTextArea>div>div>textarea {
     background: white !important;
     border: 1px solid #e5e5e7 !important;
     border-radius: var(--radius-md) !important;
@@ -174,26 +178,26 @@ p, span, div {
     transition: border-color 0.2s ease !important;
 }
 
-.stTextInput > div > div > input:focus,
-.stNumberInput > div > div > input:focus,
-.stTextArea > div > div > textarea:focus {
+.stTextInput>div>div>input:focus,
+.stNumberInput>div>div>input:focus,
+.stTextArea>div>div>textarea:focus {
     border-color: var(--primary) !important;
     box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1) !important;
 }
 
 /* Slider */
-.stSlider > div > div > div[role="slider"] {
+.stSlider>div>div>div[role="slider"] {
     background: var(--primary) !important;
 }
 
-.stSlider > div > div > div {
+.stSlider>div>div>div {
     background: #e5e5e7 !important;
 }
 
 /* ================================================
    Select Box
    ================================================ */
-.stSelectbox > div > div {
+.stSelectbox>div>div {
     background: white !important;
     border: 1px solid #e5e5e7 !important;
     border-radius: var(--radius-md) !important;
@@ -212,7 +216,7 @@ p, span, div {
     overflow: hidden !important;
 }
 
-.stExpander > div:first-child {
+.stExpander>div:first-child {
     background: transparent !important;
     border: none !important;
 }
@@ -293,7 +297,7 @@ p, span, div {
 /* ================================================
    Info/Success/Warning/Error
    ================================================ */
-.stAlert > div {
+.stAlert>div {
     border-radius: var(--radius-md) !important;
     border: none !important;
 }
@@ -303,7 +307,7 @@ p, span, div {
 }
 
 /* Info */
-.stAlert[data-baseweb="notification"] > div[role="alert"] {
+.stAlert[data-baseweb="notification"]>div[role="alert"] {
     background: rgba(0, 122, 255, 0.1) !important;
     color: var(--primary) !important;
 }
@@ -311,12 +315,12 @@ p, span, div {
 /* ================================================
    Progress Bar
    ================================================ */
-.stProgress > div > div {
+.stProgress>div>div {
     background: #e5e5e7 !important;
     border-radius: var(--radius-sm) !important;
 }
 
-.stProgress > div > div > div {
+.stProgress>div>div>div {
     background: linear-gradient(90deg, var(--primary), var(--primary-light)) !important;
     border-radius: var(--radius-sm) !important;
 }
@@ -324,11 +328,11 @@ p, span, div {
 /* ================================================
    Checkbox & Radio
    ================================================ */
-.stCheckbox > label > div:first-child {
+.stCheckbox>label>div:first-child {
     border-radius: var(--radius-sm) !important;
 }
 
-.stCheckbox > label > div:first-child[data-checked="true"] {
+.stCheckbox>label>div:first-child[data-checked="true"] {
     background: var(--primary) !important;
     border-color: var(--primary) !important;
 }
@@ -401,10 +405,234 @@ hr {
    Animation
    ================================================ */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-.stApp > div {
+.stApp>div {
     animation: fadeIn 0.3s ease-out;
+}
+
+/* ================================================
+   Loading Skeleton Animation
+   ================================================ */
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.loading-skeleton {
+    background: linear-gradient(90deg,
+            #f0f0f0 25%,
+            #e0e0e0 50%,
+            #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: var(--radius-md);
+}
+
+/* ================================================
+   Responsive Design (Mobile & Tablet)
+   ================================================ */
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+    .main .block-container {
+        padding: 1.5rem 2rem !important;
+        max-width: 100% !important;
+    }
+
+    h1 {
+        font-size: 2rem !important;
+    }
+
+    h2 {
+        font-size: 1.5rem !important;
+    }
+
+    /* Sidebar narrower */
+    [data-testid="stSidebar"] {
+        width: 280px !important;
+    }
+
+    /* Stack columns */
+    .element-container .row-widget.stHorizontal {
+        flex-wrap: wrap !important;
+    }
+}
+
+/* Mobile (max 768px) */
+@media (max-width: 768px) {
+    .main .block-container {
+        padding: 1rem !important;
+    }
+
+    h1 {
+        font-size: 1.75rem !important;
+    }
+
+    h2 {
+        font-size: 1.25rem !important;
+    }
+
+    h3 {
+        font-size: 1.1rem !important;
+    }
+
+    /* Metric cards smaller */
+    [data-testid="metric-container"] {
+        padding: 0.75rem !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        font-size: 1.5rem !important;
+    }
+
+    /* Tabs scrollable */
+    .stTabs [data-baseweb="tab-list"] {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        padding: 0.5rem 1rem !important;
+        font-size: 0.9rem !important;
+        white-space: nowrap !important;
+    }
+
+    /* Buttons full width */
+    .stButton>button {
+        width: 100% !important;
+        padding: 0.6rem 1rem !important;
+    }
+
+    /* Chart container */
+    [data-testid="stPlotlyChart"],
+    .stPlotlyChart {
+        padding: 0.5rem !important;
+    }
+
+    /* Sidebar collapse by default handled by Streamlit */
+}
+
+/* Small Mobile (max 480px) */
+@media (max-width: 480px) {
+    .main .block-container {
+        padding: 0.75rem !important;
+    }
+
+    h1 {
+        font-size: 1.5rem !important;
+    }
+
+    /* Slider labels */
+    .stSlider label {
+        font-size: 0.85rem !important;
+    }
+
+    /* Expander compact */
+    .stExpander {
+        border-radius: var(--radius-md) !important;
+    }
+}
+
+/* ================================================
+   Smooth Transitions
+   ================================================ */
+* {
+    transition: background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+/* Prevent transition on page load */
+.stApp.loading * {
+    transition: none !important;
+}
+
+/* ================================================
+   Accessibility Improvements
+   ================================================ */
+/* Focus visible outline */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--primary) !important;
+    outline-offset: 2px !important;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ================================================
+   Dark Mode Support
+   ================================================ */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-main: #1a1a1e;
+        --bg-card: rgba(40, 40, 45, 0.85);
+        --bg-card-hover: rgba(50, 50, 55, 0.95);
+        --bg-sidebar: rgba(30, 30, 35, 0.8);
+        --text-primary: #f5f5f7;
+        --text-secondary: #a1a1a6;
+        --glass-border: rgba(255, 255, 255, 0.1);
+    }
+
+    .stTextInput>div>div>input,
+    .stNumberInput>div>div>input,
+    .stTextArea>div>div>textarea,
+    .stSelectbox>div>div {
+        background: #2a2a2e !important;
+        border-color: #404045 !important;
+        color: #f5f5f7 !important;
+    }
+
+    .stDataFrame th {
+        background: #2a2a2e !important;
+    }
+
+    hr {
+        border-top-color: rgba(255, 255, 255, 0.1) !important;
+    }
+}
+
+/* ================================================
+   Print Styles
+   ================================================ */
+@media print {
+
+    [data-testid="stSidebar"],
+    .stButton,
+    .stSlider {
+        display: none !important;
+    }
+
+    .main .block-container {
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    [data-testid="stPlotlyChart"] {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+    }
 }
