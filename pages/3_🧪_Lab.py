@@ -576,159 +576,122 @@ with tab3:
             help="지각 융기 속도 (m/year)"
         )
         
-        # 고급 모드: 상세 파라미터 표시
+        # 고급 모드: 상세 파라미터 표시 (expander 안에)
         if advanced_mode or scenario == "⚙️ 자유 설정":
-            with st.expander("🔧 상세 프로세스 설정", expanded=True):
+            with st.expander("🔧 상세 프로세스 설정", expanded=False):
                 st.markdown("**🪨 풍화 설정**")
-        
-        enable_weathering = st.checkbox("풍화 활성화", value=True, help="기반암 → 토양 변환 과정")
-        
-        W0 = st.slider(
-            "최대 풍화율 (W0)",
-            min_value=0.0001,
-            max_value=0.01,
-            value=0.001,
-            step=0.0001,
-            format="%.4f",
-            help="토양이 없을 때 기반암 풍화 속도 (m/year)"
-        )
-        
-        st.markdown("**🏔️ 퇴적물 운반**")
-        
-        enable_sediment = st.checkbox("퇴적물 운반 활성화", value=True, help="침식 물질의 하류 이동 및 퇴적")
-        
-        Vs = st.slider(
-            "퇴적 속도 (Vs)",
-            min_value=0.1,
-            max_value=5.0,
-            value=1.0,
-            step=0.1,
-            format="%.1f",
-            help="높을수록 퇴적물이 빨리 쌓임"
-        )
-        
-        st.markdown("**🌊 측방 침식 (곡류)**")
-        
-        enable_lateral = st.checkbox("측방 침식 활성화", value=False, help="하천이 옆으로 침식 → 골짜기 확장")
-        
-        Kl = st.slider(
-            "측방 침식계수 (Kl)",
-            min_value=0.000001,
-            max_value=0.0001,
-            value=0.00001,
-            step=0.000001,
-            format="%.6f",
-            help="높을수록 하천이 옆으로 빠르게 침식",
-            disabled=not enable_lateral
-        )
-        
-        st.markdown("**❄️ 빙하 침식**")
-        
-        enable_glacial = st.checkbox("빙하 침식 활성화", value=False, help="U자곡 형성")
-        
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            Kg = st.number_input("빙하 침식계수 (Kg)", value=0.0001, format="%.4f", disabled=not enable_glacial)
-        with col_g2:
-            glacier_ela = st.number_input("평형선 고도 (ELA)", value=200.0, step=50.0, disabled=not enable_glacial)
-        
-        st.markdown("**🌊 해안 침식**")
-        
-        enable_marine = st.checkbox("해안 침식 활성화", value=False, help="해식애/파식대 형성")
-        
-        col_m1, col_m2 = st.columns(2)
-        with col_m1:
-            Km = st.number_input("해안 침식계수 (Km)", value=0.001, format="%.4f", disabled=not enable_marine)
-        with col_m2:
-            sea_level = st.number_input("해수면 고도 (m)", value=0.0, step=10.0, disabled=not enable_marine)
-        
-        st.markdown("**⛰️ 산사태**")
-        
-        enable_landslides = st.checkbox("산사태 활성화", value=False, help="급경사면 붕괴")
-        
-        critical_slope = st.slider(
-            "임계 경사 (rad)",
-            min_value=0.3,
-            max_value=1.0,
-            value=0.6,
-            step=0.05,
-            disabled=not enable_landslides
-        )
-        
-        st.markdown("**🔀 단층 운동**")
-        
-        enable_faulting = st.checkbox("단층 활성화", value=False, help="단층 변위/단층애")
-        
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            fault_rate = st.number_input("변위율 (m/yr)", value=0.001, format="%.4f", disabled=not enable_faulting)
-        with col_f2:
-            fault_position = st.slider("단층 위치", 0.1, 0.9, 0.5, disabled=not enable_faulting)
-        
-        st.markdown("**🕳️ 카르스트**")
-        
-        enable_karst = st.checkbox("카르스트 활성화", value=False, help="석회암 용해/돌리네")
-        
-        Kk = st.number_input("용해율 (Kk)", value=0.0001, format="%.4f", disabled=not enable_karst)
-        
-        st.markdown("**🏜️ 바람 침식**")
-        
-        enable_aeolian = st.checkbox("바람 침식 활성화", value=False, help="사막 사구 형성")
-        
-        col_a1, col_a2 = st.columns(2)
-        with col_a1:
-            Ka = st.number_input("바람 침식계수 (Ka)", value=0.0001, format="%.4f", disabled=not enable_aeolian)
-        with col_a2:
-            wind_direction = st.slider("풍향 (rad)", 0.0, 6.28, 0.0, disabled=not enable_aeolian)
-        
-        st.markdown("**🌋 화산 활동**")
-        
-        enable_volcanic = st.checkbox("화산 활성화", value=False, help="용암류/화산체")
-        
-        col_v1, col_v2 = st.columns(2)
-        with col_v1:
-            volcanic_rate = st.number_input("분출량 (m/yr)", value=0.01, format="%.3f", disabled=not enable_volcanic)
-        with col_v2:
-            volcanic_pos = st.slider("화구 위치", 0.2, 0.8, 0.5, disabled=not enable_volcanic)
-        volcanic_position = (volcanic_pos, volcanic_pos)
-        
-        st.markdown("**💧 지하수**")
-        
-        enable_groundwater = st.checkbox("지하수 활성화", value=False, help="용천/파이핑")
-        
-        col_gw1, col_gw2 = st.columns(2)
-        with col_gw1:
-            water_table = st.number_input("지하수면 (m)", value=50.0, disabled=not enable_groundwater)
-        with col_gw2:
-            spring_rate = st.number_input("용천율", value=0.001, format="%.4f", disabled=not enable_groundwater)
-        
-        st.markdown("**❄️ 동결파쇄**")
-        
-        enable_freeze_thaw = st.checkbox("동결파쇄 활성화", value=False, help="고산 암석 파쇄")
-        
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            Kf = st.number_input("동결계수 (Kf)", value=0.0005, format="%.4f", disabled=not enable_freeze_thaw)
-        with col_f2:
-            freeze_elevation = st.number_input("동결 고도 (m)", value=300.0, disabled=not enable_freeze_thaw)
-        
-        st.markdown("**🌿 식생 보호**")
-        
-        enable_bioerosion = st.checkbox("식생 보호 활성화", value=False, help="식생이 침식 감소")
-        
-        vegetation_factor = st.slider("식생 보호계수", 0.0, 1.0, 0.5, disabled=not enable_bioerosion)
-        
-        st.markdown("**🏞️ 호수 형성**")
-        
-        enable_lake = st.checkbox("호수 형성 활성화", value=False, help="저지대 침수")
-        
-        lake_threshold = st.number_input("호수 임계값", value=0.001, format="%.4f", disabled=not enable_lake)
-        
-        st.markdown("**🏔️ 빙하 퇴적**")
-        
-        enable_glacial_deposit = st.checkbox("빙하 퇴적 활성화", value=False, help="모레인/드럼린")
-        
-        moraine_rate = st.slider("모레인 퇴적률", 0.1, 0.9, 0.3, disabled=not enable_glacial_deposit)
+                
+                enable_weathering = st.checkbox("풍화 활성화", value=True, help="기반암 → 토양 변환 과정", key="adv_weathering")
+                
+                W0 = st.slider(
+                    "최대 풍화율 (W0)",
+                    min_value=0.0001,
+                    max_value=0.01,
+                    value=0.001,
+                    step=0.0001,
+                    format="%.4f",
+                    help="토양이 없을 때 기반암 풍화 속도 (m/year)",
+                    key="adv_w0"
+                )
+                
+                st.markdown("**🏔️ 퇴적물 운반**")
+                
+                enable_sediment = st.checkbox("퇴적물 운반 활성화", value=True, help="침식 물질의 하류 이동 및 퇴적", key="adv_sediment")
+                
+                Vs = st.slider(
+                    "퇴적 속도 (Vs)",
+                    min_value=0.1,
+                    max_value=5.0,
+                    value=1.0,
+                    step=0.1,
+                    format="%.1f",
+                    help="높을수록 퇴적물이 빨리 쌓임",
+                    key="adv_vs"
+                )
+                
+                st.markdown("**🌊 측방 침식 (곡류)**")
+                
+                enable_lateral = st.checkbox("측방 침식 활성화", value=False, help="하천이 옆으로 침식 → 골짜기 확장", key="adv_lateral")
+                
+                Kl = st.slider(
+                    "측방 침식계수 (Kl)",
+                    min_value=0.000001,
+                    max_value=0.0001,
+                    value=0.00001,
+                    step=0.000001,
+                    format="%.6f",
+                    help="높을수록 하천이 옆으로 빠르게 침식",
+                    disabled=not enable_lateral,
+                    key="adv_kl"
+                )
+                
+                st.markdown("**❄️ 빙하 / 🌊 해안 / ⛰️ 기타**")
+                
+                col_adv1, col_adv2 = st.columns(2)
+                with col_adv1:
+                    enable_glacial = st.checkbox("빙하 침식", value=False, key="adv_glacial")
+                    enable_marine = st.checkbox("해안 침식", value=False, key="adv_marine")
+                    enable_landslides = st.checkbox("산사태", value=False, key="adv_landslide")
+                    enable_faulting = st.checkbox("단층 운동", value=False, key="adv_fault")
+                    enable_karst = st.checkbox("카르스트", value=False, key="adv_karst")
+                with col_adv2:
+                    enable_aeolian = st.checkbox("바람 침식", value=False, key="adv_aeolian")
+                    enable_volcanic = st.checkbox("화산 활동", value=False, key="adv_volcanic")
+                    enable_groundwater = st.checkbox("지하수", value=False, key="adv_ground")
+                    enable_freeze_thaw = st.checkbox("동결파쇄", value=False, key="adv_freeze")
+                    enable_bioerosion = st.checkbox("식생 보호", value=False, key="adv_bio")
+                
+                col_adv3, col_adv4 = st.columns(2)
+                with col_adv3:
+                    enable_lake = st.checkbox("호수 형성", value=False, key="adv_lake")
+                with col_adv4:
+                    enable_glacial_deposit = st.checkbox("빙하 퇴적", value=False, key="adv_glac_dep")
+                
+                # 세부 값들 (기본값)
+                Kg, glacier_ela = 0.0001, 200.0
+                Km, sea_level = 0.001, 0.0
+                critical_slope = 0.6
+                fault_rate, fault_position = 0.001, 0.5
+                Kk = 0.0001
+                Ka, wind_direction = 0.0001, 0.0
+                volcanic_rate, volcanic_position = 0.01, (0.5, 0.5)
+                water_table, spring_rate = 50.0, 0.001
+                Kf, freeze_elevation = 0.0005, 300.0
+                vegetation_factor = 0.5
+                lake_threshold = 0.001
+                moraine_rate = 0.3
+        else:
+            # 고급 모드 아닐 때: 기본값 사용
+            enable_weathering = True
+            enable_sediment = True
+            enable_lateral = False
+            enable_glacial = False
+            enable_marine = False
+            enable_landslides = False
+            enable_faulting = False
+            enable_karst = False
+            enable_aeolian = False
+            enable_volcanic = False
+            enable_groundwater = False
+            enable_freeze_thaw = False
+            enable_bioerosion = False
+            enable_lake = False
+            enable_glacial_deposit = False
+            
+            # 기본값
+            W0, Vs, Kl = 0.001, 1.0, 0.00001
+            Kg, glacier_ela = 0.0001, 200.0
+            Km, sea_level = 0.001, 0.0
+            critical_slope = 0.6
+            fault_rate, fault_position = 0.001, 0.5
+            Kk = 0.0001
+            Ka, wind_direction = 0.0001, 0.0
+            volcanic_rate, volcanic_position = 0.01, (0.5, 0.5)
+            water_table, spring_rate = 50.0, 0.001
+            Kf, freeze_elevation = 0.0005, 300.0
+            vegetation_factor = 0.5
+            lake_threshold = 0.001
+            moraine_rate = 0.3
         
         # ========== 🔬 고급 Landlab 물리 모델 ==========
         st.markdown("---")
