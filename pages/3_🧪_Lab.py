@@ -502,12 +502,20 @@ with tab3:
             preset = SCENARIO_PRESETS[scenario]
             # 프리셋에서 값 가져오기
             initial_topo_name = preset["initial_topo"]
-            if initial_topo_name == "돔형 산지":
-                initial_topo = "🏔️ 돔형 산지"
-            elif initial_topo_name == "경사면":
-                initial_topo = "📐 경사면"
-            else:
-                initial_topo = "🗻 V자곡"
+            
+            # 확장된 초기 지형 매핑
+            TOPO_MAPPING = {
+                "돔형 산지": "🏔️ 돔형 산지",
+                "경사면": "📐 경사면",
+                "V자곡": "🗻 V자곡",
+                "U자곡": "❄️ U자곡",
+                "곡류": "🔄 곡류",
+                "삼각주": "🏖️ 삼각주",
+                "선상지": "📐 선상지",
+                "바르한": "🌙 바르한",
+                "해안절벽": "🌊 해안절벽"
+            }
+            initial_topo = TOPO_MAPPING.get(initial_topo_name, "🏔️ 돔형 산지")
             
             # 프리셋 플래그
             enable_weathering = preset["enable_weathering"]
@@ -772,52 +780,59 @@ with tab3:
         # 등압 조절
         enable_isostasy = st.checkbox("Flexural Isostasy", value=False, help="하중에 의한 지각 변형")
         
+        # 기본값 설정 (expander 스코프 문제 해결)
+        rain_type = "normal"
+        rain_intensity = 1.0
+        climate_scenario = "없음"
+        enable_dam = False
+        dam_position, dam_height = 50, 30
+        enable_deforestation = False
+        deforest_intensity = 0.0
+        
         # ========== 🌧️ 기후 시나리오 ==========
-        st.markdown("---")
-        st.markdown("### 🌧️ 기후 시나리오")
-        st.caption("강우 패턴 및 기후 변화")
-        
-        # 강우 이벤트
-        rain_event = st.selectbox(
-            "강우 이벤트",
-            ["normal (기본)", "storm (폭풍)", "drought (가뭄)", "monsoon (몬순)"],
-            index=0,
-            help="강우 패턴이 침식에 영향"
-        )
-        rain_type = rain_event.split(" ")[0]
-        
-        rain_intensity = st.slider("강우 강도", 0.5, 3.0, 1.0, 0.1, help="1.0=기본, >1.5=폭우")
-        
-        # 기후 변화 시나리오
-        climate_scenario = st.selectbox(
-            "기후 변화 시나리오",
-            ["없음", "RCP 2.6 (저감)", "RCP 4.5 (중간)", "RCP 8.5 (고배출)", "빙하기"],
-            index=0,
-            help="장기 기후 변화 시나리오"
-        )
+        with st.expander("🌧️ 기후 시나리오 (강우, 기후변화)", expanded=False):
+            st.caption("강우 패턴 및 기후 변화")
+            
+            # 강우 이벤트
+            rain_event = st.selectbox(
+                "강우 이벤트",
+                ["normal (기본)", "storm (폭풍)", "drought (가뭄)", "monsoon (몬순)"],
+                index=0,
+                help="강우 패턴이 침식에 영향"
+            )
+            rain_type = rain_event.split(" ")[0]
+            
+            rain_intensity = st.slider("강우 강도", 0.5, 3.0, 1.0, 0.1, help="1.0=기본, >1.5=폭우")
+            
+            # 기후 변화 시나리오
+            climate_scenario = st.selectbox(
+                "기후 변화 시나리오",
+                ["없음", "RCP 2.6 (저감)", "RCP 4.5 (중간)", "RCP 8.5 (고배출)", "빙하기"],
+                index=0,
+                help="장기 기후 변화 시나리오"
+            )
         
         # ========== 🏗️ 인간 활동 ==========
-        st.markdown("---")
-        st.markdown("### 🏗️ 인간 활동")
-        st.caption("댐 건설 및 삼림 벌채")
-        
-        # 댐 건설
-        enable_dam = st.checkbox("댐 건설", value=False, help="하천에 댐 구조물 추가")
-        if enable_dam:
-            col_dam1, col_dam2 = st.columns(2)
-            with col_dam1:
-                dam_position = st.slider("댐 위치 (%)", 20, 80, 50, help="하류에서 상류 방향")
-            with col_dam2:
-                dam_height = st.slider("댐 높이 (m)", 10, 100, 30)
-        else:
-            dam_position, dam_height = 50, 30
-        
-        # 삼림 벌채
-        enable_deforestation = st.checkbox("삼림 벌채", value=False, help="식생 감소 → 침식 증가")
-        if enable_deforestation:
-            deforest_intensity = st.slider("벌채 강도", 0.1, 1.0, 0.5, help="1.0=완전 벌채")
-        else:
-            deforest_intensity = 0.0
+        with st.expander("🏗️ 인간 활동 (댐, 벌채)", expanded=False):
+            st.caption("댐 건설 및 삼림 벌채")
+            
+            # 댐 건설
+            enable_dam = st.checkbox("댐 건설", value=False, help="하천에 댐 구조물 추가")
+            if enable_dam:
+                col_dam1, col_dam2 = st.columns(2)
+                with col_dam1:
+                    dam_position = st.slider("댐 위치 (%)", 20, 80, 50, help="하류에서 상류 방향")
+                with col_dam2:
+                    dam_height = st.slider("댐 높이 (m)", 10, 100, 30)
+            else:
+                dam_position, dam_height = 50, 30
+            
+            # 삼림 벌채
+            enable_deforestation = st.checkbox("삼림 벌채", value=False, help="식생 감소 → 침식 증가")
+            if enable_deforestation:
+                deforest_intensity = st.slider("벌채 강도", 0.1, 1.0, 0.5, help="1.0=완전 벌채")
+            else:
+                deforest_intensity = 0.0
         
         st.markdown("---")
         
@@ -870,18 +885,41 @@ with tab3:
                         moraine_rate=moraine_rate, enable_glacial_deposit=enable_glacial_deposit
                     )
                     
-                    # 초기 지형 생성
+                    # 초기 지형 생성 (확장)
+                    from engine.ideal_landforms import (
+                        create_u_valley, create_v_valley, create_meander,
+                        create_delta, create_alluvial_fan, create_barchan_dune,
+                        create_coastal_cliff
+                    )
+                    
                     if initial_topo == "🏔️ 돔형 산지":
                         lem.create_initial_mountain(peak_height=300.0, noise_amp=5.0)
                     elif initial_topo == "📐 경사면":
                         lem.create_inclined_surface(slope=0.02, noise_amp=3.0)
-                    else:  # V자곡
-                        from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
-                        if 'v_valley' in IDEAL_LANDFORM_GENERATORS:
-                            initial_elev = IDEAL_LANDFORM_GENERATORS['v_valley'](lem_grid_size)
-                            lem.set_initial_topography(initial_elev)
-                        else:
-                            lem.create_initial_mountain(peak_height=300.0, noise_amp=5.0)
+                    elif initial_topo == "🗻 V자곡":
+                        initial_elev = create_v_valley(lem_grid_size)
+                        lem.set_initial_topography(initial_elev)
+                    elif initial_topo == "❄️ U자곡":
+                        initial_elev = create_u_valley(lem_grid_size)
+                        lem.set_initial_topography(initial_elev)
+                    elif initial_topo == "🔄 곡류":
+                        initial_elev = create_meander(lem_grid_size)
+                        lem.set_initial_topography(initial_elev)
+                    elif initial_topo == "🏖️ 삼각주":
+                        initial_elev = create_delta(lem_grid_size)
+                        lem.set_initial_topography(initial_elev)
+                    elif initial_topo == "📐 선상지":
+                        initial_elev = create_alluvial_fan(lem_grid_size)
+                        lem.set_initial_topography(initial_elev)
+                    elif initial_topo == "🌙 바르한":
+                        initial_elev = create_barchan_dune(lem_grid_size)
+                        lem.set_initial_topography(initial_elev)
+                    elif initial_topo == "🌊 해안절벽":
+                        initial_elev = create_coastal_cliff(lem_grid_size)
+                        lem.set_initial_topography(initial_elev)
+                    else:
+                        # 기본값
+                        lem.create_initial_mountain(peak_height=300.0, noise_amp=5.0)
                     
                     # 초기 상태 저장
                     initial_elevation = lem.elevation.copy()
