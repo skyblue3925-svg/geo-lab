@@ -1,49 +1,60 @@
 /* ================================================
-   GEO-LAB SCHOLAR Design System
-   National Geographic + Academic Style
-   v6.0 - December 2025
+   GEO-LAB Modern UI Design System
+   Clean, Professional Educational Style
+   v7.0 - December 2025
    ================================================ */
 
 /* Pretendard 폰트 임포트 */
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
 /* ================================================
-   CSS Variables - GeoLab Scholar Palette
+   CSS Variables - Modern Clean Palette
    ================================================ */
 :root {
-    /* Primary Colors - Earth Tones */
-    --geo-earth: #3D2B1F;
-    --geo-terracotta: #E07C3E;
-    --geo-ocean: #2D6A8F;
-    --geo-forest: #4A7C59;
+    /* Primary Colors */
+    --primary: #3B82F6;
+    --primary-hover: #2563EB;
+    --primary-light: #DBEAFE;
 
     /* Neutral Colors */
-    --geo-sandstone: #F5E6D3;
-    --geo-cream: #FFF8F0;
-    --geo-charcoal: #2C2C2C;
-    --geo-stone: #8B7355;
-
-    /* Functional Colors */
-    --geo-success: #4A7C59;
-    --geo-warning: #D4A03A;
-    --geo-error: #C44536;
-    --geo-info: #2D6A8F;
+    --slate-900: #0F172A;
+    --slate-800: #1E293B;
+    --slate-700: #334155;
+    --slate-600: #475569;
+    --slate-500: #64748B;
+    --slate-400: #94A3B8;
+    --slate-300: #CBD5E1;
+    --slate-200: #E2E8F0;
+    --slate-100: #F1F5F9;
+    --slate-50: #F8FAFC;
 
     /* Background */
-    --bg-main: #F5E6D3;
-    --bg-card: #FFF8F0;
-    --bg-sidebar: linear-gradient(180deg, #3D2B1F 0%, #5C4033 100%);
+    --bg-main: #FFFFFF;
+    --bg-secondary: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --bg-sidebar: linear-gradient(180deg, #1E293B 0%, #334155 100%);
 
-    /* Spacing */
+    /* Text */
+    --text-primary: #1E293B;
+    --text-secondary: #64748B;
+    --text-muted: #94A3B8;
+
+    /* Accent Colors */
+    --success: #10B981;
+    --warning: #F59E0B;
+    --error: #EF4444;
+    --info: #3B82F6;
+
+    /* Spacing & Radius */
     --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 14px;
-    --radius-xl: 20px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
 
     /* Shadows */
-    --shadow-sm: 0 2px 8px rgba(61, 43, 31, 0.08);
-    --shadow-md: 0 4px 16px rgba(61, 43, 31, 0.12);
-    --shadow-lg: 0 8px 32px rgba(61, 43, 31, 0.16);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 /* ================================================
@@ -55,22 +66,17 @@ body,
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif !important;
 }
 
-/* Main App Background - Sandstone texture */
 .stApp {
     background: var(--bg-main) !important;
-    background-image:
-        radial-gradient(circle at 20% 50%, rgba(224, 124, 62, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(45, 106, 143, 0.05) 0%, transparent 50%) !important;
 }
 
-/* Main Content Area */
 .main .block-container {
-    padding: 2rem 3rem !important;
+    padding: 1.5rem 2rem !important;
     max-width: 1400px !important;
 }
 
 /* ================================================
-   Sidebar - Earth Dark Theme
+   Sidebar - Dark Slate
    ================================================ */
 [data-testid="stSidebar"] {
     background: var(--bg-sidebar) !important;
@@ -81,14 +87,18 @@ body,
     padding: 1.5rem 1rem !important;
 }
 
-/* Sidebar Text */
+/* Sidebar Text - Light on Dark */
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3,
 [data-testid="stSidebar"] p,
 [data-testid="stSidebar"] span,
 [data-testid="stSidebar"] label {
-    color: var(--geo-sandstone) !important;
+    color: #F1F5F9 !important;
+}
+
+[data-testid="stSidebar"] .stCaption {
+    color: var(--slate-400) !important;
 }
 
 /* Sidebar Navigation */
@@ -96,236 +106,247 @@ body,
     border-radius: var(--radius-md) !important;
     padding: 0.75rem 1rem !important;
     margin: 0.25rem 0 !important;
-    transition: all 0.2s ease !important;
-    color: var(--geo-sandstone) !important;
+    transition: all 0.15s ease !important;
+    color: var(--slate-300) !important;
 }
 
 [data-testid="stSidebarNav"] a:hover {
-    background: rgba(224, 124, 62, 0.2) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #FFFFFF !important;
 }
 
 [data-testid="stSidebarNav"] a[aria-selected="true"] {
-    background: var(--geo-terracotta) !important;
-    color: white !important;
+    background: var(--primary) !important;
+    color: #FFFFFF !important;
 }
 
-/* Sidebar Radio Buttons */
+/* Sidebar Radio - Category Selection */
 [data-testid="stSidebar"] .stRadio>div {
-    background: rgba(255, 255, 255, 0.08) !important;
-    border-radius: var(--radius-md) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border-radius: var(--radius-lg) !important;
     padding: 0.5rem !important;
 }
 
 [data-testid="stSidebar"] .stRadio label {
-    color: var(--geo-sandstone) !important;
+    color: var(--slate-200) !important;
+    padding: 0.5rem 0.75rem !important;
+    border-radius: var(--radius-md) !important;
+    transition: all 0.15s ease !important;
+}
+
+[data-testid="stSidebar"] .stRadio label:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* ================================================
-   Headers & Typography
+   Typography
    ================================================ */
 h1 {
-    font-size: 2.5rem !important;
+    font-size: 1.875rem !important;
     font-weight: 700 !important;
-    color: var(--geo-earth) !important;
-    letter-spacing: -0.02em !important;
-    margin-bottom: 0.5rem !important;
+    color: var(--text-primary) !important;
+    letter-spacing: -0.025em !important;
+    margin-bottom: 0.25rem !important;
 }
 
 h2 {
-    font-size: 1.75rem !important;
+    font-size: 1.5rem !important;
     font-weight: 600 !important;
-    color: var(--geo-earth) !important;
-    letter-spacing: -0.01em !important;
-    border-bottom: 2px solid var(--geo-terracotta) !important;
-    padding-bottom: 0.5rem !important;
+    color: var(--text-primary) !important;
 }
 
 h3 {
-    font-size: 1.25rem !important;
+    font-size: 1.125rem !important;
     font-weight: 600 !important;
-    color: var(--geo-charcoal) !important;
+    color: var(--text-primary) !important;
 }
 
 p,
 span,
 div {
-    color: var(--geo-charcoal) !important;
-    line-height: 1.7 !important;
+    color: var(--text-primary) !important;
+    line-height: 1.6 !important;
 }
 
 /* ================================================
-   Buttons - Terracotta Accent
+   Buttons - Blue Accent
    ================================================ */
 .stButton>button {
-    background: var(--geo-terracotta) !important;
-    color: white !important;
+    background: var(--primary) !important;
+    color: #FFFFFF !important;
     border: none !important;
     border-radius: var(--radius-md) !important;
-    padding: 0.75rem 1.5rem !important;
-    font-weight: 600 !important;
-    font-size: 0.95rem !important;
-    transition: all 0.25s ease !important;
+    padding: 0.625rem 1.25rem !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    transition: all 0.15s ease !important;
     box-shadow: var(--shadow-sm) !important;
 }
 
 .stButton>button:hover {
-    background: #C86A2F !important;
-    transform: translateY(-2px) !important;
+    background: var(--primary-hover) !important;
     box-shadow: var(--shadow-md) !important;
+    transform: translateY(-1px) !important;
 }
 
 .stButton>button:active {
     transform: translateY(0) !important;
 }
 
-/* Secondary Button (Ocean Blue) */
-.stButton>button[kind="secondary"] {
-    background: var(--geo-ocean) !important;
-    color: white !important;
-}
-
 /* ================================================
-   Inputs & Sliders
+   Inputs & Controls
    ================================================ */
 .stTextInput>div>div>input,
 .stNumberInput>div>div>input,
 .stTextArea>div>div>textarea {
     background: var(--bg-card) !important;
-    border: 2px solid rgba(61, 43, 31, 0.15) !important;
+    border: 1px solid var(--slate-200) !important;
     border-radius: var(--radius-md) !important;
-    padding: 0.75rem 1rem !important;
-    font-size: 0.95rem !important;
-    transition: border-color 0.2s ease !important;
+    padding: 0.625rem 0.875rem !important;
+    font-size: 0.875rem !important;
+    transition: all 0.15s ease !important;
 }
 
 .stTextInput>div>div>input:focus,
 .stNumberInput>div>div>input:focus,
 .stTextArea>div>div>textarea:focus {
-    border-color: var(--geo-terracotta) !important;
-    box-shadow: 0 0 0 3px rgba(224, 124, 62, 0.15) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px var(--primary-light) !important;
 }
 
-/* Slider - Terracotta */
-.stSlider>div>div>div[role="slider"] {
-    background: var(--geo-terracotta) !important;
-}
-
-.stSlider>div>div>div {
-    background: rgba(61, 43, 31, 0.2) !important;
-}
-
-/* ================================================
-   Select Box
-   ================================================ */
+/* Select Box */
 .stSelectbox>div>div {
     background: var(--bg-card) !important;
-    border: 2px solid rgba(61, 43, 31, 0.15) !important;
+    border: 1px solid var(--slate-200) !important;
     border-radius: var(--radius-md) !important;
 }
 
+/* Slider */
+.stSlider>div>div>div[role="slider"] {
+    background: var(--primary) !important;
+    border: 2px solid #FFFFFF !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.stSlider>div>div>div {
+    background: var(--slate-200) !important;
+}
+
 /* ================================================
-   Cards & Expanders
+   Cards & Containers
    ================================================ */
 .stExpander {
     background: var(--bg-card) !important;
-    border: 1px solid rgba(61, 43, 31, 0.12) !important;
+    border: 1px solid var(--slate-200) !important;
     border-radius: var(--radius-lg) !important;
     box-shadow: var(--shadow-sm) !important;
-    overflow: hidden !important;
 }
 
 .stExpander>div:first-child {
     background: transparent !important;
     border: none !important;
+    padding: 0.75rem 1rem !important;
 }
 
 .stExpander>div:first-child:hover {
-    background: rgba(224, 124, 62, 0.05) !important;
+    background: var(--slate-50) !important;
 }
 
 /* Metric Cards */
 [data-testid="metric-container"] {
     background: var(--bg-card) !important;
-    border: 1px solid rgba(61, 43, 31, 0.1) !important;
+    border: 1px solid var(--slate-200) !important;
     border-radius: var(--radius-lg) !important;
-    padding: 1.25rem !important;
+    padding: 1rem !important;
     box-shadow: var(--shadow-sm) !important;
 }
 
 [data-testid="stMetricValue"] {
-    font-size: 2rem !important;
+    font-size: 1.5rem !important;
     font-weight: 700 !important;
-    color: var(--geo-terracotta) !important;
+    color: var(--primary) !important;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--text-secondary) !important;
+    font-size: 0.75rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
 }
 
 /* ================================================
-   Tabs - Earth Style
+   Tabs
    ================================================ */
 .stTabs [data-baseweb="tab-list"] {
     background: transparent !important;
-    gap: 0.5rem !important;
-    border-bottom: 2px solid rgba(61, 43, 31, 0.1) !important;
+    gap: 0 !important;
+    border-bottom: 1px solid var(--slate-200) !important;
 }
 
 .stTabs [data-baseweb="tab"] {
     background: transparent !important;
-    border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
     padding: 0.75rem 1.25rem !important;
     font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    color: var(--text-secondary) !important;
     border: none !important;
-    border-bottom: 3px solid transparent !important;
-    transition: all 0.2s ease !important;
-    color: var(--geo-stone) !important;
+    border-bottom: 2px solid transparent !important;
+    margin-bottom: -1px !important;
+    transition: all 0.15s ease !important;
 }
 
 .stTabs [data-baseweb="tab"]:hover {
-    color: var(--geo-earth) !important;
-    background: rgba(224, 124, 62, 0.08) !important;
+    color: var(--text-primary) !important;
 }
 
 .stTabs [aria-selected="true"] {
-    color: var(--geo-terracotta) !important;
-    border-bottom: 3px solid var(--geo-terracotta) !important;
-    background: transparent !important;
+    color: var(--primary) !important;
+    border-bottom-color: var(--primary) !important;
 }
 
 /* ================================================
-   Charts Container - Subtle Border
+   Charts & Visualizations
    ================================================ */
 [data-testid="stPlotlyChart"],
 .stPlotlyChart {
     background: var(--bg-card) !important;
-    border: 1px solid rgba(61, 43, 31, 0.1) !important;
+    border: 1px solid var(--slate-200) !important;
     border-radius: var(--radius-lg) !important;
     padding: 1rem !important;
     box-shadow: var(--shadow-sm) !important;
 }
 
 /* ================================================
-   Info/Success/Warning/Error - Earth Tones
+   Alerts & Notifications
    ================================================ */
 .stAlert>div {
     border-radius: var(--radius-md) !important;
     border: none !important;
+    padding: 0.75rem 1rem !important;
 }
 
-/* Info - Ocean Blue */
-.stAlert[data-baseweb="notification"]>div[role="alert"] {
-    background: rgba(45, 106, 143, 0.12) !important;
-    color: var(--geo-ocean) !important;
-    border-left: 4px solid var(--geo-ocean) !important;
+/* Info */
+div[data-testid="stAlert"]>div[role="alert"]:has(svg[data-testid="stIconInfo"]) {
+    background: var(--primary-light) !important;
+    color: var(--primary-hover) !important;
+}
+
+/* Success */
+div[data-testid="stAlert"]>div[role="alert"]:has(svg[data-testid="stIconSuccess"]) {
+    background: #D1FAE5 !important;
+    color: #065F46 !important;
 }
 
 /* ================================================
    Progress Bar
    ================================================ */
 .stProgress>div>div {
-    background: rgba(61, 43, 31, 0.15) !important;
+    background: var(--slate-200) !important;
     border-radius: var(--radius-sm) !important;
 }
 
 .stProgress>div>div>div {
-    background: linear-gradient(90deg, var(--geo-terracotta), var(--geo-forest)) !important;
+    background: var(--primary) !important;
     border-radius: var(--radius-sm) !important;
 }
 
@@ -334,42 +355,52 @@ div {
    ================================================ */
 .stCheckbox>label>div:first-child {
     border-radius: var(--radius-sm) !important;
-    border: 2px solid var(--geo-stone) !important;
+    border: 1.5px solid var(--slate-300) !important;
 }
 
 .stCheckbox>label>div:first-child[data-checked="true"] {
-    background: var(--geo-terracotta) !important;
-    border-color: var(--geo-terracotta) !important;
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
+.stRadio>div>label {
+    padding: 0.5rem 0.75rem !important;
+    border-radius: var(--radius-md) !important;
+    transition: background 0.15s ease !important;
+}
+
+.stRadio>div>label:hover {
+    background: var(--slate-100) !important;
 }
 
 /* ================================================
-   Divider - Subtle
+   Divider
    ================================================ */
 hr {
     border: none !important;
-    border-top: 1px solid rgba(61, 43, 31, 0.1) !important;
-    margin: 1.5rem 0 !important;
+    border-top: 1px solid var(--slate-200) !important;
+    margin: 1rem 0 !important;
 }
 
 /* ================================================
-   Scrollbar - Earth Style
+   Scrollbar
    ================================================ */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(61, 43, 31, 0.05);
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(61, 43, 31, 0.25);
-    border-radius: 4px;
+    background: var(--slate-300);
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(61, 43, 31, 0.4);
+    background: var(--slate-400);
 }
 
 /* ================================================
@@ -378,7 +409,7 @@ hr {
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(8px);
     }
 
     to {
@@ -388,98 +419,28 @@ hr {
 }
 
 .stApp>div {
-    animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.2s ease-out;
 }
 
 /* ================================================
    Mode Toggle Styling
    ================================================ */
-.mode-toggle {
-    display: inline-flex;
-    background: rgba(61, 43, 31, 0.08);
-    border-radius: var(--radius-lg);
-    padding: 4px;
-}
-
-.mode-toggle button {
-    padding: 0.5rem 1rem;
-    border: none;
-    background: transparent;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.mode-toggle button.active {
-    background: var(--geo-terracotta);
-    color: white;
-}
-
-/* ================================================
-   Landform Card Grid
-   ================================================ */
-.landform-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 0.75rem;
-}
-
-.landform-card {
-    background: var(--bg-card);
-    border: 2px solid rgba(61, 43, 31, 0.1);
-    border-radius: var(--radius-md);
-    padding: 1rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.landform-card:hover {
-    border-color: var(--geo-terracotta);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.landform-card.selected {
-    border-color: var(--geo-terracotta);
-    background: rgba(224, 124, 62, 0.08);
-}
-
-.landform-card .emoji {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-}
-
-.landform-card .name {
-    font-weight: 600;
-    color: var(--geo-earth);
-    font-size: 0.9rem;
-}
-
-/* ================================================
-   3D Viewer Container
-   ================================================ */
-.viewer-container {
-    background: var(--bg-card);
-    border-radius: var(--radius-xl);
-    border: 1px solid rgba(61, 43, 31, 0.1);
-    overflow: hidden;
-    box-shadow: var(--shadow-md);
-}
-
-.viewer-header {
-    background: linear-gradient(90deg, var(--geo-earth), #5C4033);
-    color: var(--geo-sandstone);
-    padding: 0.75rem 1rem;
+.stRadio[data-testid="stRadio"]>div {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    gap: 0.25rem;
+    background: var(--slate-100);
+    padding: 0.25rem;
+    border-radius: var(--radius-md);
 }
 
-.viewer-header h3 {
-    margin: 0;
-    color: var(--geo-sandstone) !important;
-    font-size: 1.1rem;
+/* ================================================
+   Caption & Small Text
+   ================================================ */
+.stCaption,
+caption,
+small {
+    color: var(--text-secondary) !important;
+    font-size: 0.8125rem !important;
 }
 
 /* ================================================
@@ -491,10 +452,10 @@ hr {
     }
 
     h1 {
-        font-size: 1.75rem !important;
+        font-size: 1.5rem !important;
     }
 
-    .landform-grid {
-        grid-template-columns: repeat(2, 1fr);
+    h2 {
+        font-size: 1.25rem !important;
     }
 }
