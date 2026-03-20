@@ -1,4 +1,4 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -24,6 +24,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Local outputs
+output/playwright/
+
 # Binary assets (too large for Cloud)
 assets/reference/
 assets/frames/
@@ -31,3 +34,14 @@ assets/cinematic/*.gif
 *.png
 *.jpg
 *.jpeg
+
+# Node
+node_modules/
+playwright-report/
+test-results/
+.playwright-cli/
+
+# Koppen app raw source datasets
+apps/koppen-climate-lab/data/worldclim/raw/
+apps/koppen-climate-lab/data/koppen-official/
+

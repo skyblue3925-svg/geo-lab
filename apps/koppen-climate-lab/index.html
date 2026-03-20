@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>쾨펜 기후 구분 지도</title>
+    <meta
+      name="description"
+      content="세계 기후 분포를 쾨펜 기후 구분 지도로 읽고 월별 기후 그래프와 함께 분석하는 수업용 웹앱"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="backdrop"></div>
+    <div class="app-shell">
+      <main class="dashboard">
+        <header class="hero card">
+          <div class="hero-copy-wrap">
+            <p class="eyebrow">Koppen Climate Map</p>
+            <h1>쾨펜 기후 구분 지도</h1>
+            <p class="lede">공식 쾨펜 레이어와 월별 기후 그래프를 함께 보는 수업용 웹앱</p>
+            <p class="hero-credit">한백고등학교 교사 김한솔 제작</p>
+          </div>
+          <div class="hero-pills">
+            <span>세계 지도</span>
+            <span>기후 코드</span>
+            <span>월별 차트</span>
+            <span>수업용</span>
+          </div>
+        </header>
+
+        <article class="card map-card">
+          <div class="map-topbar">
+            <div class="map-intro">
+              <p class="eyebrow">World Climate Map</p>
+              <h2>세계 기후를 한 화면에서 바로 비교</h2>
+              <p class="card-copy">지도를 클릭하면 아래 분석 카드가 즉시 바뀝니다.</p>
+            </div>
+            <div class="map-tools">
+              <div class="segmented small">
+                <button type="button" data-overlay="koppen">쾨펜</button>
+                <button type="button" data-overlay="temperature">기온</button>
+                <button type="button" data-overlay="precipitation">강수</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="map-stage">
+            <div class="map-frame">
+              <canvas id="mapCanvas" width="960" height="480"></canvas>
+            </div>
+          </div>
+
+          <div class="map-hint-row">
+            <span>1. 지도 클릭</span>
+            <span>2. 기후 코드 확인</span>
+            <span>3. 그래프와 원인 읽기</span>
+          </div>
+
+          <div class="map-support-row">
+            <section class="map-side-card legend-card">
+              <div class="subsection-head">
+                <p class="eyebrow">Legend</p>
+                <h3>레이어 읽기</h3>
+              </div>
+              <div id="mapLegend" class="legend"></div>
+            </section>
+
+            <section class="map-side-card spotlight-card">
+              <div class="subsection-head">
+                <p class="eyebrow">Spotlights</p>
+                <h3>대표 지역 바로가기</h3>
+              </div>
+              <div id="spotlightButtons" class="spotlight-grid"></div>
+            </section>
+          </div>
+        </article>
+
+        <article class="card inspector-card">
+          <div class="card-head">
+            <div>
+              <p class="eyebrow">Probe Analysis</p>
+              <h2 id="selectionLabel">위치 선택</h2>
+            </div>
+            <div class="probe-tag">Selected</div>
+          </div>
+
+          <section class="probe-overview">
+            <div id="selectionKoppen" class="koppen-panel"></div>
+            <p id="selectionSummary" class="card-copy"></p>
+            <div id="selectionContext" class="context-banner"></div>
+          </section>
+
+          <section class="probe-main">
+            <div class="probe-column">
+              <div class="subsection-head">
+                <p class="eyebrow">Decode</p>
+                <h3>쾨펜 문자 해독</h3>
+              </div>
+              <div id="koppenBreakdown" class="letter-grid"></div>
+              <div id="annualFacts" class="fact-grid"></div>
+            </div>
+
+            <div class="probe-column">
+              <div class="subsection-head">
+                <p class="eyebrow">Climate Graph</p>
+                <h3>월별 기온과 강수</h3>
+              </div>
+              <div id="climateChart" class="chart-host"></div>
+              <div id="monthlyFactors" class="factor-grid"></div>
+            </div>
+          </section>
+
+          <section class="probe-reasoning">
+            <div class="subsection-head">
+              <p class="eyebrow">Drivers</p>
+              <h3>왜 이런 기후가 되었나</h3>
+            </div>
+            <div id="driverStacks" class="driver-stacks"></div>
+            <div id="ruleTrace" class="trace-grid"></div>
+            <ul id="reasonList" class="reason-list"></ul>
+          </section>
+        </article>
+
+        <section class="utility-grid">
+          <details class="fold-card" open data-fold-panel data-rerender-on-open data-mobile-collapsed="true">
+            <summary class="fold-summary">
+              <div>
+                <p class="eyebrow">Controls</p>
+                <h2>실험 레버</h2>
+              </div>
+              <span class="fold-meta">월 · 자전축 · 대륙성 · 산맥 · 해류</span>
+            </summary>
+            <div class="fold-body">
+              <div class="control-stack control-grid">
+                <label class="control-block" data-knob="프리셋">
+                  <span class="control-label">프리셋</span>
+                  <select id="presetSelect"></select>
+                </label>
+                <div class="control-block control-copy-block">
+                  <span class="control-label">프리셋 설명</span>
+                  <p id="presetDescription" class="control-copy"></p>
+                </div>
+
+                <label class="control-block" data-knob="월">
+                  <span class="control-row">
+                    <span class="control-label">월</span>
+                    <strong id="monthValue"></strong>
+                  </span>
+                  <input id="monthRange" type="range" min="1" max="12" step="1" />
+                </label>
+
+                <label class="control-block" data-knob="자전축 기울기">
+                  <span class="control-row">
+                    <span class="control-label">자전축 기울기</span>
+                    <strong id="tiltValue"></strong>
+                  </span>
+                  <input id="tiltRange" type="range" min="10" max="35" step="0.5" />
+                </label>
+
+                <label class="control-block" data-knob="대륙 크기">
+                  <span class="control-row">
+                    <span class="control-label">대륙 크기</span>
+                    <strong id="landScaleValue"></strong>
+                  </span>
+                  <input id="landScaleRange" type="range" min="0.45" max="1.6" step="0.05" />
+                </label>
+
+                <label class="control-block" data-knob="산맥 높이">
+                  <span class="control-row">
+                    <span class="control-label">산맥 높이</span>
+                    <strong id="mountainValue"></strong>
+                  </span>
+                  <input id="mountainRange" type="range" min="0" max="5500" step="100" />
+                </label>
+
+                <div class="control-block control-span-2" data-knob="해류 효과">
+                  <span class="control-label">해류 효과</span>
+                  <div class="segmented">
+                    <button type="button" data-current-bias="-0.45">찬 해류</button>
+                    <button type="button" data-current-bias="0">중립</button>
+                    <button type="button" data-current-bias="0.45">따뜻한 해류</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="control-note">
+                이 앱은 실제 재분석 기후자료가 아니라,
+                <strong>위도·순환·해양성·산맥·몬순</strong>
+                을 묶은 교육용 개념 모델입니다.
+              </div>
+            </div>
+          </details>
+
+          <details class="fold-card" open data-fold-panel data-rerender-on-open data-mobile-collapsed="true">
+            <summary class="fold-summary">
+              <div>
+                <p class="eyebrow">Guided Learning</p>
+                <h2>학습 미션</h2>
+              </div>
+              <span class="fold-meta">무엇을 먼저 봐야 하는지 안내</span>
+            </summary>
+            <div class="fold-body learning-card">
+              <div id="missionSteps" class="mission-steps"></div>
+              <div id="missionCard" class="mission-card"></div>
+              <div id="scenarioGuidance" class="scenario-guidance"></div>
+              <div class="subsection-head">
+                <p class="eyebrow">Circulation</p>
+                <h3>대기대순환 핵심</h3>
+              </div>
+              <div id="circulationFacts" class="fact-grid compact-grid"></div>
+              <div id="circulationSvg" class="svg-host"></div>
+            </div>
+          </details>
+
+          <details class="fold-card" open data-fold-panel data-rerender-on-open data-mobile-collapsed="true">
+            <summary class="fold-summary">
+              <div>
+                <p class="eyebrow">Mountain Transect</p>
+                <h2>산맥과 비그늘</h2>
+              </div>
+              <span class="fold-meta">지형이 기후를 바꾸는 과정</span>
+            </summary>
+            <div class="fold-body transect-card">
+              <p class="card-copy">지형이 바뀌면 강수와 기온이 어떻게 갈라지는지 단면으로 봅니다.</p>
+              <div id="transectSvg" class="chart-host"></div>
+              <p id="transectCaption" class="card-copy"></p>
+            </div>
+          </details>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

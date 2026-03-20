@@ -1,0 +1,11 @@
+{
+  "name": "geo-lab-e2e",
+  "private": true,
+  "scripts": {
+    "test:e2e": "playwright test --config=playwright.config.js --project=chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "geotiff": "^3.0.5"
+  }
+}
