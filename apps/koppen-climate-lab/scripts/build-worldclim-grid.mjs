@@ -5,8 +5,20 @@ import { fromFile } from "geotiff";
 const APP_ROOT = path.resolve(process.argv[2] ?? path.join(process.cwd(), "apps", "koppen-climate-lab"));
 const RAW_DIR = path.join(APP_ROOT, "data", "worldclim", "raw");
 const OUTPUT_FILE = path.join(APP_ROOT, "data", "real-climate-data.mjs");
-const LATITUDES = Array.from({ length: 37 }, (_, index) => -90 + index * 5);
-const LONGITUDES = Array.from({ length: 72 }, (_, index) => -180 + index * 5);
+const STEP_DEGREES = Number(process.argv[3] ?? 1);
+
+if (!Number.isFinite(STEP_DEGREES) || STEP_DEGREES <= 0) {
+  throw new Error(`Invalid grid step: ${process.argv[3] ?? "undefined"}`);
+}
+if (Math.abs((180 / STEP_DEGREES) - Math.round(180 / STEP_DEGREES)) > 1e-9) {
+  throw new Error(`Grid step must divide 180 evenly. Received ${STEP_DEGREES}.`);
+}
+if (Math.abs((360 / STEP_DEGREES) - Math.round(360 / STEP_DEGREES)) > 1e-9) {
+  throw new Error(`Grid step must divide 360 evenly. Received ${STEP_DEGREES}.`);
+}
+
+const LATITUDES = Array.from({ length: Math.round(180 / STEP_DEGREES) + 1 }, (_, index) => -90 + index * STEP_DEGREES);
+const LONGITUDES = Array.from({ length: Math.round(360 / STEP_DEGREES) }, (_, index) => -180 + index * STEP_DEGREES);
 const CELL_COUNT = LATITUDES.length * LONGITUDES.length;
 
 function round(value, digits = 2) {
@@ -163,11 +175,12 @@ async function writeModule(grid) {
     {
       dataset: "WorldClim 2.1 historical climate",
       period: "1970-2000",
-      resolution: "10 minutes",
+      sourceResolution: "10 minutes",
+      resolution: `${STEP_DEGREES} degree analysis grid`,
       source: "https://www.worldclim.org/data/worldclim21.html",
       generatedAt: new Date().toISOString(),
-      latStepDegrees: 5,
-      lonStepDegrees: 5,
+      latStepDegrees: STEP_DEGREES,
+      lonStepDegrees: STEP_DEGREES,
       cellCount: CELL_COUNT,
     },
     null,
@@ -200,6 +213,7 @@ async function main() {
 
   const landCells = Array.from(grid.landMask).reduce((total, value) => total + value, 0);
   console.log(`Wrote ${OUTPUT_FILE}`);
+  console.log(`Grid step: ${STEP_DEGREES} degree`);
   console.log(`Land cells: ${landCells} / ${CELL_COUNT}`);
 }
 

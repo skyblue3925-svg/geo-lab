@@ -500,7 +500,7 @@ function updateControlUI() {
     ? `지도는 Beck 2026 v2 1991-2020 공식 쾨펜 레이어를, 차트는 ${ACTIVE_CLIMATE_DATASET.dataset} ${ACTIVE_CLIMATE_DATASET.period} 월별 자료를 사용합니다.`
     : PRESETS[state.presetId].description;
   if (controlNote && isObservedClimateMode) {
-    controlNote.textContent = "쾨펜 지도는 Beck et al. 2026 v2 1991-2020 공식 분류 레이어이고, 월별 차트는 WorldClim 2.1 1970-2000 기후 정상값입니다. 학생용으로 월과 오버레이만 남기고 나머지 손잡이는 잠갔습니다.";
+    controlNote.textContent = `쾨펜 지도는 Beck et al. 2026 v2 1991-2020 공식 분류 레이어이고, 월별 차트는 ${ACTIVE_CLIMATE_DATASET.dataset} ${ACTIVE_CLIMATE_DATASET.period} ${ACTIVE_CLIMATE_DATASET.resolution} 자료입니다. 학생용으로 월과 오버레이만 남기고 나머지 손잡이는 잠갔습니다.`;
   }
 }
 
@@ -1179,7 +1179,7 @@ function renderSelectionCard(analysis, scenario) {
     </div>
   `;
   selectionSummary.textContent = isOceanCell
-    ? "선택 위치는 해양 셀입니다. 공식 Beck 쾨펜 지도에서도 해양/무자료 영역이며, 월별 차트는 육상 WorldClim 자료만 제공합니다."
+    ? `선택 위치는 해양 셀입니다. 공식 Beck 쾨펜 지도에서도 해양/무자료 영역이며, 월별 차트는 육상 ${ACTIVE_CLIMATE_DATASET.resolution} WorldClim 자료만 제공합니다.`
     : `${MONTH_LABELS[state.month - 1]} 기준 설명 차트는 ${analysis.selectedMonth.pressureBand}와 ${analysis.profile.wind.label}의 영향을 보여 주고, 지도 코드는 Beck 2026 v2 1991-2020 공식 쾨펜 지도를 따릅니다.`;
   selectionContext.innerHTML = `
     <div class="context-title">
@@ -1204,7 +1204,7 @@ function renderSelectionCard(analysis, scenario) {
     .join("");
 
   annualFacts.innerHTML = isOceanCell
-    ? `<div class="fact-pill"><span>자료 범위</span><strong>육상 월평균 기후 자료만 제공</strong></div>`
+    ? `<div class="fact-pill"><span>자료 범위</span><strong>육상 ${ACTIVE_CLIMATE_DATASET.resolution} 월평균 기후 자료만 제공</strong></div>`
     : [
         ["연평균 기온", `${analysis.annual.meanTemp.toFixed(1)}°C`],
         ["연강수량", `${analysis.annual.annualPrecip.toFixed(0)} mm`],
@@ -1249,7 +1249,7 @@ function renderClimateChart(analysis) {
     climateChart.innerHTML = `
       <div class="chart-empty">
         <strong>해양 셀</strong>
-        <p>현재 월별 실측 자료는 육상 WorldClim 격자를 사용합니다. 바다는 쾨펜 차트 대신 안내만 표시합니다.</p>
+        <p>현재 월별 실측 자료는 육상 ${ACTIVE_CLIMATE_DATASET.resolution} WorldClim 격자를 사용합니다. 바다는 쾨펜 차트 대신 안내만 표시합니다.</p>
       </div>
     `;
     return;

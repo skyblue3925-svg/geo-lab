@@ -10,8 +10,10 @@ export const ACTIVE_CLIMATE_DATASET = Object.freeze({
 });
 
 export const MONTH_LABELS = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
-export const LATITUDES = Array.from({ length: 37 }, (_, index) => -90 + index * 5);
-export const LONGITUDES = Array.from({ length: 72 }, (_, index) => -180 + index * 5);
+const OBSERVED_LAT_STEP = Number(REAL_CLIMATE_GRID_META.latStepDegrees ?? 5);
+const OBSERVED_LON_STEP = Number(REAL_CLIMATE_GRID_META.lonStepDegrees ?? 5);
+export const LATITUDES = Array.from({ length: Math.round(180 / OBSERVED_LAT_STEP) + 1 }, (_, index) => -90 + index * OBSERVED_LAT_STEP);
+export const LONGITUDES = Array.from({ length: Math.round(360 / OBSERVED_LON_STEP) }, (_, index) => -180 + index * OBSERVED_LON_STEP);
 
 export const KOPPEN_COLORS = {
   Ocean: "#21495c",
@@ -632,12 +634,12 @@ function normalizeObservedLongitude(value) {
 
 function getObservedLatitudeIndex(latitude) {
   const safeLat = clamp(Number(latitude), -90, 90);
-  return clamp(Math.round((safeLat + 90) / 5), 0, LATITUDES.length - 1);
+  return clamp(Math.round((safeLat + 90) / OBSERVED_LAT_STEP), 0, LATITUDES.length - 1);
 }
 
 function getObservedLongitudeIndex(longitude) {
   const safeLon = normalizeObservedLongitude(longitude);
-  return clamp(Math.round((safeLon + 180) / 5), 0, LONGITUDES.length - 1);
+  return clamp(Math.round((safeLon + 180) / OBSERVED_LON_STEP), 0, LONGITUDES.length - 1);
 }
 
 function getObservedCellIndex(latitude, longitude) {
