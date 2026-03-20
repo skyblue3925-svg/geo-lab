@@ -1,19 +1,22 @@
-# Koppen Climate Map
+# Koppen Climate Lab
 
-쾨펜 기후 구분 지도를 수업용으로 보여 주는 정적 웹앱입니다.
+Static classroom web app for exploring Koppen climate regions on a world map.
 
-## App Path
+Created for teaching use by Hanbaek High School teacher Kim Hansol.
 
-- `apps/koppen-climate-lab/index.html`
-- `apps/koppen-climate-lab/app.js`
-- `apps/koppen-climate-lab/climate-model.mjs`
-- `apps/koppen-climate-lab/styles.css`
+## App Files
 
-## Current Data Model
+- `index.html`
+- `app.js`
+- `climate-model.mjs`
+- `styles.css`
+- `lesson-data.mjs`
+- `world-map-data.mjs`
 
-- 지도 레이어: Beck et al. `Koppen-Geiger v2`, `1991-2020`, `0.1°`
-- 월별 기온·강수 차트: `WorldClim 2.1`, `1970-2000`
-- 지도는 공식 분류를 그대로 쓰고, 차트는 월별 기후 정상값으로 설명을 보강합니다.
+## Data Sources
+
+- Map classification layer: Beck et al. Koppen-Geiger v2, `1991-2020`, `0.1 deg`
+- Monthly chart data: WorldClim 2.1 climate normals, `1970-2000`
 
 ## Included Deploy Assets
 
@@ -25,31 +28,30 @@
 
 ## Excluded Source Assets
 
-원본 다운로드 파일은 저장소에 올리지 않습니다.
+These raw source folders are not needed for runtime or Cloudflare Pages deploys:
 
 - `data/worldclim/raw/`
 - `data/koppen-official/`
 
-이 폴더들은 전처리용 원본 보관소입니다. 앱 실행과 Cloudflare Pages 배포에는 필요하지 않습니다.
-
 ## Local Run
-
-정적 앱이라 간단한 로컬 서버만 있으면 됩니다.
 
 ```powershell
 cd "C:\Users\HANSOL\OneDrive\Desktop\Geo-lab\apps\koppen-climate-lab"
 python -m http.server 8765
 ```
 
-브라우저에서 `http://127.0.0.1:8765` 를 열면 됩니다.
+Open `http://127.0.0.1:8765`.
 
 ## Cloudflare Pages
 
-Git 연동 기준 권장 설정:
+Recommended Git-connected Pages settings:
 
 - Framework preset: `None`
 - Root directory: `apps/koppen-climate-lab`
-- Build command: `exit 0`
+- Build command: leave blank
 - Build output directory: `.`
+- Build watch paths: `apps/koppen-climate-lab/*`
 
-자세한 절차는 [docs/CLOUDFLARE_PAGES_KOPPEN.md](C:/Users/HANSOL/OneDrive/Desktop/Geo-lab/docs/CLOUDFLARE_PAGES_KOPPEN.md) 를 보면 됩니다.
+If the dashboard insists on a build command, use `exit 0`.
+
+See [CLOUDFLARE_PAGES_KOPPEN.md](C:\Users\HANSOL\OneDrive\Desktop\Geo-lab\docs\CLOUDFLARE_PAGES_KOPPEN.md) for the full setup.

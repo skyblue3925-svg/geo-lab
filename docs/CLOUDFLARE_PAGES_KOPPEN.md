@@ -1,26 +1,75 @@
-# Cloudflare Pages Deploy
+# Cloudflare Pages Deploy for Koppen Climate Lab
 
-이 문서는 `apps/koppen-climate-lab` 앱을 `Cloudflare Pages + Git 연동`으로 배포할 때 사용하는 기준 설정입니다.
+This app should be deployed as a static site with Cloudflare Pages and Git integration.
 
-## Recommended Setup
+## Current Status
+
+- GitHub remote: `https://github.com/skyblue3925-svg/geo-lab.git`
+- Production branch in this repo: `master`
+- Latest app setup commit: `9f1438d`
+- Cloudflare authentication has already been verified with Wrangler
+- A Pages project for this app has not been created yet
+
+## Why Pages Is Enough
+
+- The app is static: HTML, CSS, JavaScript, GeoJSON, MJS, and BIN assets
+- There is no login, database, secret key, or backend API for runtime
+- The app only needs standard HTTP hosting for `fetch("./data/...")`
+
+You do not need to build or manage a separate server for this version.
+
+## Recommended Pages Settings
 
 - Git provider: `GitHub`
 - Repository: `skyblue3925-svg/geo-lab`
 - Production branch: `master`
 - Framework preset: `None`
 - Root directory: `apps/koppen-climate-lab`
-- Build command: `exit 0`
+- Build command: leave blank
 - Build output directory: `.`
+- Environment variables: none
 
-## Why This Works
+If the Cloudflare UI insists on a build command, use `exit 0`.
 
-- 이 앱은 정적 웹앱입니다.
-- 서버 코드, 데이터베이스, 비밀키가 없습니다.
-- `index.html`, `app.js`, `styles.css`, `data/*` 파일만 그대로 서빙하면 됩니다.
+## Monorepo Recommendation
 
-## Before First Deploy
+This repository contains many unrelated apps and files. Restrict Pages rebuilds to the Koppen app path.
 
-반드시 포함되어야 하는 파일:
+- Build watch paths: `apps/koppen-climate-lab/*`
+
+Set this in:
+
+- `Workers & Pages`
+- project
+- `Settings`
+- `Builds & deployments`
+- `Build watch paths`
+
+## Dashboard Steps
+
+1. Open Cloudflare Dashboard.
+2. Go to `Workers & Pages`.
+3. Select `Create application`.
+4. Select `Pages`.
+5. Select `Connect to Git`.
+6. Authorize GitHub if needed.
+7. Choose repository `skyblue3925-svg/geo-lab`.
+8. Enter these settings:
+
+```text
+Production branch: master
+Framework preset: None
+Root directory: apps/koppen-climate-lab
+Build command: leave blank
+Build output directory: .
+Build watch paths: apps/koppen-climate-lab/*
+```
+
+9. Click `Save and Deploy`.
+
+## Files Required In The Repo
+
+These files must stay committed because the app loads them at runtime:
 
 - `apps/koppen-climate-lab/index.html`
 - `apps/koppen-climate-lab/app.js`
@@ -34,50 +83,24 @@
 - `apps/koppen-climate-lab/data/world-land-110m.geojson`
 - `apps/koppen-climate-lab/data/world-countries-110m.geojson`
 
-올리지 않아도 되는 원본 전처리 파일:
+## Files Excluded From Git
+
+These raw source folders are intentionally excluded because they are only used for preprocessing:
 
 - `apps/koppen-climate-lab/data/worldclim/raw/`
 - `apps/koppen-climate-lab/data/koppen-official/`
 
-## Dashboard Steps
-
-1. GitHub에 변경사항을 push합니다.
-2. Cloudflare Dashboard에서 `Workers & Pages` 로 이동합니다.
-3. `Create application` 을 누릅니다.
-4. `Pages` 를 선택합니다.
-5. `Connect to Git` 를 선택합니다.
-6. `skyblue3925-svg/geo-lab` 저장소를 연결합니다.
-7. 아래 설정값을 입력합니다.
-
-```text
-Framework preset: None
-Root directory: apps/koppen-climate-lab
-Build command: exit 0
-Build output directory: .
-```
-
-8. `Save and Deploy` 를 누릅니다.
-
-## After Deploy
-
-- 기본 주소는 `*.pages.dev` 로 생성됩니다.
-- 이후 `Custom domains` 에서 학교용 도메인을 연결할 수 있습니다.
-- `master` 브랜치에 push할 때마다 자동 배포됩니다.
-- 브랜치/PR 단위 미리보기 URL도 사용할 수 있습니다.
-
 ## Local Verification
-
-배포 전 로컬 확인:
 
 ```powershell
 cd "C:\Users\HANSOL\OneDrive\Desktop\Geo-lab\apps\koppen-climate-lab"
 python -m http.server 8765
 ```
 
-브라우저에서 `http://127.0.0.1:8765` 확인
+Open `http://127.0.0.1:8765`.
 
 ## Notes
 
-- 이 앱은 `fetch("./data/...")` 를 사용하므로 파일 더블클릭 실행이 아니라 HTTP 서빙이 필요합니다.
-- Cloudflare Pages Git 연동형은 운영과 수정 이력 관리에 가장 적합합니다.
-- 배포 후 색상, 문구, 데이터 파일만 바꿔도 다시 빌드 없이 정적 재배포가 가능합니다.
+- Do not open `index.html` by double-clicking. The app needs HTTP hosting because it uses `fetch("./data/...")`.
+- Git integration is the right long-term choice for this app because every push to `master` can redeploy automatically.
+- Cloudflare Pages also creates preview deploys for branches and pull requests.
