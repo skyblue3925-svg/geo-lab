@@ -230,7 +230,7 @@ def render_high_school_geography_page() -> None:
     with right:
         st.plotly_chart(
             build_group_case_map(group_topics, selected_topic_id),
-            width="stretch",
+            use_container_width=True,
             config={"displayModeBar": False},
         )
 
@@ -247,7 +247,7 @@ def render_high_school_geography_page() -> None:
             overlay_type=str(selected_topic["primary_overlay"]),
             camera_profile=camera_profile,
         )
-        st.plotly_chart(figure, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(figure, use_container_width=True, config={"displayModeBar": False})
         st.caption(selected_topic["overlay_caption"])
 
     with card_col:
@@ -288,13 +288,13 @@ def render_high_school_geography_page() -> None:
     st.markdown("### 6. 다음 행동")
     cta1, cta2, cta3 = st.columns(3)
     with cta1:
-        if st.button("Lab 교사 시연으로 열기", width="stretch", disabled=lab_preset is None):
+        if st.button("Lab 교사 시연으로 열기", use_container_width=True, disabled=lab_preset is None):
             route_to_lab(category, landform_key, "교사 상세모드")
     with cta2:
-        if st.button("Lab 학생 탐구로 열기", width="stretch", disabled=lab_preset is None):
+        if st.button("Lab 학생 탐구로 열기", use_container_width=True, disabled=lab_preset is None):
             route_to_lab(category, landform_key, "학생 단순모드")
     with cta3:
-        if st.button("Gallery에서 자세히 보기", width="stretch"):
+        if st.button("Gallery에서 자세히 보기", use_container_width=True):
             open_gallery(category, landform_key)
 
     if lab_preset is None:

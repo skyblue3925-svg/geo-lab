@@ -91,7 +91,7 @@ preview_col, sequence_col, cinematic_col = st.columns(3)
 with preview_col:
     st.markdown("**4단계 스토리보드**")
     st.caption(short_path(selected_asset.storyboard_path))
-    st.image(str(selected_asset.storyboard_path), width="stretch")
+    st.image(str(selected_asset.storyboard_path), use_column_width=True)
 
 with sequence_col:
     st.markdown("**이미지 시퀀스 애니메이션**")
@@ -140,7 +140,7 @@ st.markdown("### 단계별 텍스처 확인")
 stage = st.slider("단계", 0.0, 1.0, 0.0, 0.05)
 panel = load_storyboard_panel_image(selected_asset.landform_id, stage)
 if panel is not None:
-    st.image(panel, width="stretch")
+    st.image(panel, use_column_width=True)
 else:
     st.info("단계 텍스처를 찾지 못했습니다.")
 
@@ -156,7 +156,7 @@ st.caption("4단계 스토리보드를 기준으로 이미지 시퀀스를 만�
 build_col1, build_col2 = st.columns(2)
 
 with build_col1:
-    if st.button("선택 지형 이미지 시퀀스 재빌드", width="stretch"):
+    if st.button("선택 지형 이미지 시퀀스 재빌드", use_container_width=True):
         script_path = PROJECT_ROOT / "scripts" / "build_storyboard_image_sequence.py"
         result = subprocess.run(
             [
@@ -180,7 +180,7 @@ with build_col1:
             st.code(result.stderr or result.stdout)
 
 with build_col2:
-    if st.button("선택 지형 AI 프롬프트 플랜 생성", width="stretch"):
+    if st.button("선택 지형 AI 프롬프트 플랜 생성", use_container_width=True):
         script_path = PROJECT_ROOT / "scripts" / "build_storyboard_image_sequence.py"
         result = subprocess.run(
             [

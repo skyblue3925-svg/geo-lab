@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import streamlit as st
 
+
 PAGE_URLS = {
     "Animation_Studio.py": "/Animation_Studio",
     "High_School_Geography.py": "/High_School_Geography",
-    "Climate.py": "/Climate",
+    "Climate.py": "https://koppen-climate-lab.pages.dev/",
 }
 
 
@@ -20,8 +21,8 @@ def render_beta_home_page() -> None:
   </p>
   <h1 style="margin:0;font-size:2.35rem;line-height:1.12;">Animation Studio 중심 지형 학습 베타</h1>
   <p style="max-width:760px;margin:.85rem 0 0;color:#475569;font-size:1.05rem;line-height:1.7;">
-    이번 배포판은 지형 형성 애니메이션, 고등학교 세계지리 수업 화면,
-    쾨펜 기후 그래프만 노출합니다. 나머지 실험 페이지는 베타 기간 동안 잠금 처리했습니다.
+    이번 배포에서는 지형 형성 애니메이션, 고등학교 세계지리 수업 화면,
+    기존 쾨펜 기후 그래프 링크만 노출합니다.
   </p>
 </section>
 """,
@@ -43,7 +44,7 @@ def render_beta_home_page() -> None:
         },
         {
             "title": "Köppen Climate Graph",
-            "body": "별도 프로젝트로 만들었던 쾨펜 기후 그래프 앱을 베타 안에 포함했습니다.",
+            "body": "별도 프로젝트로 만들었던 기존 쾨펜 기후 그래프 앱으로 연결합니다.",
             "fragment": "Climate.py",
             "cta": "쾨펜 기후 그래프 열기",
         },
@@ -59,5 +60,5 @@ def render_beta_home_page() -> None:
                 st.markdown(f"[{card['cta']}]({target})")
 
     st.markdown("---")
-    st.caption("Locked beta pages")
-    st.write("Gallery, Overview, Lab, Research, Case Mode, Higher Ed는 이번 배포판에서 숨김/잠금 상태로 둡니다.")
+    st.caption("Beta navigation")
+    st.write("사이드바에는 Animation Studio, High School Geography, Köppen Climate Graph만 노출합니다.")
