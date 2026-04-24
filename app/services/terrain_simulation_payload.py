@@ -9,12 +9,8 @@ from typing import Any
 import numpy as np
 
 from app.services.terrain_3d_payload import build_terrain_3d_payload_from_history
-from app.utils.lab_model import (
-    build_lab_stage_history,
-    configure_lab_scenario,
-    create_lab_simple_lem,
-)
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
+from engine.simple_lem import SimpleLEM
 
 
 @dataclass(frozen=True)
@@ -27,6 +23,26 @@ class SimulationScenario:
 
 DIRECT_CAVEAT = "SimpleLEM 물리장과 해당 지형의 이상 지형 표면을 함께 사용합니다."
 PROXY_CAVEAT = "현재 엔진의 대표 물리과정으로 근사한 교육용 3D 시뮬레이션입니다."
+
+FAMILY_STAGE_TITLES: dict[str, tuple[str, ...]] = {
+    "river_delta": ("초기 경사 형성", "하천 침식", "퇴적과 분류", "지형 안정화"),
+    "coastal_marine": ("해안 경계 형성", "파랑 침식", "퇴적물 재배치", "해안선 조정"),
+    "glacial": ("빙하 집적", "빙하 침식", "골짜기 확장", "후퇴와 잔류 지형"),
+    "karst": ("석회암 표면", "용식 집중", "함몰 확대", "배수망 안정화"),
+    "aeolian_arid": ("건조 표면", "바람 침식", "모래 이동과 퇴적", "형태 이동"),
+    "volcanic": ("분출 시작", "화산체 성장", "침식과 함몰", "후기 지형 조정"),
+    "structural_differential": ("구조면 노출", "약한 층 침식", "잔구 분리", "차별 침식 안정화"),
+}
+
+FAMILY_OVERLAYS: dict[str, tuple[str, ...]] = {
+    "river_delta": ("tectonic", "erosion", "deposition", "change"),
+    "coastal_marine": ("marine", "erosion", "deposition", "change"),
+    "glacial": ("glacial", "erosion", "change", "change"),
+    "karst": ("karst", "erosion", "change", "change"),
+    "aeolian_arid": ("wind", "erosion", "deposition", "change"),
+    "volcanic": ("volcanic", "volcanic", "erosion", "change"),
+    "structural_differential": ("tectonic", "erosion", "erosion", "change"),
+}
 
 
 SIMULATION_SCENARIOS: dict[str, SimulationScenario] = {
@@ -98,25 +114,7 @@ def _build_simulation_terrain_3d_payload_cached(
     if scenario is None:
         return None
 
-    lem = create_lab_simple_lem(
-        grid_size=grid_size,
-        K=0.00012,
-        D=0.012,
-        U=0.00045,
-        enable_isostasy=False,
-        enable_karst=False,
-        enable_exner=False,
-        enable_slope_stability=False,
-    )
-    try:
-        configure_lab_scenario(
-            lem,
-            selected_landform=scenario.scenario_label,
-            grid_size=grid_size,
-        )
-    except (KeyError, ValueError):
-        return None
-    surface_source = _apply_landform_initial_surface(lem, landform_id, grid_size)
+    lem, surface_source = _create_scenario_lem(scenario, landform_id, grid_size)
 
     dt = 140.0
     lem.run(
@@ -126,11 +124,7 @@ def _build_simulation_terrain_3d_payload_cached(
         verbose=False,
     )
 
-    stage_history = build_lab_stage_history(
-        scenario.scenario_label,
-        lem.stats_history,
-        lem.process_history,
-    )
+    stage_history = _build_stage_history(scenario, len(lem.history))
     payload = build_terrain_3d_payload_from_history(
         landform_id,
         history=lem.history,
@@ -152,6 +146,107 @@ def _build_simulation_terrain_3d_payload_cached(
     payload["simulationCaveat"] = scenario.caveat
     payload["terrainSurfaceSource"] = surface_source
     return payload
+
+
+def _create_scenario_lem(
+    scenario: SimulationScenario,
+    landform_id: str,
+    grid_size: int,
+) -> tuple[SimpleLEM, str]:
+    lem = SimpleLEM(
+        grid_size=grid_size,
+        K=0.00012,
+        D=0.012,
+        U=0.00035,
+        enable_sediment_transport=True,
+        enable_weathering=True,
+    )
+    _configure_lem_for_family(lem, scenario.family, landform_id)
+    surface_source = _apply_landform_initial_surface(lem, landform_id, grid_size)
+    if surface_source == "scenario_default":
+        lem.create_initial_mountain(peak_height=40.0, noise_amp=0.5, initial_soil=0.75)
+    return lem, surface_source
+
+
+def _configure_lem_for_family(lem: SimpleLEM, family: str, landform_id: str) -> None:
+    if family == "river_delta":
+        lem.precipitation = 0.55
+        lem.Vs = 2.0
+        lem.enable_sediment_transport = True
+        lem.enable_lateral_erosion = landform_id in {"free_meander", "braided_river", "waterfall"}
+        lem.enable_landslides = landform_id in {"v_valley", "waterfall"}
+        if "delta" in landform_id:
+            lem.enable_marine = True
+            lem.sea_level = 0.0
+    elif family == "coastal_marine":
+        lem.U = 0.00005
+        lem.Km = 0.0015
+        lem.sea_level = 0.0
+        lem.enable_marine = True
+        lem.enable_sediment_transport = True
+        lem.enable_landslides = landform_id in {"coastal_cliff", "sea_arch"}
+    elif family == "glacial":
+        lem.Kg = 0.0006
+        lem.freeze_elevation = 15.0
+        lem.enable_glacial = True
+        lem.enable_freeze_thaw = True
+        lem.enable_landslides = True
+        if landform_id == "fjord":
+            lem.enable_marine = True
+            lem.sea_level = 0.0
+    elif family == "karst":
+        lem.precipitation = 0.55
+        lem.water_table = 10.0
+        lem.spring_rate = 0.0015
+        lem.enable_karst = True
+        lem.enable_groundwater = True
+    elif family == "aeolian_arid":
+        lem.precipitation = 0.12
+        lem.Ka = 0.0007
+        lem.wind_direction = np.pi / 5
+        lem.enable_aeolian = True
+        lem.enable_sediment_transport = False
+    elif family == "volcanic":
+        lem.K = 0.00006
+        lem.D = 0.006
+        lem.volcanic_rate = 0.025
+        lem.enable_volcanic = True
+        lem.enable_landslides = landform_id in {"stratovolcano", "caldera", "crater_lake"}
+    elif family == "structural_differential":
+        lem.K = 0.00008
+        lem.D = 0.004
+        lem.precipitation = 0.18
+        lem.Ka = 0.00035
+        lem.enable_aeolian = True
+        lem.enable_landslides = True
+
+
+def _build_stage_history(
+    scenario: SimulationScenario,
+    frame_count: int,
+) -> list[dict[str, Any]]:
+    titles = FAMILY_STAGE_TITLES.get(scenario.family, ("초기 지형", "작용 집중", "형태 변화", "후기 조정"))
+    overlays = FAMILY_OVERLAYS.get(scenario.family, ("change", "erosion", "deposition", "change"))
+    if frame_count <= 0:
+        return []
+    stages = []
+    for idx in range(frame_count):
+        title_index = 0 if frame_count == 1 else round(idx / (frame_count - 1) * (len(titles) - 1))
+        title_index = max(0, min(len(titles) - 1, int(title_index)))
+        title = titles[title_index]
+        stages.append(
+            {
+                "title": title,
+                "caption": f"{scenario.scenario_label}: {title}",
+                "summary": scenario.caveat,
+                "focus": "색 overlay가 강한 위치에서 지배 작용을 확인합니다.",
+                "question": "이 지형에서 침식과 퇴적 중 어느 작용이 더 먼저 드러나나요?",
+                "process_order": "초기 조건 → 지배 작용 → 형태 변화 → 후기 조정",
+                "overlay_type": overlays[title_index % len(overlays)],
+                "stage_index": title_index,
+            }
+        )
+    return stages
 
 
 def _apply_landform_initial_surface(lem: Any, landform_id: str, grid_size: int) -> str:

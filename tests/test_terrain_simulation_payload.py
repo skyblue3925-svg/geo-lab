@@ -5,6 +5,14 @@ from app.services.terrain_simulation_payload import (
 )
 
 
+def test_terrain_simulation_payload_has_no_unshipped_lab_model_dependency():
+    source = "app/services/terrain_simulation_payload.py"
+    with open(source, encoding="utf-8") as handle:
+        module_source = handle.read()
+
+    assert "app.utils.lab_model" not in module_source
+
+
 def test_build_simulation_terrain_3d_payload_uses_simple_lem_history():
     payload = build_simulation_terrain_3d_payload(
         "v_valley",
