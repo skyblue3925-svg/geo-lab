@@ -7,6 +7,7 @@ import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
 
+from app.components.animation_renderer import create_animated_terrain_figure, _get_optimal_camera
 from app.components.renderer import render_terrain_plotly
 from app.utils.gallery_showcase import (
     build_lab_showcase_preset,
@@ -20,7 +21,7 @@ from app.utils.high_school_world_geography import (
     get_high_school_world_topic,
     get_high_school_world_topics,
 )
-from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
+from engine.ideal_landforms import ANIMATED_LANDFORM_GENERATORS, IDEAL_LANDFORM_GENERATORS
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -120,7 +121,12 @@ def resolve_high_school_camera_spec(topic: dict[str, object]) -> tuple[str, str]
     return str(topic["camera_profile"]), str(topic["recommended_view"])
 
 
-def tune_standard_view_figure(fig: go.Figure | None) -> go.Figure | None:
+def tune_standard_view_figure(
+    fig: go.Figure | None,
+    *,
+    height: int = 520,
+    bottom_margin: int = 0,
+) -> go.Figure | None:
     """Keep the classroom 3D preview compact and reliably framed."""
 
     if fig is None:
@@ -128,8 +134,8 @@ def tune_standard_view_figure(fig: go.Figure | None) -> go.Figure | None:
 
     fig.update_layout(
         autosize=True,
-        height=520,
-        margin=dict(l=0, r=0, t=42, b=0),
+        height=height,
+        margin=dict(l=0, r=0, t=42, b=bottom_margin),
     )
     fig.update_layout(scene=dict(domain=dict(x=[0.0, 1.0], y=[0.0, 1.0])))
 
@@ -141,6 +147,41 @@ def tune_standard_view_figure(fig: go.Figure | None) -> go.Figure | None:
         trace.update(colorbar=dict(thickness=18, len=0.72, x=0.98))
 
     return fig
+
+
+def build_high_school_animation_figure(
+    topic: dict[str, object],
+    *,
+    grid_size: int = 56,
+    num_frames: int = 24,
+) -> go.Figure | None:
+    """Build a compact animated 3D figure for classroom playback."""
+
+    landform_key = str(topic["landform_key"])
+    animation_func = ANIMATED_LANDFORM_GENERATORS.get(landform_key)
+    if animation_func is None:
+        return None
+
+    camera_profile, _ = resolve_high_school_camera_spec(topic)
+    landform_type = str(topic["landform_type"])
+    base_camera = _get_optimal_camera(
+        landform_type,
+        landform_key,
+        camera_profile=camera_profile,
+    )
+    figure = create_animated_terrain_figure(
+        landform_func=animation_func,
+        grid_size=grid_size,
+        num_frames=num_frames,
+        title=f"{topic['title']} 형성과정 재생",
+        landform_type=landform_type,
+        detailed_type=landform_key,
+        start_stage=0.0,
+        render_style="terrain",
+        camera_motion="fixed",
+        base_camera=base_camera,
+    )
+    return tune_standard_view_figure(figure, height=560, bottom_margin=72)
 
 
 def format_group_label(group: dict[str, object]) -> str:
@@ -196,9 +237,10 @@ def render_high_school_geography_page() -> None:
     category = str(selected_topic["category"])
     landform_key = str(selected_topic["landform_key"])
     gallery_preset = get_gallery_showcase_preset(category, landform_key) or {}
+    preview_grid_size = int(gallery_preset.get("grid_size", 72))
     preview = generate_landform(
         landform_key,
-        int(gallery_preset.get("grid_size", 72)),
+        preview_grid_size,
         float(selected_topic.get("preview_stage", 0.92)),
     )
     process_fields = build_high_school_process_fields(selected_topic_id, preview)
@@ -260,23 +302,49 @@ def render_high_school_geography_page() -> None:
     preview_col, card_col = st.columns([1.3, 1.0])
     with preview_col:
         st.markdown("### 3. 표준 시점 보기")
-        figure = render_terrain_plotly(
-            preview,
-            f"{selected_topic['title']} 표준 시점",
-            add_water=False,
-            landform_type=str(selected_topic["landform_type"]),
-            detailed_type=landform_key,
-            process_fields=process_fields,
-            overlay_type=str(selected_topic["primary_overlay"]),
-            camera_profile=camera_profile,
+        animation_available = landform_key in ANIMATED_LANDFORM_GENERATORS
+        view_mode_options = ["표준 시점", "형성과정 재생"] if animation_available else ["표준 시점"]
+        view_mode = st.radio(
+            "3D 보기 방식",
+            view_mode_options,
+            index=1 if animation_available else 0,
+            horizontal=True,
+            key=f"hs_world_geo_3d_mode_{selected_topic_id}",
         )
-        figure = tune_standard_view_figure(figure)
+
+        if view_mode == "형성과정 재생" and animation_available:
+            figure = build_high_school_animation_figure(
+                selected_topic,
+                grid_size=min(preview_grid_size, 64),
+                num_frames=24,
+            )
+            if figure is None:
+                st.info("이 지형은 아직 재생 가능한 3D 형성과정이 없어 표준 시점으로 보여줍니다.")
+        else:
+            figure = None
+
+        if figure is None:
+            figure = render_terrain_plotly(
+                preview,
+                f"{selected_topic['title']} 표준 시점",
+                add_water=False,
+                landform_type=str(selected_topic["landform_type"]),
+                detailed_type=landform_key,
+                process_fields=process_fields,
+                overlay_type=str(selected_topic["primary_overlay"]),
+                camera_profile=camera_profile,
+            )
+            figure = tune_standard_view_figure(figure)
+
         st.plotly_chart(
             figure,
             use_container_width=True,
             config={"displayModeBar": False, "responsive": True},
         )
-        st.caption(selected_topic["overlay_caption"])
+        if view_mode == "형성과정 재생" and animation_available:
+            st.caption("재생 버튼으로 형성과정을 돌려볼 수 있습니다. 오버레이 설명은 아래 수업 카드와 단계 설명을 함께 보세요.")
+        else:
+            st.caption(selected_topic["overlay_caption"])
 
     with card_col:
         st.markdown("### 4. 수업 카드")

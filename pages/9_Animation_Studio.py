@@ -23,7 +23,6 @@ from app.services.animation_assets import (
     list_storyboard_assets,
     load_storyboard_panel_image,
     read_image_data_uri,
-    read_prompt_text,
 )
 from app.services.terrain_simulation_payload import (
     build_simulation_terrain_3d_payload,
@@ -353,9 +352,9 @@ else:
     st.info("단계 텍스처를 찾지 못했습니다.")
 
 st.markdown("### 프롬프트")
-prompt_text = read_prompt_text(selected_asset)
-if prompt_text:
-    st.code(prompt_text, language="markdown")
+if selected_asset.has_prompt:
+    st.info("프롬프트 원문은 공개 화면에서 표시하지 않습니다.")
+    st.caption("내부 제작용 prompt 파일은 서버에 보관되어 있으며, 공개 베타 UI에서는 노출하지 않습니다.")
 else:
     st.info("연결된 프롬프트가 없습니다.")
 
