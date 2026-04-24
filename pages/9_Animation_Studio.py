@@ -14,6 +14,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from app.beta_navigation import render_beta_sidebar
+from app.components.babylon_renderer import create_babylon_terrain_viewer_html
 from app.components.threejs_renderer import create_threejs_terrain_viewer_html
 from app.services.animation_assets import (
     PROJECT_ROOT,
@@ -136,7 +137,7 @@ def show_filmstrip_sequence_player(asset, *, frame_interval_ms: int, height: int
 
 
 st.markdown("## 애니메이션 스튜디오")
-st.caption("생성 이미지, 프롬프트, 이미지 시퀀스, 선택형 Three.js 뷰어를 확인하는 제작 화면입니다.")
+st.caption("생성 이미지, 프롬프트, 이미지 시퀀스, 선택형 3D 뷰어를 확인하는 제작 화면입니다.")
 
 assets = list_storyboard_assets()
 counts = get_asset_counts()
@@ -223,38 +224,54 @@ with cinematic_col:
     else:
         st.warning("아직 키프레임 preview가 없습니다.")
 
-st.markdown("### Three.js 3D 실험")
-st.caption("렌더링 부하를 줄이기 위해 기본값은 꺼짐입니다. 필요할 때만 켜서 필름스트립 텍스처와 절차적 지형 표면을 함께 확인합니다.")
+st.markdown("### 선택형 3D 실험")
+st.caption("렌더링 부하를 줄이기 위해 기본값은 꺼짐입니다. 필요할 때만 켜서 Babylon.js 또는 Three.js로 필름스트립 텍스처와 절차적 지형 표면을 함께 확인합니다.")
 
 if selected_asset.has_image_sequence:
-    show_threejs = st.checkbox(
-        "Three.js 실험 뷰어 보기",
+    show_3d_viewer = st.checkbox(
+        "3D 실험 뷰어 보기",
         value=False,
-        key=f"studio_show_threejs_{selected_asset.landform_id}",
+        key=f"studio_show_3d_viewer_{selected_asset.landform_id}",
     )
-    if show_threejs:
-        three_col1, three_col2, three_col3 = st.columns(3)
-        with three_col1:
-            three_height = st.slider("뷰어 높이", 480, 820, 620, 20, key="studio_three_height")
-        with three_col2:
-            three_grid = st.slider("표면 격자", 24, 72, 48, 4, key="studio_three_grid")
-        with three_col3:
-            three_surface_frames = st.slider("표면 프레임", 6, 20, 10, 1, key="studio_three_surface_frames")
+    if show_3d_viewer:
+        renderer_col, height_col, grid_col, frame_col = st.columns([1.1, 1.0, 1.0, 1.0])
+        with renderer_col:
+            renderer_choice = st.radio(
+                "렌더러",
+                ["Babylon.js", "Three.js"],
+                horizontal=True,
+                key=f"studio_3d_renderer_{selected_asset.landform_id}",
+            )
+        with height_col:
+            viewer_height = st.slider("뷰어 높이", 480, 820, 620, 20, key="studio_3d_height")
+        with grid_col:
+            viewer_grid = st.slider("표면 격자", 24, 72, 48, 4, key="studio_3d_grid")
+        with frame_col:
+            surface_frames = st.slider("표면 프레임", 6, 20, 10, 1, key="studio_3d_surface_frames")
 
-        three_html = create_threejs_terrain_viewer_html(
-            selected_asset,
-            viewer_height=three_height,
-            grid_size=three_grid,
-            surface_frames=three_surface_frames,
-        )
-        if three_html:
-            components.html(three_html, height=three_height + 8, scrolling=False)
+        if renderer_choice == "Babylon.js":
+            viewer_html = create_babylon_terrain_viewer_html(
+                selected_asset,
+                viewer_height=viewer_height,
+                grid_size=viewer_grid,
+                surface_frames=surface_frames,
+            )
         else:
-            st.info("이 지형은 아직 Three.js 실험 뷰어에 필요한 필름스트립 자산이 없습니다.")
+            viewer_html = create_threejs_terrain_viewer_html(
+                selected_asset,
+                viewer_height=viewer_height,
+                grid_size=viewer_grid,
+                surface_frames=surface_frames,
+            )
+
+        if viewer_html:
+            components.html(viewer_html, height=viewer_height + 8, scrolling=False)
+        else:
+            st.info("이 지형은 아직 선택한 3D 실험 뷰어에 필요한 필름스트립 자산이 없습니다.")
     else:
         st.info("3D 뷰어는 꺼져 있습니다. 이미지 애니메이션만 확인하면 브라우저 부하가 줄어듭니다.")
 else:
-    st.info("이미지 시퀀스가 준비된 지형부터 Three.js 실험 뷰어를 재생할 수 있습니다.")
+    st.info("이미지 시퀀스가 준비된 지형부터 3D 실험 뷰어를 재생할 수 있습니다.")
 
 st.markdown("### 단계별 텍스처 확인")
 stage = st.slider("단계", 0.0, 1.0, 0.0, 0.05)
