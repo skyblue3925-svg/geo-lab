@@ -1,18 +1,22 @@
-"""Shared beta navigation for the deploy-focused Streamlit shell."""
+"""Shared navigation helpers for the deploy-focused Streamlit shell."""
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import streamlit as st
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+STYLE_PATH = PROJECT_ROOT / "assets" / "style.css"
 KOPPEN_CLIMATE_URL = "https://koppen-climate-lab.pages.dev/"
 
 NAV_ITEMS = [
     {
         "key": "home",
-        "label": "베타 홈",
+        "label": "홈",
         "url": "/",
-        "caption": "애니메이션 스튜디오 중심 베타",
+        "caption": "지오랩 시작 화면",
     },
     {
         "key": "animation",
@@ -35,22 +39,21 @@ NAV_ITEMS = [
 ]
 
 
+def load_project_style() -> None:
+    """Apply the same project styling used by the local Streamlit pages."""
+
+    if STYLE_PATH.exists():
+        st.markdown(f"<style>{STYLE_PATH.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+
+
 def render_beta_sidebar(active: str) -> None:
-    """Render the restricted beta navigation used for deploy preview."""
+    """Append beta shortcuts while keeping the native local-style sidebar."""
 
-    st.markdown(
-        """
-        <style>
-          section[data-testid="stSidebar"] div[data-testid="stSidebarNav"] {
-            display: none;
-          }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    load_project_style()
 
-    st.sidebar.markdown("### 지오랩 베타")
-    st.sidebar.caption("애니메이션 스튜디오 중심 공개 베타")
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 공개 베타 빠른 링크")
+    st.sidebar.caption("기본 로컬 메뉴 아래에 배포용 핵심 화면만 모았습니다.")
 
     for item in NAV_ITEMS:
         label = str(item["label"])

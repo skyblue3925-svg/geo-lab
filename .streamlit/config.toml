@@ -12,7 +12,7 @@ enableCORS = true
 enableStaticServing = true
 
 [client]
-showSidebarNavigation = false
+showSidebarNavigation = true
 
 [browser]
 gatherUsageStats = false

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 import inspect
+from PIL import Image
 import subprocess
 import sys
 import json
@@ -39,18 +41,14 @@ def show_responsive_image(image) -> None:
         st.image(image, use_column_width=True)
 
 
-def show_animated_image(path: Path) -> None:
-    data_uri = read_image_data_uri(path)
-    st.markdown(
-        f"""
-        <img
-          src="{data_uri}"
-          style="display:block;width:100%;height:auto;border-radius:4px;"
-          alt="terrain formation animation"
-        />
-        """,
-        unsafe_allow_html=True,
-    )
+def show_static_media_frame(path: Path) -> bool:
+    with suppress(Exception):
+        with Image.open(path) as image:
+            image.seek(0)
+            frame = image.convert("RGB").copy()
+        show_responsive_image(frame)
+        return True
+    return False
 
 
 def show_filmstrip_sequence_player(asset, *, frame_interval_ms: int, height: int = 360) -> bool:
@@ -76,29 +74,59 @@ def show_filmstrip_sequence_player(asset, *, frame_interval_ms: int, height: int
         f"""
         <div id="{root_id}" style="width:100%;height:{height}px;position:relative;overflow:hidden;background:#020617;border-radius:4px;">
           <div class="filmstrip-frame" style="width:100%;height:100%;background-repeat:no-repeat;background-position:0 0;background-size:500% 600%;"></div>
-          <div class="filmstrip-label" style="position:absolute;left:12px;bottom:10px;padding:4px 7px;border-radius:4px;background:rgba(2,6,23,.72);color:#e2e8f0;font:12px/1.4 system-ui,sans-serif;"></div>
+          <div class="filmstrip-label" style="position:absolute;left:12px;top:10px;padding:4px 7px;border-radius:4px;background:rgba(2,6,23,.72);color:#e2e8f0;font:12px/1.4 system-ui,sans-serif;"></div>
+          <button class="filmstrip-toggle" type="button" style="position:absolute;right:12px;top:10px;padding:6px 10px;border:0;border-radius:4px;background:#f8fafc;color:#0f172a;font:700 12px/1 system-ui,sans-serif;cursor:pointer;">재생</button>
         </div>
         <script>
           const payload = {config};
           const root = document.getElementById(payload.rootId);
           const frame = root.querySelector(".filmstrip-frame");
           const label = root.querySelector(".filmstrip-label");
+          const toggle = root.querySelector(".filmstrip-toggle");
           let frameIndex = 0;
+          let timerId = null;
 
           frame.style.backgroundImage = `url("${{payload.dataUri}}")`;
 
-          function draw() {{
+          function paint() {{
             const col = frameIndex % payload.cols;
             const row = Math.floor(frameIndex / payload.cols);
             const x = payload.cols <= 1 ? 0 : (col / (payload.cols - 1)) * 100;
             const y = payload.rows <= 1 ? 0 : (row / (payload.rows - 1)) * 100;
             frame.style.backgroundPosition = `${{x}}% ${{y}}%`;
-            label.textContent = `${{payload.title}} · ${{String(frameIndex + 1).padStart(2, "0")}} / ${{payload.frameCount}} · ${{payload.frameIntervalMs}}ms`;
-            frameIndex = (frameIndex + 1) % payload.frameCount;
+            const state = timerId === null ? "정지" : "재생";
+            label.textContent = `${{payload.title}} · ${{String(frameIndex + 1).padStart(2, "0")}} / ${{payload.frameCount}} · ${{payload.frameIntervalMs}}ms · ${{state}}`;
           }}
 
-          draw();
-          window.setInterval(draw, Math.max(payload.frameIntervalMs, 40));
+          function advance() {{
+            frameIndex = (frameIndex + 1) % payload.frameCount;
+            paint();
+          }}
+
+          function play() {{
+            if (timerId !== null) return;
+            timerId = window.setInterval(advance, Math.max(payload.frameIntervalMs, 40));
+            toggle.textContent = "정지";
+            paint();
+          }}
+
+          function pause() {{
+            if (timerId === null) return;
+            window.clearInterval(timerId);
+            timerId = null;
+            toggle.textContent = "재생";
+            paint();
+          }}
+
+          toggle.addEventListener("click", () => {{
+            if (timerId === null) {{
+              play();
+            }} else {{
+              pause();
+            }}
+          }});
+
+          paint();
         </script>
         """,
         height=height,
@@ -163,7 +191,7 @@ if selected_asset.has_image_sequence:
             key=f"studio_image_frame_interval_{selected_asset.landform_id}",
         )
     with playback_note_col:
-        st.caption("값이 클수록 느리게 재생됩니다. 기본값은 기존보다 약간 느린 140ms입니다.")
+        st.caption("재생 버튼을 누르기 전까지 정지합니다. 값이 클수록 느리게 재생됩니다.")
 
 st.markdown("### 원본과 애니메이션")
 preview_col, sequence_col, cinematic_col = st.columns(3)
@@ -181,7 +209,7 @@ with sequence_col:
             frame_interval_ms=image_frame_interval_ms,
             height=360,
         ):
-            show_animated_image(selected_asset.image_sequence_animation_path)
+            show_static_media_frame(selected_asset.image_sequence_animation_path)
     else:
         st.warning("아직 실제 이미지 시퀀스 애니메이션이 없습니다.")
         if selected_asset.has_image_sequence_plan and selected_asset.image_sequence_plan_path is not None:
@@ -191,7 +219,7 @@ with cinematic_col:
     st.markdown("**키프레임 preview**")
     if selected_asset.has_cinematic_animation and selected_asset.cinematic_animation_path is not None:
         st.caption(short_path(selected_asset.cinematic_animation_path))
-        show_animated_image(selected_asset.cinematic_animation_path)
+        show_static_media_frame(selected_asset.cinematic_animation_path)
     else:
         st.warning("아직 키프레임 preview가 없습니다.")
 

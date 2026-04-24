@@ -1,4 +1,4 @@
-"""Beta landing page for the deploy-ready Geo-Lab subset."""
+"""Home page for the deploy-ready Geo-Lab subset."""
 
 from __future__ import annotations
 
@@ -6,59 +6,60 @@ import streamlit as st
 
 
 PAGE_URLS = {
-    "Animation_Studio.py": "/Animation_Studio",
-    "High_School_Geography.py": "/High_School_Geography",
-    "Climate.py": "https://koppen-climate-lab.pages.dev/",
+    "animation": "/Animation_Studio",
+    "high_school": "/High_School_Geography",
+    "koppen": "https://koppen-climate-lab.pages.dev/",
 }
+
+
+def _render_destination(title: str, body: str, url: str, cta: str) -> None:
+    st.markdown(
+        f"""
+<div class="classroom-primary-card">
+  <div class="classroom-card-title">{title}</div>
+  <div class="classroom-card-copy">{body}</div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"[{cta}]({url})")
 
 
 def render_beta_home_page() -> None:
     st.markdown(
         """
-<section style="padding: 1.5rem 0 1rem;">
-  <p style="margin:0 0 .5rem;color:#2563eb;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">
-    지오랩 베타
-  </p>
-  <h1 style="margin:0;font-size:2.35rem;line-height:1.12;">애니메이션 스튜디오 중심 지형 학습 베타</h1>
-  <p style="max-width:760px;margin:.85rem 0 0;color:#475569;font-size:1.05rem;line-height:1.7;">
-    이번 배포에서는 지형 형성 애니메이션, 고등학교 세계지리 수업 화면,
-    기존 쾨펜 기후 그래프 링크만 노출합니다.
+<section class="classroom-hero">
+  <div class="classroom-hero-eyebrow">Geo-Lab Beta</div>
+  <h1 class="classroom-hero-title">지형 형성 수업을 바로 시작하는 지오랩</h1>
+  <p class="classroom-hero-copy">
+    기존 로컬 화면의 사용 흐름을 유지하면서, 배포판에서는 애니메이션 스튜디오,
+    고등학교 세계지리 수업 화면, 쾨펜 기후 그래프 링크를 먼저 열 수 있게 정리했습니다.
   </p>
 </section>
 """,
         unsafe_allow_html=True,
     )
 
-    cards = [
-        {
-            "title": "애니메이션 스튜디오",
-            "body": "38개 지형의 이미지 시퀀스, 원본 스토리보드, Three.js 실험 뷰어를 확인합니다.",
-            "fragment": "Animation_Studio.py",
-            "cta": "애니메이션 스튜디오 열기",
-        },
-        {
-            "title": "고등학교 세계지리",
-            "body": "고등학교 세계지리 수업용 지형 형성과 과정 중심 탐구 화면입니다.",
-            "fragment": "High_School_Geography.py",
-            "cta": "수업 화면 열기",
-        },
-        {
-            "title": "쾨펜 기후 그래프",
-            "body": "별도 프로젝트로 만들었던 기존 쾨펜 기후 그래프 앱으로 연결합니다.",
-            "fragment": "Climate.py",
-            "cta": "쾨펜 기후 그래프 열기",
-        },
-    ]
-
+    st.markdown("### 바로 열기")
     columns = st.columns(3)
-    for column, card in zip(columns, cards):
-        with column:
-            st.markdown(f"### {card['title']}")
-            st.write(card["body"])
-            target = PAGE_URLS.get(card["fragment"])
-            if target:
-                st.markdown(f"[{card['cta']}]({target})")
-
-    st.markdown("---")
-    st.caption("베타 메뉴")
-    st.write("사이드바에는 애니메이션 스튜디오, 고등학교 세계지리, 쾨펜 기후 그래프만 노출합니다.")
+    with columns[0]:
+        _render_destination(
+            "애니메이션 스튜디오",
+            "지형별 이미지 시퀀스, 프롬프트, 단계별 텍스처를 확인합니다.",
+            PAGE_URLS["animation"],
+            "애니메이션 스튜디오 열기",
+        )
+    with columns[1]:
+        _render_destination(
+            "고등학교 세계지리",
+            "세계지리 수업용 대표 지형과 표준 시점, 수업 카드를 확인합니다.",
+            PAGE_URLS["high_school"],
+            "고등학교 세계지리 열기",
+        )
+    with columns[2]:
+        _render_destination(
+            "쾨펜 기후 그래프",
+            "기존 별도 프로젝트로 만든 쾨펜 기후 그래프 앱을 새 탭에서 엽니다.",
+            PAGE_URLS["koppen"],
+            "쾨펜 기후 그래프 열기",
+        )

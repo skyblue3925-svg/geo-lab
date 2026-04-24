@@ -7,7 +7,7 @@ from app.beta_navigation import render_beta_sidebar
 
 
 st.set_page_config(
-    page_title="지오랩 베타",
+    page_title="지오랩",
     layout="wide",
     initial_sidebar_state="expanded",
 )
