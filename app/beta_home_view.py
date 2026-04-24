@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import streamlit as st
 
-from app.beta_navigation import NAV_ITEMS, resolve_page_path
-
-
-def _page_target(fragment: str) -> str | None:
-    return resolve_page_path(fragment)
+PAGE_URLS = {
+    "Animation_Studio.py": "/Animation_Studio",
+    "High_School_Geography.py": "/High_School_Geography",
+    "Climate.py": "/Climate",
+}
 
 
 def render_beta_home_page() -> None:
@@ -54,9 +54,9 @@ def render_beta_home_page() -> None:
         with column:
             st.markdown(f"### {card['title']}")
             st.write(card["body"])
-            target = _page_target(card["fragment"])
+            target = PAGE_URLS.get(card["fragment"])
             if target:
-                st.page_link(target, label=card["cta"])
+                st.markdown(f"[{card['cta']}]({target})")
 
     st.markdown("---")
     st.caption("Locked beta pages")

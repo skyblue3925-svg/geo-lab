@@ -15,25 +15,28 @@ NAV_ITEMS = [
     {
         "key": "home",
         "label": "Beta Home",
-        "target": "app.py",
+        "url": "/",
         "caption": "Animation Studio 중심 베타",
     },
     {
         "key": "animation",
         "label": "Animation Studio",
         "fragment": "Animation_Studio.py",
+        "url": "/Animation_Studio",
         "caption": "지형 형성 이미지 시퀀스",
     },
     {
         "key": "high_school",
         "label": "High School Geography",
         "fragment": "High_School_Geography.py",
+        "url": "/High_School_Geography",
         "caption": "고등학교 세계지리 수업",
     },
     {
         "key": "koppen",
         "label": "Köppen Climate Graph",
         "fragment": "Climate.py",
+        "url": "/Climate",
         "caption": "쾨펜 기후 그래프 앱",
     },
 ]
@@ -62,20 +65,12 @@ def render_beta_sidebar(active: str) -> None:
     st.sidebar.caption("Animation Studio 중심 공개 베타")
 
     for item in NAV_ITEMS:
-        target = item.get("target")
-        fragment = item.get("fragment")
-        if fragment:
-            target = resolve_page_path(str(fragment))
-
-        if not target:
-            continue
-
         label = str(item["label"])
         if item["key"] == active:
             st.sidebar.markdown(f"**{label}**")
             st.sidebar.caption(str(item["caption"]))
         else:
-            st.sidebar.page_link(target, label=label)
+            st.sidebar.markdown(f"[{label}]({item['url']})")
 
     st.sidebar.markdown("---")
     st.sidebar.caption("Locked in this beta")
