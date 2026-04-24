@@ -1280,6 +1280,7 @@ def create_barchan_animated(grid_size: int, stage: float,
     elevation[:, :] = 0.0
     
     np.random.seed(42)
+    current_radius = max(2, int(w * 0.12))
     
     for i in range(num_dunes):
         # 사구 위치 (고정)
@@ -1292,7 +1293,8 @@ def create_barchan_animated(grid_size: int, stage: float,
         # Stage에 따른 크기 발달
         # 학술 자료: 일반 바르한 높이 9-30m
         max_height = 15.0 + i * 5.0  # 15m, 20m, 25m (학술 범위 내)
-        max_radius = int(w * 0.12)  # 폭 비율 약간 증가
+        max_radius = max(2, int(w * 0.12))  # 폭 비율 약간 증가
+        current_radius = max_radius
         
         # Stage 0~0.25: 작은 원형 언덕
         if stage < 0.25:
@@ -4359,13 +4361,16 @@ def create_karren(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
     
     # 용식 홈 (Rillenkarren) - 평행한 홈
     groove_spacing = max(3, w // 20)
+    groove_band = max(1, groove_spacing // 2)
+    groove_core = max(1, groove_spacing // 4)
     groove_depth = 3.0 * stage
     
     for c in range(w):
-        if c % groove_spacing < groove_spacing // 2:
+        if c % groove_spacing < groove_band:
             for r in range(h):
                 # 길쭉한 홈
-                depth = groove_depth * (1 - abs(c % groove_spacing - groove_spacing // 4) / (groove_spacing // 4))
+                groove_center_offset = abs(c % groove_spacing - groove_core)
+                depth = groove_depth * max(0.0, 1 - groove_center_offset / groove_core)
                 elevation[r, c] -= depth
     
     # 클린트/그라이크 (Clint/Grike) - 직각 패턴

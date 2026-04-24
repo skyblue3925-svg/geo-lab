@@ -46,6 +46,7 @@ def create_babylon_terrain_viewer_html(
         "textureFrameCount": int(entry.get("frame_count") or 30),
         "fps": int(entry.get("fps") or 12),
         "viewerHeight": int(viewer_height),
+        "cellTrimPx": 2,
     }
     payload.update(terrain_payload)
     payload["title"] = asset.title
@@ -150,13 +151,23 @@ def create_babylon_terrain_viewer_html(
             const terrainMesh = new BABYLON.Mesh("terrainMesh", scene);
             terrainVertexData.applyToMesh(terrainMesh, true);
 
-            const filmstripTexture = new BABYLON.Texture(payload.filmstripDataUri, scene, false, true, BABYLON.Texture.TRILINEAR_SAMPLINGMODE);
-            filmstripTexture.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
-            filmstripTexture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
-            filmstripTexture.uScale = 1 / payload.filmstripCols;
-            filmstripTexture.vScale = 1 / payload.filmstripRows;
-            filmstripTexture.uOffset = 0;
-            filmstripTexture.vOffset = 1 - (1 / payload.filmstripRows);
+            const frameCanvas = document.createElement("canvas");
+            frameCanvas.width = 1024;
+            frameCanvas.height = 1024;
+            const frameContext = frameCanvas.getContext("2d", {{ alpha: false }});
+            const filmstripImage = new Image();
+            filmstripImage.decoding = "async";
+            filmstripImage.src = payload.filmstripDataUri;
+
+            const terrainFrameTexture = new BABYLON.DynamicTexture(
+              "terrainFrameTexture",
+              frameCanvas,
+              scene,
+              false,
+              BABYLON.Texture.BILINEAR_SAMPLINGMODE,
+            );
+            terrainFrameTexture.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
+            terrainFrameTexture.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
 
             const processOverlayTexture = new BABYLON.DynamicTexture(
               "processOverlayTexture",
@@ -167,7 +178,7 @@ def create_babylon_terrain_viewer_html(
             const processOverlayContext = processOverlayTexture.getContext();
 
             const terrainMaterial = new BABYLON.StandardMaterial("terrainMaterial", scene);
-            terrainMaterial.diffuseTexture = filmstripTexture;
+            terrainMaterial.diffuseTexture = terrainFrameTexture;
             terrainMaterial.emissiveTexture = processOverlayTexture;
             terrainMaterial.emissiveColor = new BABYLON.Color3(0.42, 0.42, 0.42);
             terrainMaterial.specularColor = new BABYLON.Color3(0.03, 0.04, 0.05);
@@ -190,15 +201,65 @@ def create_babylon_terrain_viewer_html(
             const erosionFrames = payload.erosionFrames || [];
             const depositionFrames = payload.depositionFrames || [];
             const processLabels = payload.processLabels || [];
+            const stageHistory = payload.stageHistory || [];
             const surfaceFrameCount = Math.max(payload.surfaceFrameCount || 1, 1);
             const textureFrameCount = Math.max(payload.textureFrameCount || 1, 1);
+            let filmstripReady = false;
+            let lastTextureFrame = -1;
+            let lastProcessSurfaceIndex = -1;
+
+            filmstripImage.addEventListener("load", () => {{
+              filmstripReady = true;
+              applyTextureFrame(0);
+              scene.render();
+            }});
 
             function applyTextureFrame(frameIndex) {{
+              if (!filmstripReady) return;
               const cellIndex = ((frameIndex % textureFrameCount) + textureFrameCount) % textureFrameCount;
               const col = cellIndex % payload.filmstripCols;
               const row = Math.floor(cellIndex / payload.filmstripCols);
-              filmstripTexture.uOffset = col / payload.filmstripCols;
-              filmstripTexture.vOffset = 1 - ((row + 1) / payload.filmstripRows);
+              const imageWidth = filmstripImage.naturalWidth || filmstripImage.width;
+              const imageHeight = filmstripImage.naturalHeight || filmstripImage.height;
+              const cellWidth = Math.floor(imageWidth / payload.filmstripCols);
+              const cellHeight = Math.floor(imageHeight / payload.filmstripRows);
+              const cellTrimPx = Math.max(
+                0,
+                Math.min(
+                  Number(payload.cellTrimPx || 0),
+                  Math.floor(cellWidth / 10),
+                  Math.floor(cellHeight / 10),
+                ),
+              );
+              const sourceX = (col * cellWidth) + cellTrimPx;
+              const sourceY = (row * cellHeight) + cellTrimPx;
+              const sourceWidth = Math.max(1, cellWidth - (cellTrimPx * 2));
+              const sourceHeight = Math.max(1, cellHeight - (cellTrimPx * 2));
+
+              frameContext.clearRect(0, 0, frameCanvas.width, frameCanvas.height);
+              frameContext.drawImage(filmstripImage, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, frameCanvas.width, frameCanvas.height);
+              terrainFrameTexture.update(false);
+              lastTextureFrame = cellIndex;
+            }}
+
+            function formationPlayhead(textureFrame) {{
+              const raw = (textureFrameCount <= 1) ? 0 : textureFrame / (textureFrameCount - 1);
+              const family = payload.simulationProcessFamily || payload.family || "";
+              let eased = raw * raw * (3 - (2 * raw));
+              if (family === "glacial") {{
+                eased = Math.pow(raw, 1.18);
+              }} else if (family === "volcanic") {{
+                eased = raw < 0.42 ? raw * 1.35 : 0.57 + ((raw - 0.42) / 0.58) * 0.43;
+              }} else if (family === "aeolian_arid") {{
+                eased = Math.pow(raw, 0.82);
+              }} else if (family === "coastal_marine") {{
+                eased = raw < 0.55 ? raw * 0.78 : 0.43 + ((raw - 0.55) / 0.45) * 0.57;
+              }}
+              return Math.max(0, Math.min(1, eased));
+            }}
+
+            function surfaceIndex(playhead) {{
+              return Math.max(0, Math.min(surfaceFrameCount - 1, Math.round(playhead * (surfaceFrameCount - 1))));
             }}
 
             function applySurface(playhead) {{
@@ -247,13 +308,19 @@ def create_babylon_terrain_viewer_html(
               const elapsedMs = performance.now();
               const texturePlayhead = (elapsedMs / 1000) * payload.fps;
               const textureFrame = Math.floor(texturePlayhead) % textureFrameCount;
-              const normalizedPlayhead = (textureFrameCount <= 1) ? 0 : (textureFrame / (textureFrameCount - 1));
-              const surfaceIndex = Math.round(normalizedPlayhead * (surfaceFrameCount - 1));
+              const playhead = formationPlayhead(textureFrame);
+              const currentSurfaceIndex = surfaceIndex(playhead);
 
-              applyTextureFrame(textureFrame);
-              applySurface(normalizedPlayhead);
-              paintProcessOverlay(surfaceIndex);
-              const processLabel = processLabels[surfaceIndex % Math.max(processLabels.length, 1)] || "지형 변화";
+              if (textureFrame !== lastTextureFrame) {{
+                applyTextureFrame(textureFrame);
+              }}
+              applySurface(playhead);
+              if (currentSurfaceIndex !== lastProcessSurfaceIndex) {{
+                paintProcessOverlay(currentSurfaceIndex);
+                lastProcessSurfaceIndex = currentSurfaceIndex;
+              }}
+              const stage = stageHistory[currentSurfaceIndex] || {{}};
+              const processLabel = stage.title || stage.caption || processLabels[currentSurfaceIndex % Math.max(processLabels.length, 1)] || "지형 변화";
               stageLabel.textContent = `${{payload.title}} | frame ${{String(textureFrame + 1).padStart(2, "0")}} / ${{textureFrameCount}} | ${{processLabel}}`;
               scene.render();
             }}

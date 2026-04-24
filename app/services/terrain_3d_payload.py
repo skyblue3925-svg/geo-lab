@@ -56,6 +56,7 @@ def build_terrain_3d_payload(
         frame_count=safe_frame_count,
         grid_size=safe_grid_size,
     )
+    surfaces = _ensure_visible_formation_sequence(surfaces)
     normalized = _normalize_surface_stack(np.stack(surfaces).astype(float))
 
     elevation_frames = [_flatten_frame(frame) for frame in normalized]
@@ -146,6 +147,55 @@ def _normalize_surface_stack(stacked: np.ndarray) -> np.ndarray:
     z_max = float(np.nanmax(stacked))
     span = max(z_max - z_min, 1e-6)
     return np.clip((stacked - z_min) / span, 0.0, 1.0)
+
+
+def _ensure_visible_formation_sequence(surfaces: list[np.ndarray]) -> list[np.ndarray]:
+    if len(surfaces) <= 1:
+        return surfaces
+
+    stacked = np.stack([np.asarray(surface, dtype=float) for surface in surfaces]).astype(float)
+    normalized = _normalize_surface_stack(stacked)
+    start_end_delta = float(np.mean(np.abs(normalized[-1] - normalized[0])))
+    if start_end_delta >= 0.02:
+        return surfaces
+
+    final_surface = np.nan_to_num(stacked[-1], nan=0.0, posinf=0.0, neginf=0.0)
+    relief = float(np.nanmax(final_surface) - np.nanmin(final_surface))
+    if relief <= 1e-6:
+        return surfaces
+
+    base_level = float(np.nanquantile(final_surface, 0.08))
+    final_surface = _expand_sparse_relief(final_surface, base_level)
+    base_surface = np.full_like(final_surface, base_level)
+    return [
+        (base_surface * (1.0 - progress)) + (final_surface * progress)
+        for progress in np.linspace(0.0, 1.0, len(surfaces))
+    ]
+
+
+def _expand_sparse_relief(surface: np.ndarray, base_level: float) -> np.ndarray:
+    relief = np.clip(np.asarray(surface, dtype=float) - base_level, 0.0, None)
+    max_relief = float(np.max(relief)) if relief.size else 0.0
+    if max_relief <= 1e-6:
+        return surface
+
+    active_fraction = float(np.mean((relief / max_relief) > 0.08))
+    if active_fraction >= 0.08:
+        return surface
+
+    expanded = relief.copy()
+    for _ in range(4):
+        padded = np.pad(expanded, 1, mode="edge")
+        blurred = (
+            (padded[1:-1, 1:-1] * 4.0)
+            + padded[:-2, 1:-1]
+            + padded[2:, 1:-1]
+            + padded[1:-1, :-2]
+            + padded[1:-1, 2:]
+        ) / 8.0
+        expanded = np.maximum(expanded, blurred * 0.92)
+
+    return np.maximum(surface, base_level + expanded)
 
 
 def _process_field(process_fields: dict[str, Any], keys: tuple[str, ...], shape: tuple[int, int]) -> np.ndarray:

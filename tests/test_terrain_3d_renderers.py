@@ -55,6 +55,33 @@ def test_babylon_viewer_embeds_shared_physics_payload(monkeypatch):
     assert "하방 침식" in html
 
 
+def test_babylon_viewer_crops_filmstrip_frames_before_texturing(monkeypatch):
+    _patch_renderer_dependencies(monkeypatch, babylon_renderer)
+    asset = SimpleNamespace(landform_id="v_valley", title="V?먭끝")
+
+    html = babylon_renderer.create_babylon_terrain_viewer_html(asset, grid_size=2, surface_frames=1)
+
+    assert html is not None
+    assert "frameCanvas" in html
+    assert "terrainFrameTexture" in html
+    assert "drawImage(filmstripImage" in html
+    assert "cellTrimPx" in html
+    assert "filmstripTexture.uOffset" not in html
+    assert "filmstripTexture.vOffset" not in html
+
+
+def test_babylon_viewer_aligns_surface_to_formation_playhead(monkeypatch):
+    _patch_renderer_dependencies(monkeypatch, babylon_renderer)
+    asset = SimpleNamespace(landform_id="v_valley", title="V?먭끝")
+
+    html = babylon_renderer.create_babylon_terrain_viewer_html(asset, grid_size=2, surface_frames=1)
+
+    assert html is not None
+    assert "formationPlayhead" in html
+    assert "stageHistory" in html
+    assert "surfaceIndex" in html
+
+
 def test_renderers_accept_prebuilt_simulation_payload(monkeypatch):
     asset = SimpleNamespace(landform_id="v_valley", title="V자곡")
     simulation_payload = _sample_payload()

@@ -59,9 +59,10 @@ def test_build_simulation_terrain_3d_payload_falls_back_when_animated_generator_
     assert payload["terrainSurfaceSource"] == "ideal_landform_fallback:barchan"
 
 
-def test_build_simulation_terrain_3d_payload_handles_broken_static_fallback_generator():
+def test_build_simulation_terrain_3d_payload_uses_karren_animated_surface_after_small_grid_fix():
     payload = build_simulation_terrain_3d_payload("karren", grid_size=8, frame_count=2)
 
     assert payload is not None
     assert payload["surfaceFrameCount"] == 2
-    assert payload["terrainSurfaceSource"] == "zero_surface_fallback:karren"
+    assert payload["terrainSurfaceSource"] == "animated_landform:karren"
+    assert sum(payload["erosionFrames"][1]) > 0.0

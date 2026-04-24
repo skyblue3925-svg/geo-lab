@@ -45,6 +45,24 @@ def test_build_terrain_3d_payload_marks_delta_deposition_and_plan_camera():
     assert any(annotation["frame"] == 0 for annotation in payload["teachingAnnotations"])
 
 
+def test_build_terrain_3d_payload_recovers_karren_small_grid_sequence():
+    payload = build_terrain_3d_payload("karren", grid_size=16, frame_count=5)
+
+    frames = np.array(payload["surfaceFrames"], dtype=float)
+    assert payload["gridSize"] == 16
+    assert payload["surfaceFrameCount"] == 5
+    assert float(np.mean(np.abs(frames[-1] - frames[0]))) > 0.02
+    assert sum(float(np.sum(frame)) for frame in payload["erosionFrames"]) > 0.0
+
+
+def test_build_terrain_3d_payload_makes_static_pedestal_formation_visible():
+    payload = build_terrain_3d_payload("pedestal_rock", grid_size=24, frame_count=5)
+
+    frames = np.array(payload["surfaceFrames"], dtype=float)
+    assert float(np.mean(np.abs(frames[-1] - frames[0]))) > 0.02
+    assert payload["surfaceFrameCount"] == 5
+
+
 def test_build_terrain_3d_payload_from_history_uses_simulation_process_fields():
     history = [
         np.array([[4.0, 3.0], [2.0, 1.0]]),
