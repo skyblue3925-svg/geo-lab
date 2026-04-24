@@ -1,710 +1,928 @@
+﻿"""
+Geo-Lab Gallery page.
+Stable, minimal gallery for 3D landform exploration and animation.
 """
-📖 이상적 지형 갤러리
-31종의 교과서적 지형을 시각화합니다.
-"""
-import streamlit as st
-import numpy as np
-import matplotlib.pyplot as plt
-import sys
+
+import base64
+import html
+import inspect
+import io
 import os
-import json
+import sys
+import time
+from pathlib import Path
 
-# 상위 디렉토리를 경로에 추가
+import numpy as np
+import plotly.graph_objects as go
+import streamlit as st
+from matplotlib import cm
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
+# Add project root to import path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
+from app.components.animation_renderer import (
+    create_animated_terrain_figure,
+    get_multi_angle_cameras,
+)
 from app.components.renderer import render_terrain_plotly
-from app.components.animation_renderer import create_animated_terrain_figure
+from app.services.animation_assets import (
+    load_cinematic_metadata,
+    load_generated_storyboard_texture,
+    resolve_cinematic_media_path,
+)
+from app.utils.gallery_showcase import (
+    ADVANCED_MODE,
+    CATALOG_MODE,
+    build_lab_showcase_preset,
+    consume_gallery_showcase_preset,
+    get_gallery_showcase_preset,
+    queue_gallery_showcase_preset,
+)
+from app.utils.world_terrain_cases import (
+    extract_selected_world_case_id,
+    get_world_case,
+    get_world_cases_for_category,
+)
+from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS, ANIMATED_LANDFORM_GENERATORS
 
-# ========== CSS 로드 ==========
-def load_css():
-    css_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "style.css")
-    if os.path.exists(css_path):
-        with open(css_path, 'r', encoding='utf-8') as f:
-            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+st.set_page_config(page_title="갤러리", page_icon="📖", layout="wide")
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PAGES_DIR = PROJECT_ROOT / "pages"
+KICKER_LABELS = {
+    "River Systems": "하천 지형",
+    "Delta Showcase": "삼각주 지형",
+    "Glacial Forms": "빙하 지형",
+    "Volcanic Relief": "화산 지형",
+    "Karst Landscapes": "카르스트 지형",
+    "Arid Terrain": "건조 지형",
+    "Coastal Change": "해안 지형",
+}
+
+
+def load_css() -> None:
+    css_path = PROJECT_ROOT / "assets" / "style.css"
+    if css_path.exists():
+        with open(css_path, "r", encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+
+def resolve_page_path(fragment: str) -> str | None:
+    page_path = next((path for path in PAGES_DIR.iterdir() if fragment in path.name), None)
+    if page_path is None:
+        return None
+    return page_path.relative_to(PROJECT_ROOT).as_posix()
+
+
+def show_image_stretch(image) -> None:
+    if "use_container_width" in inspect.signature(st.image).parameters:
+        st.image(image, use_container_width=True)
+    else:
+        st.image(image, use_column_width=True)
+
+
+def load_uploaded_texture(uploaded_file):
+    if uploaded_file is None or Image is None:
+        return None
+    try:
+        image = Image.open(uploaded_file).convert("RGB")
+        return np.asarray(image, dtype=np.uint8)
+    except Exception:
+        return None
+
+
+def pretty_name(key: str) -> str:
+    return key.replace("_", " ").title()
+
+
+def format_kicker_label(value: object) -> str:
+    label = str(value)
+    return KICKER_LABELS.get(label, label)
+
+
+def generate_landform(key: str, grid_size: int, stage: float = 1.0) -> np.ndarray:
+    func = IDEAL_LANDFORM_GENERATORS[key]
+    params = inspect.signature(func).parameters
+
+    if "stage" in params:
+        result = func(grid_size, stage)
+    else:
+        result = func(grid_size)
+
+    if isinstance(result, tuple):
+        return result[0]
+    return result
+
+
+def generate_animated_stage(key: str, grid_size: int, stage: float) -> np.ndarray:
+    if key not in ANIMATED_LANDFORM_GENERATORS:
+        return generate_landform(key, grid_size, stage)
+
+    func = ANIMATED_LANDFORM_GENERATORS[key]
+    try:
+        result = func(grid_size, stage, return_metadata=True)
+        if isinstance(result, tuple):
+            return result[0]
+        return result
+    except Exception:
+        result = func(grid_size, stage)
+        if isinstance(result, tuple):
+            return result[0]
+        return result
+
+
+@st.cache_data(show_spinner=False)
+def build_landform_thumbnail(landform_key: str, stage: float = 0.9, grid_size: int = 120) -> bytes | None:
+    elevation = np.array(generate_animated_stage(landform_key, grid_size, stage), dtype=float)
+    relief = float(np.ptp(elevation))
+    if relief <= 1e-6:
+        relief = 1.0
+
+    normalized = (elevation - float(np.min(elevation))) / relief
+    grad_y, grad_x = np.gradient(elevation)
+    slope = np.hypot(grad_x, grad_y)
+    shade = 1.0 - np.clip(slope / (np.percentile(slope, 95) + 1e-6), 0.0, 1.0)
+    terrain_rgb = cm.terrain(np.clip(0.08 + 0.92 * normalized, 0.0, 1.0))[..., :3]
+    lit_rgb = np.clip(terrain_rgb * (0.66 + 0.34 * shade[..., None]), 0.0, 1.0)
+
+    if Image is None:
+        return None
+
+    buffer = io.BytesIO()
+    Image.fromarray((lit_rgb * 255).astype(np.uint8)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def build_showcase_card_markup(preset: dict, thumbnail: bytes | None, is_active: bool = False) -> str:
+    image_html = '<div class="gallery-showcase-thumb placeholder">미리보기 없음</div>'
+    if thumbnail:
+        encoded = base64.b64encode(thumbnail).decode("ascii")
+        image_html = f'<div class="gallery-showcase-thumb-wrap"><img class="gallery-showcase-thumb" src="data:image/png;base64,{encoded}" alt="{html.escape(preset["title"])}" /></div>'
+
+    chips = [
+        f'난이도 {preset.get("difficulty_label", "보통")}',
+        preset.get("camera_motion_label", "고정"),
+        f"형성 단계 {int(float(preset.get('stage', 1.0)) * 100)}%",
+    ]
+    chips_html = "".join(f'<span class="gallery-showcase-chip">{html.escape(str(chip))}</span>' for chip in chips)
+    active_class = " is-active" if is_active else ""
+    focus = html.escape(str(preset.get("lesson_focus", "이 지형에서 먼저 읽을 수 있는 형성 포인트를 확인하세요.")))
+    world_case = preset.get("world_case")
+    world_case_html = ""
+    if isinstance(world_case, dict):
+        world_case_title = html.escape(str(world_case.get("title", "")))
+        world_case_location = html.escape(str(world_case.get("location_label", "")))
+        world_case_hook = html.escape(str(world_case.get("classroom_hook", "")))
+        world_case_html = f"""
+  <div class="gallery-world-case compact">
+    <div class="gallery-world-case-label">대표 세계 사례</div>
+    <div class="gallery-world-case-title">{world_case_title}</div>
+    <div class="gallery-world-case-copy">{world_case_location}</div>
+    <div class="gallery-world-case-copy secondary">{world_case_hook}</div>
+  </div>
+"""
+
+    return f"""
+<div class="gallery-showcase-card{active_class}">
+  {image_html}
+  <div class="gallery-showcase-kicker">{html.escape(format_kicker_label(preset.get('kicker', '수업 예시')))}</div>
+  <div class="gallery-showcase-title">{html.escape(str(preset['title']))}</div>
+  <div class="gallery-showcase-copy">{html.escape(str(preset.get('summary', '')))}</div>
+  {world_case_html}
+  <div class="gallery-showcase-focus-label">수업 포인트</div>
+  <div class="gallery-showcase-focus">{focus}</div>
+  <div class="gallery-showcase-meta">{chips_html}</div>
+</div>
+"""
+
+
+def build_showcase_hero_markup(preset: dict) -> str:
+    world_case = preset.get("world_case")
+    world_case_html = ""
+    if isinstance(world_case, dict):
+        title = html.escape(str(world_case.get("title", "")))
+        location = html.escape(str(world_case.get("location_label", "")))
+        hook = html.escape(str(world_case.get("classroom_hook", "")))
+        process_focus = "".join(
+            f'<span class="gallery-showcase-chip strong">{html.escape(str(process))}</span>'
+            for process in world_case.get("process_focus", ())
+        )
+        world_case_html = f"""
+  <div class="gallery-world-case inverted">
+    <div class="gallery-world-case-label inverted">대표 세계 사례</div>
+    <div class="gallery-world-case-title inverted">{title}</div>
+    <div class="gallery-world-case-copy inverted">{location}</div>
+    <div class="gallery-world-case-copy inverted secondary">{hook}</div>
+    <div class="gallery-showcase-meta">{process_focus}</div>
+  </div>
+"""
+
+    return f"""
+<div class="gallery-showcase-hero">
+  <div class="gallery-showcase-eyebrow">고등학교 수업 카탈로그</div>
+  <div class="gallery-showcase-hero-title">{html.escape(str(preset['title']))}</div>
+  <div class="gallery-showcase-hero-copy">{html.escape(str(preset.get('summary', '')))}</div>
+  <div class="gallery-showcase-focus-row">
+    <div>
+      <div class="gallery-showcase-focus-label inverted">수업 포인트</div>
+      <div class="gallery-showcase-hero-focus">{html.escape(str(preset.get('lesson_focus', '형성 과정의 핵심 장면을 골라 수업에서 바로 설명할 수 있습니다.')))}</div>
+    </div>
+    <div class="gallery-showcase-difficulty-pill">난이도 {html.escape(str(preset.get('difficulty_label', '보통')))}</div>
+  </div>
+  <div class="gallery-showcase-meta">
+    <span class="gallery-showcase-chip strong">{html.escape(format_kicker_label(preset.get('kicker', '수업 예시')))}</span>
+    <span class="gallery-showcase-chip">{html.escape(str(preset.get('render_style_label', '기본 지형')))}</span>
+    <span class="gallery-showcase-chip">{html.escape(str(preset.get('camera_motion_label', '고정')))}</span>
+    <span class="gallery-showcase-chip">카메라 {html.escape(str(preset.get('camera_view', '기본 사각 뷰')))}</span>
+  </div>
+  {world_case_html}
+</div>
+"""
+
+
+def build_showcase_lesson_panel_markup(preset: dict, has_lab_link: bool) -> str:
+    next_step = "Lab 모범사례로 바로 넘겨 수업 시연까지 이어집니다." if has_lab_link else "Gallery 안에서 대표 장면을 미리보고 설명용 예시로 사용할 수 있습니다."
+    world_case = preset.get("world_case")
+    world_case_markup = ""
+    if isinstance(world_case, dict):
+        world_case_markup = f"""
+  <div class="gallery-showcase-focus-label">세계 사례 질문</div>
+  <div class="gallery-showcase-lesson-copy">{html.escape(str(world_case.get('student_question', '')))}</div>
+  <div class="gallery-showcase-focus-label">교사 설명 포인트</div>
+  <div class="gallery-showcase-lesson-copy">{html.escape(str(world_case.get('teacher_note', '')))}</div>
+"""
+    return f"""
+<div class="gallery-showcase-lesson-panel">
+  <div class="gallery-showcase-focus-label">관찰 질문</div>
+  <div class="gallery-showcase-lesson-copy">{html.escape(str(preset.get('observation_prompt', '이 지형에서 가장 먼저 달라지는 부분을 찾아보세요.')))}</div>
+  {world_case_markup}
+  <div class="gallery-showcase-focus-label">추천 흐름</div>
+  <div class="gallery-showcase-lesson-copy">{html.escape(next_step)}</div>
+</div>
+"""
+
+
+def build_world_case_atlas_markup(world_case: dict, is_active: bool = False) -> str:
+    active_class = " is-active" if is_active else ""
+    process_focus = "".join(
+        f'<span class="gallery-showcase-chip">{html.escape(str(process))}</span>'
+        for process in world_case.get("process_focus", ())
+    )
+    return f"""
+<div class="gallery-world-case-atlas{active_class}">
+  <div class="gallery-world-case-label">세계 사례</div>
+  <div class="gallery-world-case-title">{html.escape(str(world_case.get('title', '')))}</div>
+  <div class="gallery-world-case-copy">{html.escape(str(world_case.get('location_label', '')))}</div>
+  <div class="gallery-world-case-copy secondary">{html.escape(str(world_case.get('classroom_hook', '')))}</div>
+  <div class="gallery-showcase-meta">{process_focus}</div>
+</div>
+"""
+
+
+def build_world_case_map_figure(world_cases: list[dict], active_landform: str | None = None) -> go.Figure:
+    fig = go.Figure()
+    inactive_cases = [case for case in world_cases if case.get("landform_key") != active_landform]
+    active_cases = [case for case in world_cases if case.get("landform_key") == active_landform]
+
+    def hover_text(case: dict) -> str:
+        process_text = " · ".join(str(item) for item in case.get("process_focus", ()))
+        return (
+            f"<b>{html.escape(str(case.get('title', '')))}</b><br>"
+            f"{html.escape(str(case.get('location_label', '')))}<br>"
+            f"핵심 과정: {html.escape(process_text)}"
+        )
+
+    if inactive_cases:
+        fig.add_trace(
+            go.Scattergeo(
+                lon=[case["longitude"] for case in inactive_cases],
+                lat=[case["latitude"] for case in inactive_cases],
+                mode="markers+text",
+                text=[case["title"] for case in inactive_cases],
+                textposition="top center",
+                marker=dict(
+                    size=10,
+                    color="#0ea5e9",
+                    line=dict(color="#f8fafc", width=1.5),
+                    opacity=0.85,
+                ),
+                hovertext=[hover_text(case) for case in inactive_cases],
+                hovertemplate="%{hovertext}<extra></extra>",
+                customdata=[case["case_id"] for case in inactive_cases],
+                name="대표 사례",
+            )
+        )
+
+    if active_cases:
+        fig.add_trace(
+            go.Scattergeo(
+                lon=[case["longitude"] for case in active_cases],
+                lat=[case["latitude"] for case in active_cases],
+                mode="markers+text",
+                text=[case["title"] for case in active_cases],
+                textposition="top center",
+                marker=dict(
+                    size=15,
+                    color="#f97316",
+                    line=dict(color="#7c2d12", width=2),
+                    opacity=0.95,
+                    symbol="diamond",
+                ),
+                hovertext=[hover_text(case) for case in active_cases],
+                hovertemplate="%{hovertext}<extra></extra>",
+                customdata=[case["case_id"] for case in active_cases],
+                name="선택한 사례",
+            )
+        )
+
+    fig.update_geos(
+        projection_type="natural earth",
+        showland=True,
+        landcolor="#f8fafc",
+        showocean=True,
+        oceancolor="#dbeafe",
+        showcountries=True,
+        countrycolor="#cbd5e1",
+        coastlinecolor="#94a3b8",
+        showframe=False,
+        bgcolor="rgba(0,0,0,0)",
+    )
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=10, b=0),
+        height=340,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        clickmode="event+select",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1.0,
+            bgcolor="rgba(255,255,255,0.75)",
+        ),
+    )
+    return fig
+
+
+def route_to_lab_showcase(category: str, landform_key: str) -> bool:
+    preset = build_lab_showcase_preset(category, landform_key)
+    if preset is None:
+        return False
+
+    st.session_state["gallery_lab_preset"] = preset
+    if hasattr(st, "switch_page"):
+        st.switch_page("pages/3_🧪_Lab.py")
+    return True
+
+
+CATEGORY_MAP = {
+    "하천": [
+        "alluvial_fan",
+        "free_meander",
+        "incised_meander",
+        "v_valley",
+        "braided_river",
+        "waterfall",
+        "perched_river",
+    ],
+    "삼각주": ["delta", "bird_foot_delta", "arcuate_delta", "cuspate_delta", "estuary"],
+    "빙하": ["u_valley", "cirque", "horn", "fjord", "drumlin", "moraine", "arete"],
+    "화산": ["shield_volcano", "stratovolcano", "caldera", "crater_lake", "lava_plateau"],
+    "카르스트": ["karst_doline", "uvala", "tower_karst", "karren"],
+    "건조": ["barchan", "transverse_dune", "star_dune", "mesa_butte", "wadi", "playa", "pedestal_rock", "pediment"],
+    "해안": ["coastal_cliff", "spit_lagoon", "tombolo", "ria_coast", "sea_arch", "coastal_dune"],
+}
+
+CATEGORY_TO_TYPE = {
+    "하천": "river",
+    "삼각주": "river",
+    "빙하": "glacial",
+    "화산": "volcanic",
+    "카르스트": "karst",
+    "건조": "arid",
+    "해안": "coastal",
+}
+
+LANDFORM_TO_TYPE = {}
+for _cat, _items in CATEGORY_MAP.items():
+    _lf_type = CATEGORY_TO_TYPE.get(_cat, "river")
+    for _item in _items:
+        LANDFORM_TO_TYPE[_item] = _lf_type
+
 
 load_css()
 
-# ========== 시네마틱 영상 메타데이터 로드 ==========
-def load_cinematic_metadata():
-    """시네마틱 영상 메타데이터를 로드합니다."""
-    metadata_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                  "assets", "cinematic", "metadata.json")
-    try:
-        with open(metadata_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {"videos": []}
+st.markdown("## 갤러리")
+st.caption("수업에 바로 쓸 수 있는 지형 예시를 고르고, 선택한 지형의 3D 형성 장면을 먼저 확인합니다.")
+st.info("단순 학생용 보기는 새 Learn 페이지, 제작 관리는 Animation Studio 페이지로 분리 중입니다.")
+high_school_page = resolve_page_path("High_School_Geography.py")
+if high_school_page:
+    st.info("고등학교 세계지리 수업용 대표 지형만 빠르게 보려면 별도 수업 페이지를 사용하는 편이 더 가볍습니다.")
+    st.markdown(f"[고등학교 수업용 지형 페이지로 이동]({high_school_page})")
 
-# ========== 헤더 ==========
-st.markdown("""
-<div style='margin-bottom: 1.5rem;'>
-    <h1 style='font-size: 2.2rem; font-weight: 700; margin-bottom: 0.25rem;'>📖 이상적 지형 갤러리</h1>
-    <p style='color: #86868b; font-size: 1rem;'>교과서적인 지형 형태를 기하학적 모델로 시각화합니다.</p>
-</div>
-""", unsafe_allow_html=True)
+main_tab1, main_tab2 = st.tabs(["수업용 예시 카탈로그", "시네마틱 영상"])
 
-# ========== 메인 탭 구조 ==========
-main_tab1, main_tab2 = st.tabs(["🎮 3D 시뮬레이션", "🎬 시네마틱 영상"])
-
-# ========== 시네마틱 영상 탭 ==========
 with main_tab2:
-    st.subheader("🎬 나노 바나나 프로 시네마틱 영상")
-    st.markdown("_AI로 생성한 고품질 지형 형성 영상을 감상하세요._")
-    
+    st.subheader("시네마틱 영상")
     metadata = load_cinematic_metadata()
     videos = metadata.get("videos", [])
-    
+
     if not videos:
-        st.warning("아직 등록된 시네마틱 영상이 없습니다.")
+        st.info("등록된 시네마틱 영상이 아직 없습니다.")
     else:
-        # 카테고리 필터
-        categories = list(set(v.get("category", "other") for v in videos))
-        category_names = {
-            "glacial": "❄️ 빙하", "river": "🌊 하천", "volcanic": "🌋 화산",
-            "arid": "🏜️ 건조", "coastal": "🏖️ 해안", "karst": "🦇 카르스트"
-        }
-        
-        col_filter, col_info = st.columns([2, 1])
-        with col_filter:
-            selected_cat = st.selectbox(
-                "카테고리 필터",
-                ["전체"] + [category_names.get(c, c) for c in categories],
-                key="cinematic_cat"
-            )
-        
-        # 필터링
-        if selected_cat == "전체":
-            filtered_videos = videos
-        else:
-            cat_key = [k for k, v in category_names.items() if v == selected_cat]
-            cat_key = cat_key[0] if cat_key else selected_cat
-            filtered_videos = [v for v in videos if v.get("category") == cat_key]
-        
-        # 영상 목록
-        for video in filtered_videos:
-            with st.expander(f"{video['title']} ({video.get('duration', '?')})", expanded=False):
-                st.markdown(f"**설명:** {video.get('description', '')}")
-                st.markdown(f"**소스 이미지:** {', '.join(video.get('sources', []))}")
-                
-                status = video.get("status", "pending")
-                if status == "ready":
-                    video_path = os.path.join(
-                        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "assets", "cinematic", video.get("file", "")
-                    )
-                    if os.path.exists(video_path):
-                        # GIF는 바이너리로 읽어서 표시, MP4는 st.video()
-                        if video_path.endswith('.gif'):
-                            with open(video_path, 'rb') as f:
-                                gif_data = f.read()
-                            st.image(gif_data, use_column_width=True)
-                        else:
-                            st.video(video_path)
-                    else:
-                        st.error(f"영상 파일을 찾을 수 없습니다: {video.get('file')}")
-                elif status == "in_progress":
-                    st.info("🔄 제작 중입니다...")
-                else:
-                    st.warning("⏳ 제작 예정 - 나노 바나나 프로에서 영상을 생성해주세요.")
-                    
-                    # 프롬프트 템플릿 제안
-                    with st.expander("💡 제작 프롬프트 예시"):
-                        prompt_templates = {
-                            "fjord_formation": "Create a 30-second educational animation showing fjord formation: 1) V-shaped valley carved by river, 2) Glacier advancing and eroding into U-shape, 3) Glacier retreating, 4) Sea flooding the valley. Photorealistic, aerial view.",
-                            "delta_development": "Create a 25-second animation of river delta formation: sediment-laden river meeting calm sea, gradual buildup of distributary channels, bird's eye view showing arcuate shape developing.",
-                            "barchan_migration": "Create a 20-second animation of barchan dune migration: wind from one direction, sand moving up windward slope, sliding down slip face, crescent shape moving across desert.",
-                            "caldera_formation": "Create a 35-second animation of caldera formation: magma chamber filling, massive eruption, collapse of summit, lake filling the depression. Cross-section view.",
-                            "sea_stack_evolution": "Create a 30-second coastal erosion animation: waves attacking headland, sea cave forming, arch developing, collapse into sea stack. Side view perspective."
-                        }
-                        st.code(prompt_templates.get(video['id'], "프롬프트를 작성해주세요."))
-        
-        st.markdown("---")
-        st.caption("💡 **제작 방법:** [nanobanana.pro](https://nanobanana.pro) 에서 영상 생성 → `assets/cinematic/` 폴더에 저장 → `metadata.json`의 status를 'ready'로 변경")
-
-# ========== 3D 시뮬레이션 탭 ==========
-with main_tab1:
-    # 모드 선택 (교사용/전문가)
-    mode_col1, mode_col2 = st.columns([3, 1])
-    with mode_col2:
-        view_mode = st.radio(
-            "모드", 
-            ["🎓 교사용", "⚙️ 전문가"],
-            horizontal=True,
-            key="gallery_mode",
-            label_visibility="collapsed"
+        show_cinematic_media = st.checkbox(
+            "시네마틱 파일 미리보기 로드",
+            value=False,
+            help="이미지와 WebP 파일이 많아 Gallery 첫 화면이 느려질 수 있어 필요할 때만 로드합니다.",
         )
-    is_teacher_mode = (view_mode == "🎓 교사용")
-    
-    # 모드별 안내 메시지
-    if is_teacher_mode:
-        st.success("🎓 **교사 모드** — 3D 애니메이션이 바로 표시됩니다!")
-    else:
-        st.info("⚙️ **전문가 모드** — 모든 파라미터를 조정할 수 있습니다.")
+        for video in videos:
+            with st.expander(f"{video.get('title', video.get('id', 'video'))}"):
+                st.write(video.get("description", ""))
+                status = video.get("status", "pending")
+                file_name = video.get("file", "")
+                media_path = resolve_cinematic_media_path(file_name)
 
-    # 카테고리별 지형
-    st.sidebar.subheader("🗂️ 지형 카테고리")
-    category = st.sidebar.radio("카테고리 선택", [
-        "🌊 하천 지형",
-        "🔺 삼각주 유형", 
-        "❄️ 빙하 지형",
-        "🌋 화산 지형",
-        "🦇 카르스트 지형",
-        "🏜️ 건조 지형",
-        "🏖️ 해안 지형"
-    ], key="gallery_cat")
+                if status == "ready" and media_path.exists() and show_cinematic_media:
+                    if media_path.suffix.lower() in {".gif", ".webp", ".png", ".jpg", ".jpeg"}:
+                        with open(media_path, "rb") as f:
+                            show_image_stretch(f.read())
+                    else:
+                        st.video(str(media_path))
+                elif status == "ready" and media_path.exists():
+                    st.caption("미리보기 로드를 켜면 파일을 화면에 표시합니다.")
+                else:
+                    st.warning(f"상태: {status}")
 
-    # 카테고리 → landform_type 매핑
-    CATEGORY_TO_TYPE = {
-        "🌊 하천 지형": "river",
-        "🔺 삼각주 유형": "river", 
-        "❄️ 빙하 지형": "glacial",
-        "🌋 화산 지형": "volcanic",
-        "🦇 카르스트 지형": "karst",
-        "🏜️ 건조 지형": "arid",
-        "🏖️ 해안 지형": "coastal"
-    }
-    landform_type = CATEGORY_TO_TYPE.get(category, None)
-
-    # 카테고리별 옵션
-    if category == "🌊 하천 지형":
-        landform_options = {
-            "📐 선상지 (Alluvial Fan)": "alluvial_fan",
-            "🐍 자유곡류 (Free Meander)": "free_meander",
-            "⛰️ 감입곡류+하안단구 (Incised Meander)": "incised_meander",
-            "🏔️ V자곡 (V-Valley)": "v_valley",
-            "🌊 망상하천 (Braided River)": "braided_river",
-            "💧 폭포 (Waterfall)": "waterfall",
-            "🚧 천정천 (Perched River)": "perched_river",
-        }
-    elif category == "🔺 삼각주 유형":
-        landform_options = {
-            "🔺 일반 삼각주 (Delta)": "delta",
-            "🦶 조족상 삼각주 (Bird-foot)": "bird_foot_delta",
-            "🌙 호상 삼각주 (Arcuate)": "arcuate_delta",
-            "📍 첨두상 삼각주 (Cuspate)": "cuspate_delta",
-            "🌊 에스추어리 (Estuary)": "estuary",
-        }
-    elif category == "❄️ 빙하 지형":
-        landform_options = {
-            "❄️ U자곡 (U-Valley)": "u_valley",
-            "🥣 권곡 (Cirque)": "cirque",
-            "🏔️ 호른 (Horn)": "horn",
-            "🌊 피오르드 (Fjord)": "fjord",
-            "🥚 드럼린 (Drumlin)": "drumlin",
-            "🪨 빙퇴석 (Moraine)": "moraine",
-            "🗡️ 아레트 (Arête)": "arete",
-        }
-    elif category == "🌋 화산 지형":
-        landform_options = {
-            "🛡️ 순상화산 (Shield)": "shield_volcano",
-            "🗻 성층화산 (Stratovolcano)": "stratovolcano",
-            "🕳️ 칼데라 (Caldera)": "caldera",
-            "💧 칼데라호 (Caldera Lake)": "crater_lake",
-            "🟫 용암대지 (Lava Plateau)": "lava_plateau",
-        }
-    elif category == "🦇 카르스트 지형":
-        landform_options = {
-            "🕳️ 돌리네 (Doline)": "karst_doline",
-            "🥋 우발라 (Uvala)": "uvala",
-            "🗼 탑카르스트 (Tower Karst)": "tower_karst",
-            "🪨 카렌 (Karren)": "karren",
-        }
-    elif category == "🏜️ 건조 지형":
-        landform_options = {
-            "🌙 바르한 사구 (Barchan)": "barchan",
-            "🟰 횡사구 (Transverse Dune)": "transverse_dune",
-            "⭐ 성사구 (Star Dune)": "star_dune",
-            "🗿 메사/뷰트 (Mesa/Butte)": "mesa_butte",
-            "🏜️ 와디 (Wadi)": "wadi",
-            "🪶 플라야 (Playa)": "playa",
-            "🍄 버섯바위 (Pedestal Rock)": "pedestal_rock",
-        }
-    else:  # 해안 지형
-        landform_options = {
-            "🏖️ 해안 절벽 (Coastal Cliff)": "coastal_cliff",
-            "🌊 사취+석호 (Spit+Lagoon)": "spit_lagoon",
-            "🏝️ 육계사주 (Tombolo)": "tombolo",
-            "🌀 리아스 해안 (Ria Coast)": "ria_coast",
-            "🌉 해식아치 (Sea Arch)": "sea_arch",
-            "🏖️ 해안사구 (Coastal Dune)": "coastal_dune",
-        }
-
-    # 지형 선택 (상단에 배치)
-    selected_landform = st.selectbox("🏔️ 지형 선택", list(landform_options.keys()), key="landform_select")
-    landform_key = landform_options[selected_landform]
-    
-    # 모드에 따른 파라미터 설정
-    if is_teacher_mode:
-        # 교사 모드: 기본값 사용
-        gallery_grid_size = 60
-        num_frames = 30
-    else:
-        # 전문가 모드: 슬라이더 표시
-        col_params1, col_params2 = st.columns(2)
-        with col_params1:
-            gallery_grid_size = st.slider("해상도", 30, 200, 60, 10, key="gallery_res")
-        with col_params2:
-            num_frames = st.slider("프레임 수", 10, 100, 30, 5, key="anim_frames")
-    
-    # 지형 생성
-    if landform_key in IDEAL_LANDFORM_GENERATORS:
-        generator = IDEAL_LANDFORM_GENERATORS[landform_key]
-        try:
-            elevation = generator(gallery_grid_size)
-        except TypeError:
-            elevation = generator(gallery_grid_size, 1.0)
-    else:
-        st.error(f"지형 '{landform_key}' 생성기를 찾을 수 없습니다.")
-        elevation = np.zeros((gallery_grid_size, gallery_grid_size))
-
-    # 지형 설명 (간결하게)
-    descriptions = {
-        "delta": "하천이 바다/호수에 유입될 때 퇴적물이 쌓여 형성",
-        "alluvial_fan": "산지에서 평지로 나오는 경사 급변점에서 퇴적물이 부채꼴로 쌓임",
-        "free_meander": "범람원을 사행하는 곡류. 자연제방과 배후습지 형성",
-        "incised_meander": "융기로 곡류가 기반암을 파며 형성. 하안단구 발달",
-        "v_valley": "하천의 하방 침식이 우세하여 형성된 V자 단면 골짜기",
-        "braided_river": "퇴적물이 많고 경사가 급할 때 수로가 분화/합류",
-        "waterfall": "경암과 연암의 차별침식으로 형성. 점차 후퇴함",
-        "bird_foot_delta": "미시시피강형. 파랑 약하고 퇴적물 많을 때 새발 모양",
-        "arcuate_delta": "나일강형. 파랑과 퇴적물 균형으로 호(Arc) 형태",
-        "cuspate_delta": "티베르강형. 파랑이 강해 뾰족한 화살촉 모양",
-        "u_valley": "빙하 침식으로 형성된 U자 단면의 골짜기",
-        "cirque": "빙하 시작점. 반원형 와지, 융해 후 호수(Tarn) 형성",
-        "horn": "여러 권곡이 만나 침식되지 않고 남은 피라미드형 봉우리",
-        "fjord": "빙하가 파낸 U자곡에 바다가 유입된 좁고 깊은 만",
-        "drumlin": "빙하 퇴적물이 흐름 방향으로 타원형으로 쌓인 언덕",
-        "moraine": "빙하가 운반한 암설이 퇴적된 지형 (측퇴석/종퇴석)",
-        "shield_volcano": "유동성 높은 현무암질 용암이 완만하게 쌓인 방패형",
-        "stratovolcano": "용암과 화산쇄설물이 교대로 쌓인 급경사 원뿔형",
-        "caldera": "대규모 분화 후 마그마방 함몰로 형성된 거대 분지",
-        "crater_lake": "칼데라/화구에 물이 채워진 호수",
-        "lava_plateau": "열극 분출로 현무암 용암이 넓게 펼쳐진 평탄 대지",
-        "barchan": "바람이 한 방향에서 불 때 형성되는 초승달 사구",
-        "mesa_butte": "차별침식으로 남은 탁상지. 메사>뷰트 순으로 작아짐",
-        "karst_doline": "석회암 용식으로 형성된 움푹 파인 와지",
-        "coastal_cliff": "파랑 침식으로 형성된 해안 절벽",
-        "spit_lagoon": "연안류로 퇴적물이 길게 쌓인 사취가 석호를 형성",
-        "tombolo": "연안류 퇴적으로 육지와 섬이 모래톱으로 연결",
-        "ria_coast": "하곡이 해수면 상승으로 침수된 톱니 해안선",
-        "sea_arch": "곶에서 파랑 침식으로 형성된 아치형 지형",
-    }
-    
-    desc = descriptions.get(landform_key, "")
-    if desc:
-        st.caption(f"📖 {desc}")
-    
     st.markdown("---")
-    
-    # 교사 모드: 3D 애니메이션 먼저 표시
-    if is_teacher_mode:
-        # 3D 애니메이션 바로 표시
-        if landform_key in ANIMATED_LANDFORM_GENERATORS:
-            anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
-            with st.spinner("🎬 애니메이션 생성 중..."):
-                try:
-                    fig_animated = create_animated_terrain_figure(
-                        landform_func=anim_func,
-                        grid_size=gallery_grid_size,
-                        num_frames=num_frames,
-                        title=f"{selected_landform} 형성 과정",
-                        landform_type=landform_type,
-                        detailed_type=landform_key
-                    )
-                    st.plotly_chart(fig_animated, use_container_width=True, key="teacher_anim", 
-                                   config={'scrollZoom': True, 'displayModeBar': True})
-                    st.caption("▶️ **재생** 버튼으로 지형 형성 과정을 확인하세요!")
-                except Exception as e:
-                    st.error(f"애니메이션 오류: {e}")
-        else:
-            # 애니메이션 없는 지형: 정적 3D
-            fig_3d = render_terrain_plotly(
-                elevation,
-                f"{selected_landform}",
-                add_water=True,
-                water_level=-999,
-                force_camera=True,
-                landform_type=landform_type
-            )
-            st.plotly_chart(fig_3d, use_container_width=True, key="teacher_3d",
-                           config={'scrollZoom': True, 'displayModeBar': True})
-        
-        # 2D 보기 옵션 (접혀있음)
-        with st.expander("🗺️ 2D 평면도 보기"):
-            fig_2d, ax = plt.subplots(figsize=(8, 6))
-            im = ax.imshow(elevation, cmap='terrain', origin='upper')
-            ax.set_title(f"{selected_landform}", fontsize=14)
-            ax.axis('off')
-            plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
-            st.pyplot(fig_2d)
-            plt.close(fig_2d)
-    
-    else:
-        # 전문가 모드: 기존 레이아웃 (2D + 3D 버튼)
-        col_sel, col_view = st.columns([1, 3])
-        
-        with col_sel:
-            st.caption("📊 통계")
-            st.metric("최고 고도", f"{elevation.max():.1f}m")
-            st.metric("최저 고도", f"{elevation.min():.1f}m")
-            st.metric("고도차", f"{elevation.max() - elevation.min():.1f}m")
-        
-        with col_view:
-            # 2D 평면도
-            fig_2d, ax = plt.subplots(figsize=(8, 8))
-            cmap = plt.cm.terrain
-            water_mask = elevation < 0
-            
-            im = ax.imshow(elevation, cmap=cmap, origin='upper')
-            
-            if water_mask.any():
-                water_overlay = np.ma.masked_where(~water_mask, np.ones_like(elevation))
-                ax.imshow(water_overlay, cmap='Blues', alpha=0.6, origin='upper')
-            
-            ax.set_title(f"{selected_landform}", fontsize=14)
-            ax.axis('off')
-            plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
-            
-            st.pyplot(fig_2d)
-            plt.close(fig_2d)
-            
-            # 3D 보기 버튼 (두 가지 옵션)
-            col_3d_1, col_3d_2 = st.columns(2)
-            
-            with col_3d_1:
-                if st.button("🔲 3D 뷰 (Plotly)", key="show_3d_view"):
-                    fig_3d = render_terrain_plotly(
-                        elevation, 
-                        f"{selected_landform} - 3D",
-                        add_water=(landform_key in ["delta", "meander", "coastal_cliff", "fjord", "ria_coast", "spit_lagoon"]),
-                        water_level=0 if landform_key in ["delta", "coastal_cliff"] else -999,
-                        force_camera=True,
-                        landform_type=landform_type
-                    )
-                    st.plotly_chart(fig_3d, use_container_width=True, key="gallery_3d", config={'scrollZoom': True, 'displayModeBar': True})
-            
-            with col_3d_2:
-                if st.button("🖼️ 3D 뷰 (이미지)", key="show_3d_mpl", help="WebGL이 안 되는 환경용"):
-                    from mpl_toolkits.mplot3d import Axes3D
-                    
-                    fig_mpl = plt.figure(figsize=(10, 8))
-                    ax_3d = fig_mpl.add_subplot(111, projection='3d')
-                    
-                    # 다운샘플링 (성능)
-                    step = max(1, gallery_grid_size // 50)
-                    h, w = elevation.shape
-                    x_mpl = np.arange(0, w, step)
-                    y_mpl = np.arange(0, h, step)
-                    X, Y = np.meshgrid(x_mpl, y_mpl)
-                    Z = elevation[::step, ::step]
-                    
-                    # 색상 매핑
-                    ax_3d.plot_surface(X, Y, Z, cmap='terrain', linewidth=0, antialiased=True, alpha=0.9)
-                    ax_3d.set_xlabel('X (m)')
-                    ax_3d.set_ylabel('Y (m)')
-                    ax_3d.set_zlabel('Elevation (m)')
-                    ax_3d.set_title(f"{selected_landform} - 3D")
-                    ax_3d.view_init(elev=30, azim=-60)
-                    
-                    st.pyplot(fig_mpl)
-                    plt.close(fig_mpl)
-                    st.caption("💡 Matplotlib 3D 이미지 (WebGL 없이 작동)")
-        
-        # 설명
-        descriptions = {
-            "delta": "**삼각주**: 하천이 바다나 호수에 유입될 때 유속이 감소하여 운반 중이던 퇴적물이 쌓여 형성됩니다.",
-            "alluvial_fan": "**선상지**: 산지에서 평지로 나오는 곳에서 경사가 급감하여 운반력이 줄어들면서 퇴적물이 부채꼴로 쌓입니다.",
-            "free_meander": "**자유곡류**: 범람원 위를 자유롭게 사행하는 곡류. 자연제방(Levee)과 배후습지가 특징입니다.",
-            "incised_meander": "**감입곡류**: 융기로 인해 곡류가 기반암을 파고들면서 형성. 하안단구(River Terrace)가 함께 나타납니다.",
-            "v_valley": "**V자곡**: 하천의 하방 침식이 우세하게 작용하여 형성된 V자 단면의 골짜기.",
-            "braided_river": "**망상하천**: 퇴적물이 많고 경사가 급할 때 여러 수로가 갈라졌다 합쳐지는 하천.",
-            "waterfall": "**폭포**: 경암과 연암의 차별침식으로 형성된 급경사 낙차. 후퇴하며 협곡 형성.",
-            "bird_foot_delta": "**조족상 삼각주**: 미시시피강형. 파랑 약하고 퇴적물 공급 많을 때 새발 모양으로 길게 뻗습니다.",
-            "arcuate_delta": "**호상 삼각주**: 나일강형. 파랑과 퇴적물 공급이 균형을 이루어 부드러운 호(Arc) 형태.",
-            "cuspate_delta": "**첨두상 삼각주**: 티베르강형. 파랑이 강해 삼각주가 뾰족한 화살촉 모양으로 형성.",
-            "u_valley": "**U자곡**: 빙하의 침식으로 형성된 U자 단면의 골짜기. 측벽이 급하고 바닥이 평탄합니다.",
-            "cirque": "**권곡**: 빙하의 시작점. 반원형 움푹 파인 지형으로, 빙하 융해 후 호수(Tarn)가 형성됩니다.",
-            "horn": "**호른**: 여러 권곡이 만나는 곳에서 침식되지 않고 남은 뾰족한 피라미드형 봉우리.",
-            "fjord": "**피오르드**: 빙하가 파낸 U자곡에 바다가 유입된 좁고 깊은 만.",
-            "drumlin": "**드럼린**: 빙하 퇴적물이 빙하 흐름 방향으로 길쭉하게 쌓인 타원형 언덕.",
-            "moraine": "**빙퇴석**: 빙하가 운반한 암설이 퇴적된 지형. 측퇴석, 종퇴석 등이 있습니다.",
-            "shield_volcano": "**순상화산**: 유동성 높은 현무암질 용암이 완만하게 쌓여 방패 형태.",
-            "stratovolcano": "**성층화산**: 용암과 화산쇄설물이 교대로 쌓여 급한 원뿔형.",
-            "caldera": "**칼데라**: 대규모 분화 후 마그마방 함몰로 형성된 거대한 분지.",
-            "crater_lake": "**칼데라호**: 대규모 화산 폭발 후 정상부 함몰로 형성된 호수. 지름 1km 이상.",
-            "lava_plateau": "**용암대지**: 열극 분출로 현무암질 용암이 넓게 펼쳐져 평탄한 대지 형성.",
-            "barchan": "**바르한 사구**: 바람이 한 방향에서 불 때 형성되는 초승달 모양의 사구.",
-            "mesa_butte": "**메사/뷰트**: 차별침식으로 남은 탁상지. 메사는 크고 평탄, 뷰트는 작고 높습니다.",
-            "karst_doline": "**돌리네**: 석회암 용식으로 형성된 움푹 파인 와지.",
-            "coastal_cliff": "**해안 절벽**: 파랑의 침식으로 형성된 절벽.",
-            "spit_lagoon": "**사취+석호**: 연안류에 의해 퇴적물이 길게 쌓인 사취가 만을 막아 석호를 형성합니다.",
-            "tombolo": "**육계사주**: 연안류에 의한 퇴적으로 육지와 섬이 모래톱으로 연결된 지형.",
-            "ria_coast": "**리아스식 해안**: 과거 하곡이 해수면 상승으로 침수되어 형성된 톱니 모양 해안선.",
-            "sea_arch": "**해식아치**: 곶에서 파랑 침식으로 형성된 아치형 지형.",
-            "coastal_dune": "**해안사구**: 해빈의 모래가 바람에 의해 육지 쪽으로 운반되어 형성된 모래 언덕.",
-            # 새로 추가된 지형
-            "uvala": "**우발라**: 여러 돌리네가 합쳐져 형성된 복합 와지. 돌리네보다 크고 불규칙한 형태.",
-            "tower_karst": "**탑카르스트**: 수직 절벽을 가진 탑 모양 석회암 봉우리. 중국 구이린이 대표적.",
-            "karren": "**카렌**: 빗물에 의한 용식으로 석회암 표면에 형성된 홈과 릿지. 클린트/그라이크 포함.",
-            "transverse_dune": "**횡사구**: 바람 방향에 수직으로 길게 형성된 사구열. 모래 공급이 풍부할 때 발달.",
-            "star_dune": "**성사구**: 다방향 바람에 의해 별 모양으로 형성된 사구. 높이가 높고 이동이 적음.",
-        }
-        st.info(descriptions.get(landform_key, "설명 준비 중입니다."))
+    st.subheader("인터랙티브 시네마틱 (실험)")
+    st.caption("고정 영상 대신, 위성 느낌 렌더링 + 이동 카메라로 실시간 시네마틱 재생을 볼 수 있습니다.")
 
-    # ========== 형성 과정 애니메이션 ==========
-    if landform_key in ANIMATED_LANDFORM_GENERATORS:
-        st.markdown("---")
-        st.subheader("🎬 형성 과정")
-        
-        # 자동 재생 중이면 session_state의 stage 사용
-        if st.session_state.get('auto_playing', False):
-            stage_value = st.session_state.get('auto_stage', 0.0)
-            st.slider(
-                "형성 단계 (자동 재생 중...)", 
-                0.0, 1.0, stage_value, 0.02, 
-                key="gallery_stage_slider",
-                disabled=True
-            )
+    cinematic_choices = [k for k in ANIMATED_LANDFORM_GENERATORS.keys()]
+    cine_col1, cine_col2, cine_col3, cine_col4, cine_col5 = st.columns([1.2, 1.0, 1.0, 1.0, 1.0])
+    with cine_col1:
+        cine_landform = st.selectbox(
+            "시네마틱 지형",
+            cinematic_choices,
+            format_func=pretty_name,
+            key="cine_landform",
+        )
+    with cine_col2:
+        cine_motion = st.selectbox(
+            "카메라 연출",
+            ["오빗", "패닝", "고정"],
+            key="cine_motion",
+        )
+    with cine_col3:
+        cine_frames = st.slider("프레임", 20, 80, 40, 5, key="cine_frames")
+    with cine_col4:
+        cine_zoom = st.slider("줌", 0.7, 1.8, 1.0, 0.1, key="cine_zoom")
+    with cine_col5:
+        cine_texture_mode = st.selectbox(
+            "질감 소스",
+            ["합성", "생성 이미지", "업로드 이미지"],
+            key="cine_texture_mode",
+            help="생성 이미지는 새 4패널 스토리보드의 현재 단계 패널을 3D 표면 질감으로 사용합니다.",
+        )
+
+    cine_motion_code = {"고정": "fixed", "오빗": "orbit", "패닝": "sweep"}[cine_motion]
+    cine_start = st.slider("시작 단계", 0.0, 1.0, 0.15, 0.05, key="cine_start")
+    cine_texture = None
+    if cine_texture_mode == "생성 이미지":
+        cine_texture = load_generated_storyboard_texture(cine_landform, cine_start)
+        if cine_texture is None:
+            st.info("이 지형에 연결된 생성 이미지 텍스처가 아직 없습니다.")
         else:
-            stage_value = st.slider(
-                "형성 단계 (0% = 시작, 100% = 완성)", 
-                0.0, 1.0, 1.0, 0.02, 
-                key="gallery_stage_slider"
-            )
-        
-        anim_func = ANIMATED_LANDFORM_GENERATORS[landform_key]
-        
-        # 메타데이터 지원 지형 확인
-        supported_metadata = [
-            'incised_meander', 'alluvial_fan', 'fjord',  # 기존
-            'free_meander', 'waterfall', 'cirque', 'horn', 'coastal_cliff',  # 신규
-            'bird_foot_delta',  # 추가
-            'v_valley',  # V자곡 추가
-            'delta',  # 일반 삼각주 추가
-            'barchan',  # 바르한 사구 추가
-            'mesa_butte',  # 메사/뷰트 추가
-            'spit_lagoon',  # 사취+석호 추가
-            'stratovolcano',  # 성층화산 추가
-            'karst_doline',  # 돌리네 추가
-            'u_valley',  # U자곡
-            # Phase 2
-            'braided_river',  # 망상하천
-            'arcuate_delta',  # 호상삼각주
-            'cuspate_delta',  # 첨두삼각주
-            'drumlin',  # 드럼린
-            'moraine',  # 빙퇴석
-            'tombolo',  # 육계사주
-            'sea_arch',  # 해식아치
-            'crater_lake',  # 칼데라호
-            'transverse_dune',  # 횡사구
-            'star_dune',  # 성사구
-            'perched_river',  # 천정천
-        ]
-        
-        if landform_key in supported_metadata:
-            try:
-                stage_elev, metadata = anim_func(gallery_grid_size, stage_value, return_metadata=True)
-                # 단계별 설명 표시
-                st.success(metadata.get('stage_description', ''))
-                
-                # 선상지 존 정보 + 색상 하이라이트
-                if landform_key == 'alluvial_fan' and 'zone_info' in metadata:
-                    with st.expander("📊 세부 구조 보기", expanded=True):
-                        col_z1, col_z2, col_z3 = st.columns(3)
-                        col_z1.markdown("🔴 **선정(Apex)**<br>경사 5-15°, 역력", unsafe_allow_html=True)
-                        col_z2.markdown("🟡 **선앙(Mid)**<br>경사 2-5°, 사질", unsafe_allow_html=True)
-                        col_z3.markdown("🔵 **선단(Toe)**<br>경사 <2°, 니질", unsafe_allow_html=True)
-                        
-                        show_zones = st.checkbox("🎨 존 색상 오버레이 표시", value=False, key="show_zone_colors")
-                        
-                        if show_zones and 'zone_mask' in metadata:
-                            # 존 마스크를 색상으로 표시
-                            st.info("🔴 선정 | 🟡 선앙 | 🔵 선단")
-                            
-                            import matplotlib.pyplot as plt
-                            from matplotlib.colors import ListedColormap
-                            
-                            zone_mask = metadata['zone_mask']
-                            cmap = ListedColormap(['#4682B4', '#FFD700', '#FF6347', '#228B22'])  # 배경, 선단, 선앙, 선정
-                            
-                            fig_zone, ax = plt.subplots(figsize=(8, 6))
-                            im = ax.imshow(zone_mask, cmap=cmap, origin='lower', alpha=0.8)
-                            ax.contour(stage_elev, levels=10, colors='white', linewidths=0.5, alpha=0.5)
-                            ax.set_title("선상지 존 구분")
-                            ax.set_xlabel("X")
-                            ax.set_ylabel("Y")
-                            
-                            # 범례
-                            from matplotlib.patches import Patch
-                            legend_elements = [
-                                Patch(facecolor='#FF6347', label='선정(Apex)'),
-                                Patch(facecolor='#FFD700', label='선앙(Mid)'),
-                                Patch(facecolor='#4682B4', label='선단(Toe)')
-                            ]
-                            ax.legend(handles=legend_elements, loc='upper right')
-                            
-                            st.pyplot(fig_zone)
-                            plt.close(fig_zone)
-                
-                # 피오르드 프로세스 정보
-                if landform_key == 'fjord' and 'process_info' in metadata:
-                    with st.expander("🧊 빙하 작용 보기"):
-                        for process, desc in metadata['process_info'].items():
-                            st.markdown(f"- **{process}**: {desc}")
-                
-                # 자유곡류 정보
-                if landform_key == 'free_meander':
-                    with st.expander("🌀 곡류 정보 보기"):
-                        st.markdown(f"**사행도**: {metadata.get('sinuosity', 1):.2f}")
-                        st.markdown(f"**우각호 형성**: {'✅ 예' if metadata.get('oxbow_formed', False) else '❌ 아니오'}")
-                
-                # 폭포 정보
-                if landform_key == 'waterfall' and 'layer_info' in metadata:
-                    with st.expander("⛰️ 차별침식 보기"):
-                        for layer, info in metadata['layer_info'].items():
-                            st.markdown(f"- **{layer}**: {info['description']}")
-                        st.markdown(f"**후퇴 거리**: {metadata.get('retreat_distance', 0):.0f}m")
-                
-                # 권곡 정보
-                if landform_key == 'cirque':
-                    with st.expander("❄️ 빙하 침식 보기"):
-                        st.markdown(f"**권곡 반경**: {metadata.get('cirque_radius', 0)}m")
-                        st.markdown(f"**턴(호수) 형성**: {'✅ 예' if metadata.get('tarn_present', False) else '❌ 아니오'}")
-                
-                # 호른 정보
-                if landform_key == 'horn':
-                    with st.expander("🗻 다중 권곡 보기"):
-                        st.markdown(f"**권곡 개수**: {metadata.get('num_cirques', 0)}개")
-                        st.markdown(f"**정상 높이**: {metadata.get('peak_height', 0):.0f}m")
-                
-                # 해안절벽 정보
-                if landform_key == 'coastal_cliff' and 'erosion_processes' in metadata:
-                    with st.expander("🌊 파랑 침식 보기"):
-                        for process, desc in metadata['erosion_processes'].items():
-                            st.markdown(f"- **{process}**: {desc}")
-                        st.markdown(f"**후퇴량**: {metadata.get('retreat_amount', 0)}m")
-                
-                # 조족상 삼각주 정보
-                if landform_key == 'bird_foot_delta':
-                    with st.expander("🦶 분배수로 보기"):
-                        st.markdown(f"**분배수로 개수**: {metadata.get('num_distributaries', 0)}개")
-                        st.markdown(f"**최대 길이**: {metadata.get('max_length', 0)}m")
-                
-                # 빙퇴석 빙하 표시
-                if landform_key == 'moraine' and 'glacier_mask' in metadata:
-                    with st.expander("❄️ 빙하 시각화", expanded=True):
-                        st.markdown(f"**단계**: {metadata.get('phase', '')}")
-                        st.markdown(f"**빙하 표시**: {'✅ 있음' if metadata.get('glacier_visible', False) else '❌ 소멸'}")
-                        
-                        show_glacier = st.checkbox("🧊 빙하 하얀색으로 표시", value=True, key="show_glacier_white")
-                        
-                        if show_glacier and metadata.get('glacier_visible', False):
-                            import matplotlib.pyplot as plt
-                            
-                            glacier_mask = metadata['glacier_mask']
-                            
-                            fig_glacier, ax = plt.subplots(figsize=(8, 6))
-                            # 기본 지형 표시
-                            im = ax.imshow(stage_elev, cmap='terrain', origin='upper')
-                            
-                            # 빙하 영역 하얀색 오버레이
-                            glacier_overlay = np.ma.masked_where(~glacier_mask, np.ones_like(stage_elev))
-                            ax.imshow(glacier_overlay, cmap='Blues_r', alpha=0.8, origin='upper', vmin=0, vmax=2)
-                            
-                            ax.set_title(f"빙퇴석 - {metadata.get('phase', '')}")
-                            ax.axis('off')
-                            plt.colorbar(im, ax=ax, shrink=0.6, label='고도 (m)')
-                            
-                            st.pyplot(fig_glacier)
-                            plt.close(fig_glacier)
-                            st.caption("🧊 하얀색/청백색 영역 = 빙하")
-                        
-            except TypeError:
-                # return_metadata 지원 안 하는 경우
-                stage_elev = anim_func(gallery_grid_size, stage_value)
+            st.caption("생성 이미지 단계 텍스처가 적용됩니다.")
+    elif cine_texture_mode == "업로드 이미지":
+        cine_texture = st.session_state.get("gallery_uploaded_texture_map")
+        if cine_texture is None:
+            st.info("업로드 텍스처가 없습니다. 3D 시뮬레이션 탭에서 이미지를 먼저 업로드하세요.")
+
+    cine_func = ANIMATED_LANDFORM_GENERATORS[cine_landform]
+    cine_fig = create_animated_terrain_figure(
+        landform_func=cine_func,
+        grid_size=90,
+        num_frames=cine_frames,
+        title=f"{pretty_name(cine_landform)} 시네마틱",
+        landform_type=LANDFORM_TO_TYPE.get(cine_landform, "river"),
+        detailed_type=cine_landform,
+        start_stage=cine_start,
+        render_style="satellite",
+        camera_motion=cine_motion_code,
+        cinematic_zoom=cine_zoom,
+        texture_map=cine_texture,
+    )
+    if cine_fig is not None:
+        cine_fig.update_layout(
+            scene=dict(
+                xaxis=dict(visible=False),
+                yaxis=dict(visible=False),
+                zaxis=dict(visible=False),
+                bgcolor="#020617",
+            ),
+            paper_bgcolor="#020617",
+            plot_bgcolor="#020617",
+            margin=dict(l=0, r=0, t=60, b=10),
+            height=760,
+        )
+        st.plotly_chart(
+            cine_fig,
+            use_container_width=True,
+            key="interactive_cinematic_view",
+            config={"scrollZoom": True, "displayModeBar": True},
+        )
+
+with main_tab1:
+    consume_gallery_showcase_preset(st.session_state)
+    st.sidebar.subheader("수업용 예시")
+    category = st.sidebar.radio("지형 분류", list(CATEGORY_MAP.keys()), key="gallery_cat")
+    landform_options = CATEGORY_MAP[category]
+    higher_ed_page = resolve_page_path("Higher_Ed.py")
+
+    if st.session_state.get("landform_select") not in landform_options:
+        st.session_state["landform_select"] = landform_options[0]
+
+    active_landform = st.session_state.get("landform_select", landform_options[0])
+    active_preset = get_gallery_showcase_preset(category, active_landform)
+    selected_lab_preset = build_lab_showcase_preset(category, active_landform)
+    world_cases = get_world_cases_for_category(category)
+
+    hero_col, panel_col = st.columns([2.3, 1.2])
+    with hero_col:
+        st.markdown(build_showcase_hero_markup(active_preset), unsafe_allow_html=True)
+        st.caption("카드를 누르면 아래 미리보기가 바로 바뀌고, 연결된 대표 지형은 Lab 수업 흐름까지 이어집니다.")
+    with panel_col:
+        view_mode = st.radio("보기 방식", [CATALOG_MODE, ADVANCED_MODE], horizontal=True, key="gallery_mode")
+        st.markdown(
+            build_showcase_lesson_panel_markup(active_preset, selected_lab_preset is not None),
+            unsafe_allow_html=True,
+        )
+        if selected_lab_preset is not None:
+            if st.button("Lab에서 수업 시작", key="gallery_selected_lab", use_container_width=True):
+                if not route_to_lab_showcase(category, active_landform):
+                    st.warning("이 지형은 아직 Lab 모범사례와 연결되지 않았습니다.")
         else:
-            stage_elev = anim_func(gallery_grid_size, stage_value)
-        
-        # 물 생성
-        stage_water = np.maximum(0, -stage_elev + 1.0)
-        stage_water[stage_elev > 2] = 0
-        
-        # 선상지 물 처리
-        if landform_key == "alluvial_fan":
-            apex_y = int(gallery_grid_size * 0.15)
-            center = gallery_grid_size // 2
-            for r in range(apex_y + 5):
-                for dc in range(-2, 3):
-                    c = center + dc
-                    if 0 <= c < gallery_grid_size:
-                        stage_water[r, c] = 3.0
-        
-        # 애니메이션 모드 선택
-        st.markdown("---")
+            st.caption("이 예시는 현재 Gallery 미리보기 중심으로 제공됩니다.")
+        if higher_ed_page:
+            st.markdown(f"[대학·연구 포털로 이동]({higher_ed_page})")
+
+    is_catalog_mode = view_mode == CATALOG_MODE
+
+    if is_catalog_mode:
+        selected_landform = active_landform
+        preview_preset = active_preset
+        gallery_grid_size = int(preview_preset.get("grid_size", 72))
+        num_frames = int(preview_preset.get("num_frames", 30))
+        stage_value = st.slider(
+            "형성 단계 미리보기",
+            0.0,
+            1.0,
+            float(preview_preset.get("stage", 1.0)),
+            0.05,
+            key="gallery_stage_slider",
+        )
+        recommended_animation_mode = preview_preset.get("animation_mode", "연속 애니메이션")
+        animation_mode = "수동 단계"
+        render_style_label = preview_preset.get("render_style_label", "기본 지형")
+        camera_motion_label = preview_preset.get("camera_motion_label", "고정")
+        cinematic_zoom = float(preview_preset.get("cinematic_zoom", 1.0))
+        st.info(
+            f"표준 3D를 먼저 표시합니다. 추천 애니메이션: {recommended_animation_mode} · {render_style_label} · {camera_motion_label}"
+        )
+        st.caption(
+            "고급 카메라/텍스처/재생 설정이 필요하면 보기 방식을 '고급 미리보기'로 바꾸세요."
+        )
+    else:
+        selected_landform = st.selectbox(
+            "상세 확인 지형",
+            landform_options,
+            format_func=pretty_name,
+            key="landform_select",
+        )
+        preview_preset = get_gallery_showcase_preset(category, selected_landform)
+        p1, p2 = st.columns(2)
+        with p1:
+            gallery_grid_size = st.slider("해상도", 30, 200, 60, 10, key="gallery_res")
+        with p2:
+            num_frames = st.slider("프레임 수", 10, 100, 30, 5, key="anim_frames")
+
+        stage_value = st.slider("형성 단계", 0.0, 1.0, 1.0, 0.02, key="gallery_stage_slider")
+
+    camera_presets = get_multi_angle_cameras()
+    if is_catalog_mode:
+        selected_view = preview_preset.get("camera_view", "기본 사각 뷰")
+        selected_camera = camera_presets.get(selected_view, next(iter(camera_presets.values())))
+    else:
+        selected_view = st.selectbox("카메라 시점", list(camera_presets.keys()), key="camera_view")
+        selected_camera = camera_presets[selected_view]
+
         animation_mode = st.radio(
             "애니메이션 모드",
-            ["🎬 부드러운 애니메이션 (추천)", "📊 슬라이더 수동 조작"],
+            ["연속 애니메이션", "수동 단계"],
             horizontal=True,
-            key="anim_mode"
+            key="anim_mode",
         )
-        
-        # 📐 다중 시점 선택
-        from app.components.animation_renderer import get_multi_angle_cameras
-        camera_presets = get_multi_angle_cameras()
-        
-        selected_view = st.selectbox(
-            "📐 시점 선택",
-            list(camera_presets.keys()),
-            key="camera_view"
-        )
-        selected_camera = camera_presets[selected_view]
-        
-        if animation_mode == "🎬 부드러운 애니메이션 (추천)":
-            # Plotly 네이티브 애니메이션 (카메라 유지!)
-            st.info("▶️ **재생** 버튼을 누르면 애니메이션이 시작됩니다. **카메라를 자유롭게 조작**할 수 있습니다!")
-            
-            try:
-                fig_animated = create_animated_terrain_figure(
-                    landform_func=anim_func,
-                    grid_size=gallery_grid_size,
-                    num_frames=num_frames,  # 사용자 설정 사용
-                    title=f"{selected_landform} 형성 과정",
-                    landform_type=landform_type,
-                    detailed_type=landform_key  # 세부 지형 타입 전달
+
+        style_col1, style_col2, style_col3 = st.columns([1.2, 1.2, 1.0])
+        with style_col1:
+            render_style_label = st.selectbox(
+                "렌더 스타일",
+                ["기본 지형", "위성 느낌"],
+                key="gallery_render_style",
+            )
+        with style_col2:
+            camera_motion_label = st.selectbox(
+                "카메라 연출",
+                ["고정", "오빗", "패닝"],
+                key="gallery_camera_motion",
+                help="오빗/패닝은 재생 중 카메라가 자동 이동합니다.",
+            )
+        with style_col3:
+            cinematic_zoom = st.slider(
+                "시네마틱 줌",
+                0.7,
+                1.8,
+                1.0,
+                0.1,
+                key="gallery_cinematic_zoom",
+            )
+
+    render_style = "satellite" if render_style_label == "위성 느낌" else "terrain"
+    camera_motion = {"고정": "fixed", "오빗": "orbit", "패닝": "sweep"}[camera_motion_label]
+    texture_map = None
+    if render_style == "satellite" and not is_catalog_mode:
+        texture_col1, texture_col2 = st.columns([1.2, 1.8])
+        with texture_col1:
+            texture_mode = st.selectbox(
+                "위성 텍스처",
+                ["합성 텍스처", "생성 이미지 단계", "이미지 업로드"],
+                key="gallery_texture_mode",
+            )
+        with texture_col2:
+            if texture_mode == "생성 이미지 단계":
+                texture_map = load_generated_storyboard_texture(selected_landform, stage_value)
+                if texture_map is not None:
+                    st.caption("선택한 지형의 생성 이미지 단계가 3D 표면 질감으로 적용됩니다.")
+                else:
+                    st.info("이 지형에 연결된 생성 이미지 텍스처가 아직 없습니다.")
+            elif texture_mode == "이미지 업로드":
+                uploaded_texture = st.file_uploader(
+                    "위성/항공 사진 업로드 (PNG/JPG)",
+                    type=["png", "jpg", "jpeg", "webp"],
+                    key="gallery_texture_upload",
                 )
-                # 선택된 카메라 각도 적용
-                fig_animated.update_layout(
-                    scene=dict(camera=selected_camera)
+                texture_map = load_uploaded_texture(uploaded_texture)
+                if texture_map is not None:
+                    st.session_state["gallery_uploaded_texture_map"] = texture_map
+                    st.caption("업로드 텍스처가 적용됩니다.")
+                elif uploaded_texture is not None:
+                    st.warning("이미지를 읽지 못했습니다. 다른 파일로 다시 시도해 주세요.")
+                else:
+                    texture_map = st.session_state.get("gallery_uploaded_texture_map")
+
+    landform_type = CATEGORY_TO_TYPE.get(category, "river")
+
+    st.markdown("### 선택한 예시 미리보기")
+    if animation_mode == "연속 애니메이션" and selected_landform in ANIMATED_LANDFORM_GENERATORS:
+        st.info("선택한 형성 단계부터 재생합니다. 재생 중에도 카메라 조작이 유지됩니다.")
+        st.caption("팁: 단계 슬라이더를 바꾼 뒤 재생하면, 그 지점을 시작점으로 유지해 이어서 재생합니다.")
+
+        try:
+            _v0 = generate_animated_stage(selected_landform, 48, 0.1)
+            _v1 = generate_animated_stage(selected_landform, 48, 0.9)
+            _delta = float(np.mean(np.abs(np.array(_v1, dtype=float) - np.array(_v0, dtype=float))))
+            if _delta < 0.02:
+                st.warning("이 지형은 현재 애니메이션 변화가 매우 작아 정지처럼 보일 수 있습니다.")
+        except Exception:
+            pass
+        play_engine = "표준 재생 (Plotly)"
+        if not is_catalog_mode:
+            play_engine = st.radio(
+                "재생 엔진",
+                ["표준 재생 (Plotly)", "안정 재생 (호환 모드)"],
+                index=1,
+                horizontal=True,
+                key="gallery_play_engine",
+                help="표준 재생이 멈추면 안정 재생으로 전환하세요.",
+            )
+
+        anim_func = ANIMATED_LANDFORM_GENERATORS[selected_landform]
+        if play_engine == "표준 재생 (Plotly)":
+            fig_animated = create_animated_terrain_figure(
+                landform_func=anim_func,
+                grid_size=gallery_grid_size,
+                num_frames=num_frames,
+                title=f"{pretty_name(selected_landform)} 형성과정",
+                landform_type=landform_type,
+                detailed_type=selected_landform,
+                start_stage=stage_value,
+                render_style=render_style,
+                camera_motion=camera_motion,
+                base_camera=selected_camera,
+                cinematic_zoom=cinematic_zoom,
+                texture_map=texture_map,
+            )
+
+            if fig_animated is not None:
+                if camera_motion == "fixed":
+                    fig_animated.update_layout(scene=dict(camera=selected_camera))
+                st.plotly_chart(
+                    fig_animated,
+                    use_container_width=True,
+                    key="animated_view",
+                    config={"scrollZoom": True, "displayModeBar": True},
                 )
-                st.plotly_chart(fig_animated, use_container_width=True, key="animated_view", config={'scrollZoom': True, 'displayModeBar': True})
-            except Exception as e:
-                st.error(f"애니메이션 생성 오류: {e}")
-                # 폴백: 정적 렌더링
-                fig_stage = render_terrain_plotly(
-                    stage_elev,
-                    f"{selected_landform} - {int(stage_value*100)}%",
-                    add_water=True,
-                    water_depth_grid=stage_water,
-                    water_level=-999,
-                    force_camera=False,
-                    landform_type=landform_type
-                )
-                fig_stage.update_layout(scene=dict(camera=selected_camera))
-                st.plotly_chart(fig_stage, use_container_width=True, key="stage_view_fallback", config={'scrollZoom': True, 'displayModeBar': True})
         else:
-            # 기존 슬라이더 방식
-            fig_stage = render_terrain_plotly(
-                stage_elev,
-                f"{selected_landform} - {int(stage_value*100)}%",
+            st.caption("호환 모드는 Plotly 내부 재생 대신 앱이 프레임을 직접 넘깁니다.")
+            if render_style == "satellite":
+                st.caption("호환 모드에서는 위성 텍스처의 색감이 일부 단순화됩니다.")
+
+            safe_prefix = f"gallery_safe_{selected_landform}"
+            frame_key = f"{safe_prefix}_frame"
+            playing_key = f"{safe_prefix}_playing"
+            start_idx = int(round(stage_value * (num_frames - 1)))
+
+            if frame_key not in st.session_state:
+                st.session_state[frame_key] = start_idx
+            if playing_key not in st.session_state:
+                st.session_state[playing_key] = False
+
+            c_btn1, c_btn2, c_btn3, c_btn4 = st.columns(4)
+            if c_btn1.button("재생", key=f"{safe_prefix}_play", use_container_width=True):
+                st.session_state[playing_key] = True
+            if c_btn2.button("정지", key=f"{safe_prefix}_pause", use_container_width=True):
+                st.session_state[playing_key] = False
+            if c_btn3.button("시작 지점", key=f"{safe_prefix}_reset", use_container_width=True):
+                st.session_state[playing_key] = False
+                st.session_state[frame_key] = start_idx
+            if c_btn4.button("한 프레임", key=f"{safe_prefix}_step", use_container_width=True):
+                st.session_state[playing_key] = False
+                st.session_state[frame_key] = (st.session_state[frame_key] + 1) % num_frames
+
+            speed_ms = st.slider(
+                "재생 속도(ms/frame)",
+                80,
+                500,
+                180,
+                20,
+                key=f"{safe_prefix}_speed",
+            )
+
+            if st.session_state[playing_key]:
+                time.sleep(speed_ms / 1000.0)
+                st.session_state[frame_key] = (st.session_state[frame_key] + 1) % num_frames
+                st.rerun()
+
+            cur_idx = st.slider(
+                "재생 프레임",
+                0,
+                num_frames - 1,
+                int(st.session_state[frame_key]),
+                key=f"{safe_prefix}_slider",
+            )
+            st.session_state[frame_key] = int(cur_idx)
+            stage_dynamic = 0.0 if num_frames <= 1 else cur_idx / (num_frames - 1)
+
+            elevation_dynamic = generate_animated_stage(selected_landform, gallery_grid_size, stage_dynamic)
+            water_depth_dynamic = np.maximum(0.0, -elevation_dynamic + 1.0)
+            water_depth_dynamic[elevation_dynamic > 2] = 0
+
+            fig_safe = render_terrain_plotly(
+                elevation_dynamic,
+                f"{pretty_name(selected_landform)} - {int(stage_dynamic * 100)}%",
                 add_water=True,
-                water_depth_grid=stage_water,
+                water_depth_grid=water_depth_dynamic,
                 water_level=-999,
                 force_camera=False,
-                landform_type=landform_type
+                landform_type=landform_type,
+                detailed_type=selected_landform,
             )
+            if fig_safe is not None:
+                fig_safe.update_layout(scene=dict(camera=selected_camera))
+                st.plotly_chart(
+                    fig_safe,
+                    use_container_width=True,
+                    key="animated_view_safe",
+                    config={"scrollZoom": True, "displayModeBar": True},
+                )
+    else:
+        elevation = generate_animated_stage(selected_landform, gallery_grid_size, stage_value)
+        water_depth = np.maximum(0.0, -elevation + 1.0)
+        water_depth[elevation > 2] = 0
+
+        fig_stage = render_terrain_plotly(
+            elevation,
+            f"{pretty_name(selected_landform)} - {int(stage_value * 100)}%",
+            add_water=True,
+            water_depth_grid=water_depth,
+            water_level=-999,
+            force_camera=False,
+            landform_type=landform_type,
+            detailed_type=selected_landform,
+        )
+        if fig_stage is not None:
             fig_stage.update_layout(scene=dict(camera=selected_camera))
-            st.plotly_chart(fig_stage, use_container_width=True, key="stage_view", config={'scrollZoom': True, 'displayModeBar': True})
-        
-        st.caption("💡 **Tip:** '시점 선택'에서 X축(측면), Y축(정면), Z축(평면도) 등 다양한 각도로 감상할 수 있습니다!")
+            st.plotly_chart(
+                fig_stage,
+                use_container_width=True,
+                key="stage_view",
+                config={"scrollZoom": True, "displayModeBar": True},
+            )
+
+    st.markdown(
+        build_showcase_lesson_panel_markup(
+            preview_preset,
+            build_lab_showcase_preset(category, selected_landform) is not None,
+        ),
+        unsafe_allow_html=True,
+    )
+
+    current_elev = generate_animated_stage(selected_landform, gallery_grid_size, stage_value)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("최저", f"{current_elev.min():.1f} m")
+    c2.metric("최고", f"{current_elev.max():.1f} m")
+    c3.metric("기복량", f"{(current_elev.max() - current_elev.min()):.1f} m")
+
+    st.markdown("---")
+
+    if world_cases:
+        st.markdown("### 세계 대표 사례")
+        st.caption("대표 지형을 실제 지역 사례와 연결해 수업 질문과 설명 포인트를 바로 꺼낼 수 있습니다. 지도 마커를 눌러도 같은 preset으로 전환됩니다.")
+        atlas_cards_col, atlas_map_col = st.columns([1.45, 1.0])
+        with atlas_cards_col:
+            atlas_cols = st.columns(min(2, len(world_cases)))
+            for idx, world_case in enumerate(world_cases):
+                with atlas_cols[idx % len(atlas_cols)]:
+                    st.markdown(
+                        build_world_case_atlas_markup(
+                            world_case,
+                            is_active=(world_case.get("landform_key") == active_landform),
+                        ),
+                        unsafe_allow_html=True,
+                    )
+                    if st.button(
+                        "이 사례 열기",
+                        key=f"gallery_world_case_{world_case['case_id']}",
+                        use_container_width=True,
+                    ):
+                        queue_gallery_showcase_preset(
+                            st.session_state,
+                            get_gallery_showcase_preset(category, str(world_case["landform_key"])),
+                        )
+                        st.rerun()
+        with atlas_map_col:
+            st.markdown("#### 세계 위치")
+            st.caption("선택한 사례는 주황색으로 강조됩니다. 기후·지형 단원에서 실제 지역과 연결해 설명하기 좋습니다.")
+            map_event = st.plotly_chart(
+                build_world_case_map_figure(world_cases, active_landform=active_landform),
+                use_container_width=True,
+                key=f"gallery_world_case_map_{category}_{st.session_state.get('gallery_world_case_map_nonce', 0)}",
+                config={"displayModeBar": False, "scrollZoom": False},
+                on_select="rerun",
+                selection_mode="points",
+            )
+            selected_case_id = extract_selected_world_case_id(map_event)
+            if selected_case_id:
+                selected_case = get_world_case(selected_case_id)
+                selected_landform = str(selected_case.get("landform_key", "")) if selected_case else ""
+                if selected_landform and selected_landform in landform_options and selected_landform != active_landform:
+                    queue_gallery_showcase_preset(
+                        st.session_state,
+                        get_gallery_showcase_preset(category, selected_landform),
+                    )
+                    st.session_state["gallery_world_case_map_nonce"] = (
+                        st.session_state.get("gallery_world_case_map_nonce", 0) + 1
+                    )
+                    st.rerun()
+
+    st.markdown("### 수업용 예시")
+    for row_start in range(0, len(landform_options), 3):
+        row_items = landform_options[row_start:row_start + 3]
+        row_cols = st.columns(len(row_items))
+        for idx, landform_key in enumerate(row_items):
+            preset = get_gallery_showcase_preset(category, landform_key)
+            thumbnail = None
+            with row_cols[idx]:
+                st.markdown(
+                    build_showcase_card_markup(
+                        preset,
+                        thumbnail,
+                        is_active=(landform_key == active_landform),
+                    ),
+                    unsafe_allow_html=True,
+                )
+                if st.button("이 예시 선택", key=f"gallery_showcase_apply_{landform_key}", use_container_width=True):
+                    queue_gallery_showcase_preset(st.session_state, preset)
+                    st.rerun()
+
+                if build_lab_showcase_preset(category, landform_key) is not None:
+                    if st.button("Lab 수업으로 열기", key=f"gallery_showcase_lab_{landform_key}", use_container_width=True):
+                        if not route_to_lab_showcase(category, landform_key):
+                            st.warning("이 지형은 아직 Lab 모범사례와 연결되지 않았습니다.")
+                else:
+                    st.caption("대표 지형부터 Lab 수업 흐름과 연결합니다.")

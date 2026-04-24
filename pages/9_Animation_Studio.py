@@ -72,33 +72,58 @@ def show_filmstrip_sequence_player(asset, *, frame_interval_ms: int, height: int
             "rows": 6,
             "frameCount": 30,
             "frameIntervalMs": int(frame_interval_ms),
+            "cellTrimPx": 2,
         },
         ensure_ascii=False,
     )
     components.html(
         f"""
         <div id="{root_id}" style="width:100%;height:{height}px;position:relative;overflow:hidden;background:#020617;border-radius:4px;">
-          <div class="filmstrip-frame" style="width:100%;height:100%;background-repeat:no-repeat;background-position:0 0;background-size:500% 600%;"></div>
+          <canvas class="filmstrip-canvas" style="display:block;width:100%;height:100%;"></canvas>
           <div class="filmstrip-label" style="position:absolute;left:12px;top:10px;padding:4px 7px;border-radius:4px;background:rgba(2,6,23,.72);color:#e2e8f0;font:12px/1.4 system-ui,sans-serif;"></div>
           <button class="filmstrip-toggle" type="button" style="position:absolute;right:12px;top:10px;padding:6px 10px;border:0;border-radius:4px;background:#f8fafc;color:#0f172a;font:700 12px/1 system-ui,sans-serif;cursor:pointer;">재생</button>
         </div>
         <script>
           const payload = {config};
           const root = document.getElementById(payload.rootId);
-          const frame = root.querySelector(".filmstrip-frame");
+          const canvas = root.querySelector(".filmstrip-canvas");
+          const context = canvas.getContext("2d", {{ alpha: false }});
           const label = root.querySelector(".filmstrip-label");
           const toggle = root.querySelector(".filmstrip-toggle");
+          const filmstripImage = new Image();
+          filmstripImage.decoding = "async";
+          filmstripImage.src = payload.dataUri;
           let frameIndex = 0;
           let timerId = null;
-
-          frame.style.backgroundImage = `url("${{payload.dataUri}}")`;
+          let imageReady = false;
 
           function paint() {{
+            if (!imageReady) return;
             const col = frameIndex % payload.cols;
             const row = Math.floor(frameIndex / payload.cols);
-            const x = payload.cols <= 1 ? 0 : (col / (payload.cols - 1)) * 100;
-            const y = payload.rows <= 1 ? 0 : (row / (payload.rows - 1)) * 100;
-            frame.style.backgroundPosition = `${{x}}% ${{y}}%`;
+            const imageWidth = filmstripImage.naturalWidth || filmstripImage.width;
+            const imageHeight = filmstripImage.naturalHeight || filmstripImage.height;
+            const cellWidth = Math.floor(imageWidth / payload.cols);
+            const cellHeight = Math.floor(imageHeight / payload.rows);
+            const cellTrimPx = Math.max(
+              0,
+              Math.min(
+                Number(payload.cellTrimPx || 0),
+                Math.floor(cellWidth / 10),
+                Math.floor(cellHeight / 10),
+              ),
+            );
+            const sourceX = (col * cellWidth) + cellTrimPx;
+            const sourceY = (row * cellHeight) + cellTrimPx;
+            const sourceWidth = Math.max(1, cellWidth - (cellTrimPx * 2));
+            const sourceHeight = Math.max(1, cellHeight - (cellTrimPx * 2));
+
+            if (canvas.width !== sourceWidth || canvas.height !== sourceHeight) {{
+              canvas.width = sourceWidth;
+              canvas.height = sourceHeight;
+            }}
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(filmstripImage, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
             const state = timerId === null ? "정지" : "재생";
             label.textContent = `${{payload.title}} · ${{String(frameIndex + 1).padStart(2, "0")}} / ${{payload.frameCount}} · ${{payload.frameIntervalMs}}ms · ${{state}}`;
           }}
@@ -131,6 +156,13 @@ def show_filmstrip_sequence_player(asset, *, frame_interval_ms: int, height: int
             }}
           }});
 
+          filmstripImage.addEventListener("load", () => {{
+            imageReady = true;
+            paint();
+          }});
+          filmstripImage.addEventListener("error", () => {{
+            label.textContent = `${{payload.title}} · 이미지를 불러오지 못했습니다.`;
+          }});
           paint();
         </script>
         """,
