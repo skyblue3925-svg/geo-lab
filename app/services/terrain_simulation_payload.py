@@ -8,9 +8,8 @@ from typing import Any
 
 import numpy as np
 
-from app.services.terrain_3d_payload import build_terrain_3d_payload_from_history
+from app.services.terrain_3d_payload import build_terrain_3d_payload, build_terrain_3d_payload_from_history
 from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
-from engine.simple_lem import SimpleLEM
 
 
 @dataclass(frozen=True)
@@ -114,22 +113,9 @@ def _build_simulation_terrain_3d_payload_cached(
     if scenario is None:
         return None
 
-    lem, surface_source = _create_scenario_lem(scenario, landform_id, grid_size)
-
-    dt = 140.0
-    lem.run(
-        total_time=dt * max(frame_count - 1, 0),
-        dt=dt,
-        save_interval=1,
-        verbose=False,
-    )
-
-    stage_history = _build_stage_history(scenario, len(lem.history))
-    payload = build_terrain_3d_payload_from_history(
-        landform_id,
-        history=lem.history,
-        process_history=lem.process_history,
-    )
+    payload, surface_source = _build_process_payload(landform_id, grid_size, frame_count)
+    payload["modelSource"] = "terrain_process_proxy"
+    stage_history = _build_stage_history(scenario, payload["surfaceFrameCount"])
     compact_stages = [_compact_stage(stage) for stage in stage_history]
     if compact_stages:
         payload["stageHistory"] = compact_stages
@@ -139,7 +125,7 @@ def _build_simulation_terrain_3d_payload_cached(
         ]
     else:
         payload["stageHistory"] = []
-    payload["timeSteps"] = [float(value) for value in lem.time_steps]
+    payload["timeSteps"] = [float(idx) for idx in range(payload["surfaceFrameCount"])]
     payload["simulationScenarioLabel"] = scenario.scenario_label
     payload["simulationProcessFamily"] = scenario.family
     payload["simulationSupportLevel"] = scenario.support_level
@@ -148,77 +134,58 @@ def _build_simulation_terrain_3d_payload_cached(
     return payload
 
 
-def _create_scenario_lem(
-    scenario: SimulationScenario,
+def _build_process_payload(
     landform_id: str,
     grid_size: int,
-) -> tuple[SimpleLEM, str]:
-    lem = SimpleLEM(
-        grid_size=grid_size,
-        K=0.00012,
-        D=0.012,
-        U=0.00035,
-        enable_sediment_transport=True,
-        enable_weathering=True,
-    )
-    _configure_lem_for_family(lem, scenario.family, landform_id)
-    surface_source = _apply_landform_initial_surface(lem, landform_id, grid_size)
-    if surface_source == "scenario_default":
-        lem.create_initial_mountain(peak_height=40.0, noise_amp=0.5, initial_soil=0.75)
-    return lem, surface_source
+    frame_count: int,
+) -> tuple[dict[str, Any], str]:
+    try:
+        return (
+            build_terrain_3d_payload(
+                landform_id,
+                grid_size=grid_size,
+                frame_count=frame_count,
+            ),
+            f"animated_landform:{landform_id}",
+        )
+    except Exception:
+        fallback_history, surface_source = _build_static_ideal_surface_history(landform_id, grid_size, frame_count)
+        return (
+            build_terrain_3d_payload_from_history(
+                landform_id,
+                history=fallback_history,
+            ),
+            surface_source,
+        )
 
 
-def _configure_lem_for_family(lem: SimpleLEM, family: str, landform_id: str) -> None:
-    if family == "river_delta":
-        lem.precipitation = 0.55
-        lem.Vs = 2.0
-        lem.enable_sediment_transport = True
-        lem.enable_lateral_erosion = landform_id in {"free_meander", "braided_river", "waterfall"}
-        lem.enable_landslides = landform_id in {"v_valley", "waterfall"}
-        if "delta" in landform_id:
-            lem.enable_marine = True
-            lem.sea_level = 0.0
-    elif family == "coastal_marine":
-        lem.U = 0.00005
-        lem.Km = 0.0015
-        lem.sea_level = 0.0
-        lem.enable_marine = True
-        lem.enable_sediment_transport = True
-        lem.enable_landslides = landform_id in {"coastal_cliff", "sea_arch"}
-    elif family == "glacial":
-        lem.Kg = 0.0006
-        lem.freeze_elevation = 15.0
-        lem.enable_glacial = True
-        lem.enable_freeze_thaw = True
-        lem.enable_landslides = True
-        if landform_id == "fjord":
-            lem.enable_marine = True
-            lem.sea_level = 0.0
-    elif family == "karst":
-        lem.precipitation = 0.55
-        lem.water_table = 10.0
-        lem.spring_rate = 0.0015
-        lem.enable_karst = True
-        lem.enable_groundwater = True
-    elif family == "aeolian_arid":
-        lem.precipitation = 0.12
-        lem.Ka = 0.0007
-        lem.wind_direction = np.pi / 5
-        lem.enable_aeolian = True
-        lem.enable_sediment_transport = False
-    elif family == "volcanic":
-        lem.K = 0.00006
-        lem.D = 0.006
-        lem.volcanic_rate = 0.025
-        lem.enable_volcanic = True
-        lem.enable_landslides = landform_id in {"stratovolcano", "caldera", "crater_lake"}
-    elif family == "structural_differential":
-        lem.K = 0.00008
-        lem.D = 0.004
-        lem.precipitation = 0.18
-        lem.Ka = 0.00035
-        lem.enable_aeolian = True
-        lem.enable_landslides = True
+def _build_static_ideal_surface_history(
+    landform_id: str,
+    grid_size: int,
+    frame_count: int,
+) -> tuple[list[np.ndarray], str]:
+    generator = IDEAL_LANDFORM_GENERATORS.get(landform_id)
+    if generator is None:
+        final_surface = np.zeros((grid_size, grid_size), dtype=float)
+        surface_source = f"zero_surface_fallback:{landform_id}"
+    else:
+        try:
+            final_surface = np.asarray(generator(grid_size), dtype=float)
+            surface_source = f"ideal_landform_fallback:{landform_id}"
+        except Exception:
+            final_surface = np.zeros((grid_size, grid_size), dtype=float)
+            surface_source = f"zero_surface_fallback:{landform_id}"
+        if final_surface.shape != (grid_size, grid_size):
+            final_surface = np.zeros((grid_size, grid_size), dtype=float)
+            surface_source = f"zero_surface_fallback:{landform_id}"
+    final_surface = np.nan_to_num(final_surface, nan=0.0, posinf=0.0, neginf=0.0)
+    base_surface = np.full_like(final_surface, float(np.min(final_surface)))
+    if frame_count <= 1:
+        return [final_surface], surface_source
+    return [
+        (base_surface * (1.0 - progress)) + (final_surface * progress)
+        for progress in np.linspace(0.0, 1.0, frame_count)
+    ], surface_source
 
 
 def _build_stage_history(
@@ -247,22 +214,6 @@ def _build_stage_history(
             }
         )
     return stages
-
-
-def _apply_landform_initial_surface(lem: Any, landform_id: str, grid_size: int) -> str:
-    generator = IDEAL_LANDFORM_GENERATORS.get(landform_id)
-    if generator is None:
-        return "scenario_default"
-    try:
-        surface = np.asarray(generator(grid_size), dtype=float)
-    except Exception:
-        return "scenario_default"
-    if surface.shape != (grid_size, grid_size):
-        return "scenario_default"
-    surface = np.nan_to_num(surface, nan=0.0, posinf=0.0, neginf=0.0)
-    surface = surface - float(np.min(surface))
-    lem.set_initial_topography(surface, initial_soil=0.75)
-    return f"ideal_landform:{landform_id}"
 
 
 def _compact_stage(stage: dict[str, Any]) -> dict[str, Any]:

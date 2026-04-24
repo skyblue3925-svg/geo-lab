@@ -11,6 +11,7 @@ def test_terrain_simulation_payload_has_no_unshipped_lab_model_dependency():
         module_source = handle.read()
 
     assert "app.utils.lab_model" not in module_source
+    assert "engine.simple_lem" not in module_source
 
 
 def test_build_simulation_terrain_3d_payload_uses_simple_lem_history():
@@ -21,7 +22,7 @@ def test_build_simulation_terrain_3d_payload_uses_simple_lem_history():
     )
 
     assert payload is not None
-    assert payload["modelSource"] == "simulation_history"
+    assert payload["modelSource"] == "terrain_process_proxy"
     assert payload["landformId"] == "v_valley"
     assert payload["gridSize"] == 12
     assert payload["surfaceFrameCount"] == 4
@@ -43,8 +44,24 @@ def test_build_simulation_terrain_3d_payload_marks_proxy_landforms_with_caveat()
     payload = build_simulation_terrain_3d_payload("sea_arch", grid_size=12, frame_count=3)
 
     assert payload is not None
-    assert payload["modelSource"] == "simulation_history"
+    assert payload["modelSource"] == "terrain_process_proxy"
     assert payload["simulationSupportLevel"] == "process_proxy"
-    assert payload["terrainSurfaceSource"] == "ideal_landform:sea_arch"
+    assert payload["terrainSurfaceSource"] == "animated_landform:sea_arch"
     assert "근사" in payload["simulationCaveat"]
     assert len(payload["stageHistory"]) == 3
+
+
+def test_build_simulation_terrain_3d_payload_falls_back_when_animated_generator_fails():
+    payload = build_simulation_terrain_3d_payload("barchan", grid_size=8, frame_count=2)
+
+    assert payload is not None
+    assert payload["surfaceFrameCount"] == 2
+    assert payload["terrainSurfaceSource"] == "ideal_landform_fallback:barchan"
+
+
+def test_build_simulation_terrain_3d_payload_handles_broken_static_fallback_generator():
+    payload = build_simulation_terrain_3d_payload("karren", grid_size=8, frame_count=2)
+
+    assert payload is not None
+    assert payload["surfaceFrameCount"] == 2
+    assert payload["terrainSurfaceSource"] == "zero_surface_fallback:karren"

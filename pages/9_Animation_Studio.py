@@ -258,7 +258,7 @@ if selected_asset.has_image_sequence:
         if simulation_available:
             terrain_source = st.radio(
                 "3D 데이터",
-                ["SimpleLEM 물리 시뮬레이션", "절차적 샘플 지형"],
+                ["지형 과정 3D 시뮬레이션", "절차적 샘플 지형"],
                 horizontal=True,
                 key=f"studio_3d_source_{selected_asset.landform_id}",
             )
@@ -266,7 +266,7 @@ if selected_asset.has_image_sequence:
             st.caption("이 지형은 아직 SimpleLEM 시나리오 매핑이 없어 절차적 샘플 지형으로 표시합니다.")
 
         terrain_payload = None
-        if terrain_source == "SimpleLEM 물리 시뮬레이션":
+        if terrain_source == "지형 과정 3D 시뮬레이션":
             terrain_payload = build_simulation_terrain_3d_payload(
                 selected_asset.landform_id,
                 grid_size=viewer_grid,
@@ -276,7 +276,7 @@ if selected_asset.has_image_sequence:
                 st.warning("이 지형은 현재 물리 시뮬레이션 payload를 만들 수 없어 절차적 샘플로 대체합니다.")
             else:
                 support_label = {
-                    "direct_simple_lem": "SimpleLEM 직접 물리장",
+                    "direct_simple_lem": "대표 물리장",
                     "process_proxy": "대표 과정 근사",
                 }.get(terrain_payload.get("simulationSupportLevel"), "실험 모델")
                 st.caption(
