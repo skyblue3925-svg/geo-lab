@@ -1,3 +1,4 @@
+from app.services.animation_assets import KOREAN_TITLES
 from app.services.terrain_simulation_payload import (
     build_simulation_terrain_3d_payload,
     is_simulation_terrain_supported,
@@ -20,6 +21,22 @@ def test_build_simulation_terrain_3d_payload_uses_simple_lem_history():
     assert sum(payload["erosionFrames"][1]) > 0.0
 
 
-def test_build_simulation_terrain_3d_payload_returns_none_for_unmapped_landforms():
-    assert not is_simulation_terrain_supported("sea_arch")
-    assert build_simulation_terrain_3d_payload("sea_arch", grid_size=12, frame_count=4) is None
+def test_all_animation_studio_landforms_have_simulation_scenarios():
+    missing = [
+        landform_id
+        for landform_id in KOREAN_TITLES
+        if not is_simulation_terrain_supported(landform_id)
+    ]
+
+    assert missing == []
+
+
+def test_build_simulation_terrain_3d_payload_marks_proxy_landforms_with_caveat():
+    payload = build_simulation_terrain_3d_payload("sea_arch", grid_size=12, frame_count=3)
+
+    assert payload is not None
+    assert payload["modelSource"] == "simulation_history"
+    assert payload["simulationSupportLevel"] == "process_proxy"
+    assert payload["terrainSurfaceSource"] == "ideal_landform:sea_arch"
+    assert "근사" in payload["simulationCaveat"]
+    assert len(payload["stageHistory"]) == 3

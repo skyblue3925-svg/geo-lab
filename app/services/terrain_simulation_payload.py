@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
+
+import numpy as np
 
 from app.services.terrain_3d_payload import build_terrain_3d_payload_from_history
 from app.utils.lab_model import (
@@ -11,25 +14,65 @@ from app.utils.lab_model import (
     configure_lab_scenario,
     create_lab_simple_lem,
 )
+from engine.ideal_landforms import IDEAL_LANDFORM_GENERATORS
 
 
-SIMULATION_SCENARIO_LABELS: dict[str, str] = {
-    "alluvial_fan": "선상지",
-    "barchan": "바르한",
-    "coastal_cliff": "해식애",
-    "delta": "삼각주",
-    "fjord": "피오르",
-    "free_meander": "곡류 하천",
-    "karst_doline": "카르스트 돌리네",
-    "pediment": "사막 페디먼트",
-    "stratovolcano": "화산",
-    "u_valley": "U자곡",
-    "v_valley": "V자곡",
+@dataclass(frozen=True)
+class SimulationScenario:
+    scenario_label: str
+    family: str
+    support_level: str
+    caveat: str
+
+
+DIRECT_CAVEAT = "SimpleLEM 물리장과 해당 지형의 이상 지형 표면을 함께 사용합니다."
+PROXY_CAVEAT = "현재 엔진의 대표 물리과정으로 근사한 교육용 3D 시뮬레이션입니다."
+
+
+SIMULATION_SCENARIOS: dict[str, SimulationScenario] = {
+    "alluvial_fan": SimulationScenario("선상지", "river_delta", "direct_simple_lem", DIRECT_CAVEAT),
+    "arcuate_delta": SimulationScenario("삼각주", "river_delta", "process_proxy", PROXY_CAVEAT),
+    "arete": SimulationScenario("U자곡", "glacial", "process_proxy", PROXY_CAVEAT),
+    "barchan": SimulationScenario("바르한", "aeolian_arid", "direct_simple_lem", DIRECT_CAVEAT),
+    "bird_foot_delta": SimulationScenario("삼각주", "river_delta", "process_proxy", PROXY_CAVEAT),
+    "braided_river": SimulationScenario("평원", "river_delta", "process_proxy", PROXY_CAVEAT),
+    "caldera": SimulationScenario("화산", "volcanic", "process_proxy", PROXY_CAVEAT),
+    "cirque": SimulationScenario("U자곡", "glacial", "process_proxy", PROXY_CAVEAT),
+    "coastal_cliff": SimulationScenario("해식애", "coastal_marine", "direct_simple_lem", DIRECT_CAVEAT),
+    "coastal_dune": SimulationScenario("바르한", "aeolian_arid", "process_proxy", PROXY_CAVEAT),
+    "crater_lake": SimulationScenario("화산", "volcanic", "process_proxy", PROXY_CAVEAT),
+    "cuspate_delta": SimulationScenario("삼각주", "river_delta", "process_proxy", PROXY_CAVEAT),
+    "delta": SimulationScenario("삼각주", "river_delta", "direct_simple_lem", DIRECT_CAVEAT),
+    "estuary": SimulationScenario("해식애", "coastal_marine", "process_proxy", PROXY_CAVEAT),
+    "fjord": SimulationScenario("피오르", "glacial", "direct_simple_lem", DIRECT_CAVEAT),
+    "free_meander": SimulationScenario("곡류 하천", "river_delta", "direct_simple_lem", DIRECT_CAVEAT),
+    "horn": SimulationScenario("U자곡", "glacial", "process_proxy", PROXY_CAVEAT),
+    "karren": SimulationScenario("카르스트 돌리네", "karst", "process_proxy", PROXY_CAVEAT),
+    "karst_doline": SimulationScenario("카르스트 돌리네", "karst", "direct_simple_lem", DIRECT_CAVEAT),
+    "lava_plateau": SimulationScenario("화산", "volcanic", "process_proxy", PROXY_CAVEAT),
+    "mesa_butte": SimulationScenario("사막 페디먼트", "structural_differential", "process_proxy", PROXY_CAVEAT),
+    "pedestal_rock": SimulationScenario("사막 페디먼트", "structural_differential", "process_proxy", PROXY_CAVEAT),
+    "pediment": SimulationScenario("사막 페디먼트", "aeolian_arid", "direct_simple_lem", DIRECT_CAVEAT),
+    "playa": SimulationScenario("사막 페디먼트", "aeolian_arid", "process_proxy", PROXY_CAVEAT),
+    "ria_coast": SimulationScenario("해식애", "coastal_marine", "process_proxy", PROXY_CAVEAT),
+    "sea_arch": SimulationScenario("해식애", "coastal_marine", "process_proxy", PROXY_CAVEAT),
+    "shield_volcano": SimulationScenario("화산", "volcanic", "process_proxy", PROXY_CAVEAT),
+    "spit_lagoon": SimulationScenario("해식애", "coastal_marine", "process_proxy", PROXY_CAVEAT),
+    "star_dune": SimulationScenario("바르한", "aeolian_arid", "process_proxy", PROXY_CAVEAT),
+    "stratovolcano": SimulationScenario("화산", "volcanic", "direct_simple_lem", DIRECT_CAVEAT),
+    "tombolo": SimulationScenario("해식애", "coastal_marine", "process_proxy", PROXY_CAVEAT),
+    "tower_karst": SimulationScenario("카르스트 돌리네", "karst", "process_proxy", PROXY_CAVEAT),
+    "transverse_dune": SimulationScenario("바르한", "aeolian_arid", "process_proxy", PROXY_CAVEAT),
+    "u_valley": SimulationScenario("U자곡", "glacial", "direct_simple_lem", DIRECT_CAVEAT),
+    "uvala": SimulationScenario("카르스트 돌리네", "karst", "process_proxy", PROXY_CAVEAT),
+    "v_valley": SimulationScenario("V자곡", "river_delta", "direct_simple_lem", DIRECT_CAVEAT),
+    "wadi": SimulationScenario("V자곡", "aeolian_arid", "process_proxy", PROXY_CAVEAT),
+    "waterfall": SimulationScenario("V자곡", "river_delta", "process_proxy", PROXY_CAVEAT),
 }
 
 
 def is_simulation_terrain_supported(landform_id: str) -> bool:
-    return landform_id in SIMULATION_SCENARIO_LABELS
+    return landform_id in SIMULATION_SCENARIOS
 
 
 def build_simulation_terrain_3d_payload(
@@ -51,8 +94,8 @@ def _build_simulation_terrain_3d_payload_cached(
     grid_size: int,
     frame_count: int,
 ) -> dict[str, Any] | None:
-    scenario_label = SIMULATION_SCENARIO_LABELS.get(landform_id)
-    if scenario_label is None:
+    scenario = SIMULATION_SCENARIOS.get(landform_id)
+    if scenario is None:
         return None
 
     lem = create_lab_simple_lem(
@@ -68,11 +111,12 @@ def _build_simulation_terrain_3d_payload_cached(
     try:
         configure_lab_scenario(
             lem,
-            selected_landform=scenario_label,
+            selected_landform=scenario.scenario_label,
             grid_size=grid_size,
         )
     except (KeyError, ValueError):
         return None
+    surface_source = _apply_landform_initial_surface(lem, landform_id, grid_size)
 
     dt = 140.0
     lem.run(
@@ -83,7 +127,7 @@ def _build_simulation_terrain_3d_payload_cached(
     )
 
     stage_history = build_lab_stage_history(
-        scenario_label,
+        scenario.scenario_label,
         lem.stats_history,
         lem.process_history,
     )
@@ -102,8 +146,28 @@ def _build_simulation_terrain_3d_payload_cached(
     else:
         payload["stageHistory"] = []
     payload["timeSteps"] = [float(value) for value in lem.time_steps]
-    payload["simulationScenarioLabel"] = scenario_label
+    payload["simulationScenarioLabel"] = scenario.scenario_label
+    payload["simulationProcessFamily"] = scenario.family
+    payload["simulationSupportLevel"] = scenario.support_level
+    payload["simulationCaveat"] = scenario.caveat
+    payload["terrainSurfaceSource"] = surface_source
     return payload
+
+
+def _apply_landform_initial_surface(lem: Any, landform_id: str, grid_size: int) -> str:
+    generator = IDEAL_LANDFORM_GENERATORS.get(landform_id)
+    if generator is None:
+        return "scenario_default"
+    try:
+        surface = np.asarray(generator(grid_size), dtype=float)
+    except Exception:
+        return "scenario_default"
+    if surface.shape != (grid_size, grid_size):
+        return "scenario_default"
+    surface = np.nan_to_num(surface, nan=0.0, posinf=0.0, neginf=0.0)
+    surface = surface - float(np.min(surface))
+    lem.set_initial_topography(surface, initial_soil=0.75)
+    return f"ideal_landform:{landform_id}"
 
 
 def _compact_stage(stage: dict[str, Any]) -> dict[str, Any]:

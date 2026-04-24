@@ -275,9 +275,16 @@ if selected_asset.has_image_sequence:
             if terrain_payload is None:
                 st.warning("이 지형은 현재 물리 시뮬레이션 payload를 만들 수 없어 절차적 샘플로 대체합니다.")
             else:
+                support_label = {
+                    "direct_simple_lem": "SimpleLEM 직접 물리장",
+                    "process_proxy": "대표 과정 근사",
+                }.get(terrain_payload.get("simulationSupportLevel"), "실험 모델")
                 st.caption(
-                    f"SimpleLEM history/process_history 기반 {terrain_payload['surfaceFrameCount']}프레임"
+                    f"{support_label} · {terrain_payload['surfaceFrameCount']}프레임 · "
+                    f"{terrain_payload.get('simulationProcessFamily', 'terrain')}"
                 )
+                if terrain_payload.get("simulationCaveat"):
+                    st.caption(str(terrain_payload["simulationCaveat"]))
 
         if renderer_choice == "Babylon.js":
             viewer_html = create_babylon_terrain_viewer_html(
