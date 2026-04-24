@@ -120,6 +120,29 @@ def resolve_high_school_camera_spec(topic: dict[str, object]) -> tuple[str, str]
     return str(topic["camera_profile"]), str(topic["recommended_view"])
 
 
+def tune_standard_view_figure(fig: go.Figure | None) -> go.Figure | None:
+    """Keep the classroom 3D preview compact and reliably framed."""
+
+    if fig is None:
+        return None
+
+    fig.update_layout(
+        autosize=True,
+        height=520,
+        margin=dict(l=0, r=0, t=42, b=0),
+    )
+    fig.update_layout(scene=dict(domain=dict(x=[0.0, 1.0], y=[0.0, 1.0])))
+
+    for trace in fig.data:
+        if getattr(trace, "type", "") != "surface":
+            continue
+        if getattr(trace, "showscale", None) is False:
+            continue
+        trace.update(colorbar=dict(thickness=18, len=0.72, x=0.98))
+
+    return fig
+
+
 def format_group_label(group: dict[str, object]) -> str:
     group_id = str(group["group_id"])
     return GROUP_LABELS.get(group_id, f'{group.get("badge", "")} | {group.get("title", "")}'.strip())
@@ -234,7 +257,7 @@ def render_high_school_geography_page() -> None:
             config={"displayModeBar": False},
         )
 
-    preview_col, card_col = st.columns([1.6, 1.0])
+    preview_col, card_col = st.columns([1.3, 1.0])
     with preview_col:
         st.markdown("### 3. 표준 시점 보기")
         figure = render_terrain_plotly(
@@ -247,7 +270,12 @@ def render_high_school_geography_page() -> None:
             overlay_type=str(selected_topic["primary_overlay"]),
             camera_profile=camera_profile,
         )
-        st.plotly_chart(figure, use_container_width=True, config={"displayModeBar": False})
+        figure = tune_standard_view_figure(figure)
+        st.plotly_chart(
+            figure,
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
+        )
         st.caption(selected_topic["overlay_caption"])
 
     with card_col:
