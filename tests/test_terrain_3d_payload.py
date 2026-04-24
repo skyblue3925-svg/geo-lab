@@ -1,6 +1,6 @@
 import numpy as np
 
-from app.services.terrain_3d_payload import build_terrain_3d_payload
+from app.services.terrain_3d_payload import build_terrain_3d_payload, build_terrain_3d_payload_from_history
 
 
 def test_build_terrain_3d_payload_exposes_common_renderer_contract_for_v_valley():
@@ -43,3 +43,35 @@ def test_build_terrain_3d_payload_marks_delta_deposition_and_plan_camera():
     assert payload["cameraProfile"]["mode"] == "plan"
     assert any("퇴적" in label for label in payload["processLabels"])
     assert any(annotation["frame"] == 0 for annotation in payload["teachingAnnotations"])
+
+
+def test_build_terrain_3d_payload_from_history_uses_simulation_process_fields():
+    history = [
+        np.array([[4.0, 3.0], [2.0, 1.0]]),
+        np.array([[3.5, 2.5], [2.0, 1.2]]),
+    ]
+    process_history = [
+        {
+            "total_erosion": np.array([[0.0, 0.0], [0.0, 0.0]]),
+            "deposition": np.array([[0.0, 0.0], [0.0, 0.0]]),
+        },
+        {
+            "total_erosion": np.array([[0.7, 0.4], [0.0, 0.0]]),
+            "deposition": np.array([[0.0, 0.0], [0.2, 0.5]]),
+        },
+    ]
+
+    payload = build_terrain_3d_payload_from_history(
+        "v_valley",
+        history=history,
+        process_history=process_history,
+    )
+
+    assert payload["modelSource"] == "simulation_history"
+    assert payload["gridSize"] == 2
+    assert payload["surfaceFrameCount"] == 2
+    assert len(payload["elevationFrames"]) == 2
+    assert payload["erosionFrames"][1] == [0.0, 0.0, 1.0, 0.57143]
+    assert payload["depositionFrames"][1] == [0.4, 1.0, 0.0, 0.0]
+    assert sum(payload["waterDepthFrames"][1]) > 0.0
+    assert payload["flowFrames"][1]["x"]

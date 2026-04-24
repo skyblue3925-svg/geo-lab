@@ -84,11 +84,78 @@ def build_terrain_3d_payload(
     }
 
 
+def build_terrain_3d_payload_from_history(
+    landform_id: str,
+    *,
+    history: list[np.ndarray],
+    process_history: list[dict[str, Any]] | None = None,
+    height_scale: float = 18.0,
+) -> dict[str, Any]:
+    """Build a shared 3D payload from simulation history and process fields."""
+
+    if not history:
+        raise ValueError("history must contain at least one elevation frame")
+
+    raw_frames = [np.asarray(frame, dtype=float) for frame in history]
+    first_shape = raw_frames[0].shape
+    if len(first_shape) != 2 or first_shape[0] != first_shape[1]:
+        raise ValueError("history frames must be square 2D arrays")
+    if any(frame.shape != first_shape for frame in raw_frames):
+        raise ValueError("all history frames must have the same shape")
+
+    grid_size = int(first_shape[0])
+    normalized = _normalize_surface_stack(np.stack(raw_frames).astype(float))
+    family = _classify_family(landform_id)
+
+    erosion_fields = []
+    deposition_fields = []
+    for idx, frame in enumerate(normalized):
+        process_fields = process_history[idx] if process_history and idx < len(process_history) else {}
+        erosion = _process_field(process_fields, ("total_erosion", "erosion"), frame.shape)
+        deposition = _process_field(process_fields, ("deposition",), frame.shape)
+        if not np.any(erosion):
+            erosion = _infer_erosion_frames(normalized[max(idx - 1, 0): idx + 1], landform_id)[-1]
+        if not np.any(deposition):
+            deposition = _infer_deposition_frames(normalized[max(idx - 1, 0): idx + 1], landform_id)[-1]
+        erosion_fields.append(_normalize_field(erosion))
+        deposition_fields.append(_normalize_field(deposition))
+
+    elevation_frames = [_flatten_frame(frame) for frame in normalized]
+    return {
+        "landformId": landform_id,
+        "title": title_for_landform(landform_id),
+        "family": family,
+        "modelSource": "simulation_history",
+        "gridSize": grid_size,
+        "surfaceFrames": elevation_frames,
+        "elevationFrames": elevation_frames,
+        "waterDepthFrames": [_flatten_frame(_infer_water_depth(frame, landform_id)) for frame in normalized],
+        "erosionFrames": [_flatten_frame(frame) for frame in erosion_fields],
+        "depositionFrames": [_flatten_frame(frame) for frame in deposition_fields],
+        "flowFrames": [_flatten_flow_frame(frame) for frame in normalized],
+        "surfaceFrameCount": len(elevation_frames),
+        "heightScale": float(height_scale),
+        "processLabels": _process_labels_for(landform_id, family),
+        "cameraProfile": _camera_profile_for(landform_id, family),
+        "teachingAnnotations": _teaching_annotations_for(landform_id, family, len(elevation_frames)),
+    }
+
+
 def _normalize_surface_stack(stacked: np.ndarray) -> np.ndarray:
     z_min = float(np.nanmin(stacked))
     z_max = float(np.nanmax(stacked))
     span = max(z_max - z_min, 1e-6)
     return np.clip((stacked - z_min) / span, 0.0, 1.0)
+
+
+def _process_field(process_fields: dict[str, Any], keys: tuple[str, ...], shape: tuple[int, int]) -> np.ndarray:
+    for key in keys:
+        if key not in process_fields:
+            continue
+        field = np.asarray(process_fields[key], dtype=float)
+        if field.shape == shape:
+            return _normalize_field(field)
+    return np.zeros(shape, dtype=float)
 
 
 def _flatten_frame(frame: np.ndarray) -> list[float]:
