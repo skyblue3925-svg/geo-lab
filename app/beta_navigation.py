@@ -46,10 +46,123 @@ def load_project_style() -> None:
         st.markdown(f"<style>{STYLE_PATH.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 
 
+def apply_sidebar_override() -> None:
+    """Keep the Streamlit sidebar compact and remove native fade gradients."""
+
+    st.markdown(
+        """
+        <style>
+          :root {
+            --geo-sidebar-width: 260px;
+          }
+
+          section[data-testid="stSidebar"],
+          section[data-testid="stSidebar"][aria-expanded="true"] {
+            width: var(--geo-sidebar-width) !important;
+            min-width: var(--geo-sidebar-width) !important;
+            max-width: var(--geo-sidebar-width) !important;
+            background: #0a0a0a !important;
+            background-color: #0a0a0a !important;
+            background-image: none !important;
+            box-shadow: none !important;
+          }
+
+          section[data-testid="stSidebar"] > div,
+          section[data-testid="stSidebar"] [data-testid="stSidebarContent"],
+          section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+            width: var(--geo-sidebar-width) !important;
+            min-width: var(--geo-sidebar-width) !important;
+            max-width: var(--geo-sidebar-width) !important;
+            background: #0a0a0a !important;
+            background-color: #0a0a0a !important;
+            background-image: none !important;
+            box-shadow: none !important;
+          }
+
+          section[data-testid="stSidebar"] *,
+          section[data-testid="stSidebar"] *::before,
+          section[data-testid="stSidebar"] *::after {
+            background-image: none !important;
+            -webkit-mask-image: none !important;
+            mask-image: none !important;
+            box-shadow: none !important;
+          }
+
+          section[data-testid="stSidebar"]::before,
+          section[data-testid="stSidebar"]::after,
+          section[data-testid="stSidebar"] [data-testid="stSidebarContent"]::before,
+          section[data-testid="stSidebar"] [data-testid="stSidebarContent"]::after,
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"]::before,
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"]::after {
+            content: none !important;
+            display: none !important;
+            background: transparent !important;
+            background-image: none !important;
+            -webkit-mask-image: none !important;
+            mask-image: none !important;
+          }
+
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] {
+            background: #0a0a0a !important;
+            background-color: #0a0a0a !important;
+            background-image: none !important;
+          }
+
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"],
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] nav,
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] ul,
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] li,
+          section[data-testid="stSidebar"] [data-testid="stSidebarHeader"],
+          section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            -webkit-mask-image: none !important;
+            mask-image: none !important;
+            box-shadow: none !important;
+          }
+
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            border-radius: 7px !important;
+          }
+
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover,
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a[aria-current="page"],
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a[aria-selected="true"] {
+            background: #262626 !important;
+            background-color: #262626 !important;
+            background-image: none !important;
+          }
+
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] li:has(a[aria-current="page"]),
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] div:has(> a[aria-current="page"]),
+          section[data-testid="stSidebar"] [data-testid="stSidebarNav"] div:has(> a[aria-selected="true"]) {
+            background: #262626 !important;
+            background-color: #262626 !important;
+            background-image: none !important;
+          }
+
+          section[data-testid="stSidebar"] div[style*="gradient"],
+          section[data-testid="stSidebar"] div[style*="linear-gradient"],
+          section[data-testid="stSidebar"] div[style*="radial-gradient"] {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_beta_sidebar(active: str) -> None:
     """Append beta shortcuts while keeping the native local-style sidebar."""
 
     load_project_style()
+    apply_sidebar_override()
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 공개 베타 빠른 링크")
