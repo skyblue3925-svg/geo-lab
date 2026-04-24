@@ -5,34 +5,12 @@ from __future__ import annotations
 import json
 from textwrap import dedent
 
-import numpy as np
-
 from app.services.animation_assets import (
     StoryboardAsset,
     get_landform_asset_bundle,
     read_image_data_uri,
-    sample_landform_surface_sequence,
 )
-
-
-def _build_surface_payload(landform_id: str, *, grid_size: int, surface_frames: int) -> dict:
-    surfaces = sample_landform_surface_sequence(
-        landform_id,
-        frame_count=surface_frames,
-        grid_size=grid_size,
-    )
-    stacked = np.stack(surfaces).astype(float)
-    z_min = float(np.min(stacked))
-    z_max = float(np.max(stacked))
-    span = max(z_max - z_min, 1e-6)
-    normalized = (stacked - z_min) / span
-    flattened = [np.flipud(frame).reshape(-1).round(5).tolist() for frame in normalized]
-    return {
-        "gridSize": grid_size,
-        "surfaceFrames": flattened,
-        "surfaceFrameCount": len(flattened),
-        "heightScale": 18.0,
-    }
+from app.services.terrain_3d_payload import build_terrain_3d_payload
 
 
 def create_threejs_terrain_viewer_html(
@@ -51,6 +29,11 @@ def create_threejs_terrain_viewer_html(
         return None
 
     entry = bundle.get("image_sequence_entry") or {}
+    terrain_payload = build_terrain_3d_payload(
+        asset.landform_id,
+        grid_size=grid_size,
+        frame_count=surface_frames,
+    )
     payload = {
         "title": asset.title,
         "landformId": asset.landform_id,
@@ -61,13 +44,8 @@ def create_threejs_terrain_viewer_html(
         "fps": int(entry.get("fps") or 12),
         "viewerHeight": int(viewer_height),
     }
-    payload.update(
-        _build_surface_payload(
-            asset.landform_id,
-            grid_size=grid_size,
-            surface_frames=surface_frames,
-        )
-    )
+    payload.update(terrain_payload)
+    payload["title"] = asset.title
 
     config_json = json.dumps(payload, ensure_ascii=False)
     return dedent(
