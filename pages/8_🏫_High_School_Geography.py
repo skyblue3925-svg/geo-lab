@@ -13,7 +13,7 @@ from app.high_school_geography_view import render_high_school_geography_page
 
 
 st.set_page_config(
-    page_title="Geo-Lab 고등학교 세계지리 지형 아틀라스",
+    page_title="지오랩 고등학교 세계지리 지형 아틀라스",
     page_icon="🏫",
     layout="wide",
 )

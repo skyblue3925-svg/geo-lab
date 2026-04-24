@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import inspect
 import subprocess
 import sys
+import json
 from pathlib import Path
 
 import streamlit as st
@@ -13,6 +15,7 @@ from app.beta_navigation import render_beta_sidebar
 from app.components.threejs_renderer import create_threejs_terrain_viewer_html
 from app.services.animation_assets import (
     PROJECT_ROOT,
+    find_image_sequence_filmstrip_path,
     get_asset_counts,
     list_storyboard_assets,
     load_storyboard_panel_image,
@@ -21,12 +24,19 @@ from app.services.animation_assets import (
 )
 
 
-st.set_page_config(page_title="Animation Studio", page_icon="🎞️", layout="wide")
+st.set_page_config(page_title="애니메이션 스튜디오", page_icon="🎞️", layout="wide")
 render_beta_sidebar("animation")
 
 
 def short_path(path: Path) -> str:
     return path.name
+
+
+def show_responsive_image(image) -> None:
+    if "use_container_width" in inspect.signature(st.image).parameters:
+        st.image(image, use_container_width=True)
+    else:
+        st.image(image, use_column_width=True)
 
 
 def show_animated_image(path: Path) -> None:
@@ -43,8 +53,62 @@ def show_animated_image(path: Path) -> None:
     )
 
 
-st.markdown("## Animation Studio")
-st.caption("생성 이미지, 프롬프트, 이미지 시퀀스, 실험용 Three.js 뷰어를 한 화면에서 확인하는 제작 화면입니다.")
+def show_filmstrip_sequence_player(asset, *, frame_interval_ms: int, height: int = 360) -> bool:
+    filmstrip_path = find_image_sequence_filmstrip_path(asset)
+    if filmstrip_path is None:
+        return False
+
+    data_uri = read_image_data_uri(filmstrip_path)
+    root_id = f"filmstrip-player-{asset.landform_id.replace('_', '-')}"
+    config = json.dumps(
+        {
+            "rootId": root_id,
+            "title": asset.title,
+            "dataUri": data_uri,
+            "cols": 5,
+            "rows": 6,
+            "frameCount": 30,
+            "frameIntervalMs": int(frame_interval_ms),
+        },
+        ensure_ascii=False,
+    )
+    components.html(
+        f"""
+        <div id="{root_id}" style="width:100%;height:{height}px;position:relative;overflow:hidden;background:#020617;border-radius:4px;">
+          <div class="filmstrip-frame" style="width:100%;height:100%;background-repeat:no-repeat;background-position:0 0;background-size:500% 600%;"></div>
+          <div class="filmstrip-label" style="position:absolute;left:12px;bottom:10px;padding:4px 7px;border-radius:4px;background:rgba(2,6,23,.72);color:#e2e8f0;font:12px/1.4 system-ui,sans-serif;"></div>
+        </div>
+        <script>
+          const payload = {config};
+          const root = document.getElementById(payload.rootId);
+          const frame = root.querySelector(".filmstrip-frame");
+          const label = root.querySelector(".filmstrip-label");
+          let frameIndex = 0;
+
+          frame.style.backgroundImage = `url("${{payload.dataUri}}")`;
+
+          function draw() {{
+            const col = frameIndex % payload.cols;
+            const row = Math.floor(frameIndex / payload.cols);
+            const x = payload.cols <= 1 ? 0 : (col / (payload.cols - 1)) * 100;
+            const y = payload.rows <= 1 ? 0 : (row / (payload.rows - 1)) * 100;
+            frame.style.backgroundPosition = `${{x}}% ${{y}}%`;
+            label.textContent = `${{payload.title}} · ${{String(frameIndex + 1).padStart(2, "0")}} / ${{payload.frameCount}} · ${{payload.frameIntervalMs}}ms`;
+            frameIndex = (frameIndex + 1) % payload.frameCount;
+          }}
+
+          draw();
+          window.setInterval(draw, Math.max(payload.frameIntervalMs, 40));
+        </script>
+        """,
+        height=height,
+        scrolling=False,
+    )
+    return True
+
+
+st.markdown("## 애니메이션 스튜디오")
+st.caption("생성 이미지, 프롬프트, 이미지 시퀀스, 선택형 Three.js 뷰어를 확인하는 제작 화면입니다.")
 
 assets = list_storyboard_assets()
 counts = get_asset_counts()
@@ -86,18 +150,38 @@ with asset_col:
         format_func=lambda asset: f"{asset.title} ({asset.landform_id})",
     )
 
+image_frame_interval_ms = 140
+if selected_asset.has_image_sequence:
+    playback_col, playback_note_col = st.columns([1.0, 2.0])
+    with playback_col:
+        image_frame_interval_ms = st.slider(
+            "이미지 시퀀스 프레임 간격(ms)",
+            80,
+            500,
+            140,
+            10,
+            key=f"studio_image_frame_interval_{selected_asset.landform_id}",
+        )
+    with playback_note_col:
+        st.caption("값이 클수록 느리게 재생됩니다. 기본값은 기존보다 약간 느린 140ms입니다.")
+
 st.markdown("### 원본과 애니메이션")
 preview_col, sequence_col, cinematic_col = st.columns(3)
 with preview_col:
     st.markdown("**4단계 스토리보드**")
     st.caption(short_path(selected_asset.storyboard_path))
-    st.image(str(selected_asset.storyboard_path), use_column_width=True)
+    show_responsive_image(str(selected_asset.storyboard_path))
 
 with sequence_col:
     st.markdown("**이미지 시퀀스 애니메이션**")
     if selected_asset.has_image_sequence and selected_asset.image_sequence_animation_path is not None:
-        st.caption(short_path(selected_asset.image_sequence_animation_path))
-        show_animated_image(selected_asset.image_sequence_animation_path)
+        st.caption(f"{short_path(selected_asset.image_sequence_animation_path)} · {image_frame_interval_ms}ms/frame")
+        if not show_filmstrip_sequence_player(
+            selected_asset,
+            frame_interval_ms=image_frame_interval_ms,
+            height=360,
+        ):
+            show_animated_image(selected_asset.image_sequence_animation_path)
     else:
         st.warning("아직 실제 이미지 시퀀스 애니메이션이 없습니다.")
         if selected_asset.has_image_sequence_plan and selected_asset.image_sequence_plan_path is not None:
@@ -111,28 +195,36 @@ with cinematic_col:
     else:
         st.warning("아직 키프레임 preview가 없습니다.")
 
-st.markdown("### Three.js 3D Experimental")
-st.caption("필름스트립 이미지를 텍스처로 재생하고, 같은 지형 ID의 표면 생성기를 높이장으로 써서 카메라가 움직이는 실험 뷰어입니다.")
+st.markdown("### Three.js 3D 실험")
+st.caption("렌더링 부하를 줄이기 위해 기본값은 꺼짐입니다. 필요할 때만 켜서 필름스트립 텍스처와 절차적 지형 표면을 함께 확인합니다.")
 
 if selected_asset.has_image_sequence:
-    three_col1, three_col2, three_col3 = st.columns(3)
-    with three_col1:
-        three_height = st.slider("뷰어 높이", 480, 820, 620, 20, key="studio_three_height")
-    with three_col2:
-        three_grid = st.slider("표면 격자", 24, 72, 48, 4, key="studio_three_grid")
-    with three_col3:
-        three_surface_frames = st.slider("표면 프레임", 6, 20, 10, 1, key="studio_three_surface_frames")
-
-    three_html = create_threejs_terrain_viewer_html(
-        selected_asset,
-        viewer_height=three_height,
-        grid_size=three_grid,
-        surface_frames=three_surface_frames,
+    show_threejs = st.checkbox(
+        "Three.js 실험 뷰어 보기",
+        value=False,
+        key=f"studio_show_threejs_{selected_asset.landform_id}",
     )
-    if three_html:
-        components.html(three_html, height=three_height + 8, scrolling=False)
+    if show_threejs:
+        three_col1, three_col2, three_col3 = st.columns(3)
+        with three_col1:
+            three_height = st.slider("뷰어 높이", 480, 820, 620, 20, key="studio_three_height")
+        with three_col2:
+            three_grid = st.slider("표면 격자", 24, 72, 48, 4, key="studio_three_grid")
+        with three_col3:
+            three_surface_frames = st.slider("표면 프레임", 6, 20, 10, 1, key="studio_three_surface_frames")
+
+        three_html = create_threejs_terrain_viewer_html(
+            selected_asset,
+            viewer_height=three_height,
+            grid_size=three_grid,
+            surface_frames=three_surface_frames,
+        )
+        if three_html:
+            components.html(three_html, height=three_height + 8, scrolling=False)
+        else:
+            st.info("이 지형은 아직 Three.js 실험 뷰어에 필요한 필름스트립 자산이 없습니다.")
     else:
-        st.info("이 지형은 아직 Three.js 실험 뷰어에 필요한 필름스트립 자산이 없습니다.")
+        st.info("3D 뷰어는 꺼져 있습니다. 이미지 애니메이션만 확인하면 브라우저 부하가 줄어듭니다.")
 else:
     st.info("이미지 시퀀스가 준비된 지형부터 Three.js 실험 뷰어를 재생할 수 있습니다.")
 
@@ -140,7 +232,7 @@ st.markdown("### 단계별 텍스처 확인")
 stage = st.slider("단계", 0.0, 1.0, 0.0, 0.05)
 panel = load_storyboard_panel_image(selected_asset.landform_id, stage)
 if panel is not None:
-    st.image(panel, use_column_width=True)
+    show_responsive_image(panel)
 else:
     st.info("단계 텍스처를 찾지 못했습니다.")
 

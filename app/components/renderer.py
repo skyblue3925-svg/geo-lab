@@ -17,6 +17,12 @@ except ImportError:
     Image = None
 
 
+def _plotly_json_array(values):
+    """Return plain Python lists so Streamlit's Plotly bridge renders 3D traces."""
+
+    return np.asarray(values).tolist()
+
+
 def render_terrain_plotly(elevation, title, add_water=True, water_level=0, 
                           texture_path=None, force_camera=True, 
                           water_depth_grid=None, sediment_grid=None, 
@@ -48,6 +54,8 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
     h, w = elevation.shape
     x = np.arange(w)
     y = np.arange(h)
+    x_plot = _plotly_json_array(x)
+    y_plot = _plotly_json_array(y)
     
     # 경사도 계산
     dy, dx = np.gradient(elevation)
@@ -152,8 +160,8 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
     lighting_effects = dict(ambient=0.4, diffuse=0.5, roughness=0.9, specular=0.1, fresnel=0.2)
     
     trace_terrain = go.Surface(
-        z=visual_z, x=x, y=y,
-        surfacecolor=final_surface_color,
+        z=_plotly_json_array(visual_z), x=x_plot, y=y_plot,
+        surfacecolor=_plotly_json_array(final_surface_color),
         colorscale=final_colorscale,
         cmin=final_cmin, cmax=final_cmax,
         colorbar=final_colorbar,
@@ -170,10 +178,10 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
             if np.isfinite(overlay_norm).any() and float(np.nanmax(overlay_norm)) > 0.0:
                 overlay_offset = max((float(elevation.max()) - float(elevation.min())) * 0.03, 0.75)
                 trace_overlay = go.Surface(
-                    z=visual_z + overlay_offset,
-                    x=x,
-                    y=y,
-                    surfacecolor=overlay_norm,
+                    z=_plotly_json_array(visual_z + overlay_offset),
+                    x=x_plot,
+                    y=y_plot,
+                    surfacecolor=_plotly_json_array(overlay_norm),
                     colorscale=_overlay_colorscale(overlay_type),
                     cmin=0,
                     cmax=1,
@@ -192,7 +200,7 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
             water_z = elevation + water_depth_grid
             water_z[~water_mask] = np.nan
             trace_water = go.Surface(
-                z=water_z, x=x, y=y,
+                z=_plotly_json_array(water_z), x=x_plot, y=y_plot,
                 colorscale=[[0, 'rgba(30,144,255,0.7)'], [1, 'rgba(30,144,255,0.7)']],
                 showscale=False,
                 lighting=dict(ambient=0.6, diffuse=0.5, specular=0.8, roughness=0.1),
@@ -202,7 +210,7 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
     elif add_water:
         water_z = np.ones_like(elevation) * water_level
         trace_water = go.Surface(
-            z=water_z, x=x, y=y,
+            z=_plotly_json_array(water_z), x=x_plot, y=y_plot,
             hoverinfo='none',
             lighting=dict(ambient=0.6, diffuse=0.6, specular=0.5)
         )
@@ -227,13 +235,13 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
             river_colors = drainage_area[river_mask]
             
             trace_river = go.Scatter3d(
-                x=river_x,
-                y=river_y,
-                z=river_z,
+                x=_plotly_json_array(river_x),
+                y=_plotly_json_array(river_y),
+                z=_plotly_json_array(river_z),
                 mode='markers',
                 marker=dict(
-                    size=river_sizes,
-                    color=river_colors,
+                    size=_plotly_json_array(river_sizes),
+                    color=_plotly_json_array(river_colors),
                     colorscale='Blues',
                     opacity=0.8,
                     symbol='circle',

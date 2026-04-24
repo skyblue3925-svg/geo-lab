@@ -74,10 +74,10 @@ def create_threejs_terrain_viewer_html(
         f"""
         <div id="threejs-terrain-root" style="width:100%;height:{viewer_height}px;position:relative;overflow:hidden;background:#020617;border-radius:6px;">
           <div id="threejs-terrain-label" style="position:absolute;left:16px;top:14px;z-index:5;color:#e2e8f0;font:600 14px/1.4 system-ui,sans-serif;letter-spacing:0;">
-            Three.js Experimental Viewer
+            Three.js 실험 뷰어
           </div>
           <div id="threejs-terrain-meta" style="position:absolute;left:16px;top:36px;z-index:5;color:#94a3b8;font:12px/1.4 system-ui,sans-serif;">
-            image-sequence filmstrip + procedural terrain surface
+            이미지 시퀀스 필름스트립 + 절차적 지형 표면
           </div>
           <div id="threejs-terrain-stage" style="position:absolute;right:16px;top:14px;z-index:5;color:#e2e8f0;font:600 13px/1.4 system-ui,sans-serif;"></div>
           <canvas id="threejs-terrain-canvas" style="display:block;width:100%;height:100%;"></canvas>
