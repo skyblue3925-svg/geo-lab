@@ -50,6 +50,8 @@ def test_babylon_viewer_embeds_shared_physics_payload(monkeypatch):
     assert '"erosionFrames"' in html
     assert '"depositionFrames"' in html
     assert '"flowFrames"' in html
+    assert "paintProcessOverlay" in html
+    assert "processOverlayTexture" in html
     assert "하방 침식" in html
 
 
@@ -64,4 +66,6 @@ def test_threejs_viewer_embeds_shared_physics_payload(monkeypatch):
     assert '"erosionFrames"' in html
     assert '"depositionFrames"' in html
     assert '"flowFrames"' in html
+    assert "paintProcessOverlay" in html
+    assert "processOverlayTexture" in html
     assert "하방 침식" in html

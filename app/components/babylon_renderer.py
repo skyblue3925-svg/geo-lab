@@ -155,8 +155,18 @@ def create_babylon_terrain_viewer_html(
             filmstripTexture.uOffset = 0;
             filmstripTexture.vOffset = 1 - (1 / payload.filmstripRows);
 
+            const processOverlayTexture = new BABYLON.DynamicTexture(
+              "processOverlayTexture",
+              {{ width: payload.gridSize, height: payload.gridSize }},
+              scene,
+              false,
+            );
+            const processOverlayContext = processOverlayTexture.getContext();
+
             const terrainMaterial = new BABYLON.StandardMaterial("terrainMaterial", scene);
             terrainMaterial.diffuseTexture = filmstripTexture;
+            terrainMaterial.emissiveTexture = processOverlayTexture;
+            terrainMaterial.emissiveColor = new BABYLON.Color3(0.42, 0.42, 0.42);
             terrainMaterial.specularColor = new BABYLON.Color3(0.03, 0.04, 0.05);
             terrainMaterial.roughness = 0.96;
             terrainMaterial.backFaceCulling = false;
@@ -173,6 +183,10 @@ def create_babylon_terrain_viewer_html(
             waterMesh.material = waterMaterial;
 
             const surfaceFrames = payload.surfaceFrames;
+            const waterDepthFrames = payload.waterDepthFrames || [];
+            const erosionFrames = payload.erosionFrames || [];
+            const depositionFrames = payload.depositionFrames || [];
+            const processLabels = payload.processLabels || [];
             const surfaceFrameCount = Math.max(payload.surfaceFrameCount || 1, 1);
             const textureFrameCount = Math.max(payload.textureFrameCount || 1, 1);
 
@@ -202,15 +216,42 @@ def create_babylon_terrain_viewer_html(
               terrainMesh.refreshBoundingInfo();
             }}
 
+            function pickProcessFrame(frameSet, frameIndex) {{
+              if (!Array.isArray(frameSet) || frameSet.length === 0) return [];
+              return frameSet[Math.max(0, Math.min(frameSet.length - 1, frameIndex))] || [];
+            }}
+
+            function paintProcessOverlay(surfaceIndex) {{
+              const water = pickProcessFrame(waterDepthFrames, surfaceIndex);
+              const erosion = pickProcessFrame(erosionFrames, surfaceIndex);
+              const deposition = pickProcessFrame(depositionFrames, surfaceIndex);
+              const imageData = processOverlayContext.createImageData(payload.gridSize, payload.gridSize);
+              for (let i = 0; i < payload.gridSize * payload.gridSize; i += 1) {{
+                const w = Math.max(0, Math.min(1, Number(water[i] || 0)));
+                const e = Math.max(0, Math.min(1, Number(erosion[i] || 0)));
+                const d = Math.max(0, Math.min(1, Number(deposition[i] || 0)));
+                const signal = Math.max(w, e, d);
+                imageData.data[i * 4] = Math.min(255, Math.round((e * 235) + (d * 224) + (w * 32)));
+                imageData.data[i * 4 + 1] = Math.min(255, Math.round((e * 82) + (d * 184) + (w * 150)));
+                imageData.data[i * 4 + 2] = Math.min(255, Math.round((e * 52) + (d * 78) + (w * 255)));
+                imageData.data[i * 4 + 3] = Math.round(signal * 180);
+              }}
+              processOverlayContext.putImageData(imageData, 0, 0);
+              processOverlayTexture.update(false);
+            }}
+
             function renderFrame() {{
               const elapsedMs = performance.now();
               const texturePlayhead = (elapsedMs / 1000) * payload.fps;
               const textureFrame = Math.floor(texturePlayhead) % textureFrameCount;
               const normalizedPlayhead = (textureFrameCount <= 1) ? 0 : (textureFrame / (textureFrameCount - 1));
+              const surfaceIndex = Math.round(normalizedPlayhead * (surfaceFrameCount - 1));
 
               applyTextureFrame(textureFrame);
               applySurface(normalizedPlayhead);
-              stageLabel.textContent = `${{payload.title}} | frame ${{String(textureFrame + 1).padStart(2, "0")}} / ${{textureFrameCount}}`;
+              paintProcessOverlay(surfaceIndex);
+              const processLabel = processLabels[surfaceIndex % Math.max(processLabels.length, 1)] || "지형 변화";
+              stageLabel.textContent = `${{payload.title}} | frame ${{String(textureFrame + 1).padStart(2, "0")}} / ${{textureFrameCount}} | ${{processLabel}}`;
               scene.render();
             }}
 
@@ -221,6 +262,7 @@ def create_babylon_terrain_viewer_html(
 
             applyTextureFrame(0);
             applySurface(0);
+            paintProcessOverlay(0);
             scene.render();
             engine.runRenderLoop(renderFrame);
           }})();

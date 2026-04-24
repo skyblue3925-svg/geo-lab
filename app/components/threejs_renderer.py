@@ -105,8 +105,19 @@ def create_threejs_terrain_viewer_html(
           filmstripTexture.offset.set(0, 1 - 1 / payload.filmstripRows);
           filmstripTexture.colorSpace = THREE.SRGBColorSpace;
 
+          const processOverlayCanvas = document.createElement("canvas");
+          processOverlayCanvas.width = payload.gridSize;
+          processOverlayCanvas.height = payload.gridSize;
+          const processOverlayContext = processOverlayCanvas.getContext("2d", {{ willReadFrequently: true }});
+          const processOverlayTexture = new THREE.CanvasTexture(processOverlayCanvas);
+          processOverlayTexture.colorSpace = THREE.SRGBColorSpace;
+          processOverlayTexture.needsUpdate = true;
+
           const terrainMaterial = new THREE.MeshStandardMaterial({{
             map: filmstripTexture,
+            emissive: new THREE.Color(0xffffff),
+            emissiveMap: processOverlayTexture,
+            emissiveIntensity: 0.42,
             displacementScale: 0,
             roughness: 0.95,
             metalness: 0.02,
@@ -131,6 +142,10 @@ def create_threejs_terrain_viewer_html(
 
           const vertexBuffer = geometry.attributes.position.array;
           const surfaceFrames = payload.surfaceFrames;
+          const waterDepthFrames = payload.waterDepthFrames || [];
+          const erosionFrames = payload.erosionFrames || [];
+          const depositionFrames = payload.depositionFrames || [];
+          const processLabels = payload.processLabels || [];
           const surfaceFrameCount = Math.max(payload.surfaceFrameCount || 1, 1);
           const textureFrameCount = Math.max(payload.textureFrameCount || 1, 1);
 
@@ -159,6 +174,30 @@ def create_threejs_terrain_viewer_html(
             geometry.computeVertexNormals();
           }}
 
+          function pickProcessFrame(frameSet, frameIndex) {{
+            if (!Array.isArray(frameSet) || frameSet.length === 0) return [];
+            return frameSet[Math.max(0, Math.min(frameSet.length - 1, frameIndex))] || [];
+          }}
+
+          function paintProcessOverlay(surfaceIndex) {{
+            const water = pickProcessFrame(waterDepthFrames, surfaceIndex);
+            const erosion = pickProcessFrame(erosionFrames, surfaceIndex);
+            const deposition = pickProcessFrame(depositionFrames, surfaceIndex);
+            const imageData = processOverlayContext.createImageData(payload.gridSize, payload.gridSize);
+            for (let i = 0; i < payload.gridSize * payload.gridSize; i += 1) {{
+              const w = Math.max(0, Math.min(1, Number(water[i] || 0)));
+              const e = Math.max(0, Math.min(1, Number(erosion[i] || 0)));
+              const d = Math.max(0, Math.min(1, Number(deposition[i] || 0)));
+              const signal = Math.max(w, e, d);
+              imageData.data[i * 4] = Math.min(255, Math.round((e * 235) + (d * 224) + (w * 32)));
+              imageData.data[i * 4 + 1] = Math.min(255, Math.round((e * 82) + (d * 184) + (w * 150)));
+              imageData.data[i * 4 + 2] = Math.min(255, Math.round((e * 52) + (d * 78) + (w * 255)));
+              imageData.data[i * 4 + 3] = Math.round(signal * 180);
+            }}
+            processOverlayContext.putImageData(imageData, 0, 0);
+            processOverlayTexture.needsUpdate = true;
+          }}
+
           function updateCamera(elapsedMs) {{
             const t = elapsedMs * 0.00014;
             const azimuth = -0.45 + Math.sin(t * 0.8) * 0.6 + Math.sin(t * 0.37) * 0.18;
@@ -172,12 +211,15 @@ def create_threejs_terrain_viewer_html(
             const texturePlayhead = (elapsedMs / 1000) * payload.fps;
             const textureFrame = Math.floor(texturePlayhead) % textureFrameCount;
             const normalizedPlayhead = (textureFrameCount <= 1) ? 0 : (textureFrame / (textureFrameCount - 1));
+            const surfaceIndex = Math.round(normalizedPlayhead * (surfaceFrameCount - 1));
 
             applyTextureFrame(textureFrame);
             applySurface(normalizedPlayhead);
+            paintProcessOverlay(surfaceIndex);
             updateCamera(elapsedMs);
 
-            stageLabel.textContent = `${{payload.title}}  |  frame ${{String(textureFrame + 1).padStart(2, "0")}} / ${{textureFrameCount}}`;
+            const processLabel = processLabels[surfaceIndex % Math.max(processLabels.length, 1)] || "지형 변화";
+            stageLabel.textContent = `${{payload.title}}  |  frame ${{String(textureFrame + 1).padStart(2, "0")}} / ${{textureFrameCount}}  |  ${{processLabel}}`;
             renderer.render(scene, camera);
             requestAnimationFrame(renderFrame);
           }}
@@ -193,6 +235,7 @@ def create_threejs_terrain_viewer_html(
 
           applyTextureFrame(0);
           applySurface(0);
+          paintProcessOverlay(0);
           updateCamera(0);
           renderer.render(scene, camera);
           requestAnimationFrame(renderFrame);
