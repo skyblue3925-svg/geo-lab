@@ -55,6 +55,28 @@ def test_babylon_viewer_embeds_shared_physics_payload(monkeypatch):
     assert "하방 침식" in html
 
 
+def test_renderers_accept_prebuilt_simulation_payload(monkeypatch):
+    asset = SimpleNamespace(landform_id="v_valley", title="V자곡")
+    simulation_payload = _sample_payload()
+    simulation_payload["modelSource"] = "simulation_history"
+
+    for module, factory in (
+        (babylon_renderer, babylon_renderer.create_babylon_terrain_viewer_html),
+        (threejs_renderer, threejs_renderer.create_threejs_terrain_viewer_html),
+    ):
+        _patch_renderer_dependencies(monkeypatch, module)
+        monkeypatch.setattr(
+            module,
+            "build_terrain_3d_payload",
+            lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("fallback builder should not run")),
+        )
+
+        html = factory(asset, grid_size=2, surface_frames=1, terrain_payload=simulation_payload)
+
+        assert html is not None
+        assert '"modelSource": "simulation_history"' in html
+
+
 def test_threejs_viewer_embeds_shared_physics_payload(monkeypatch):
     _patch_renderer_dependencies(monkeypatch, threejs_renderer)
     asset = SimpleNamespace(landform_id="v_valley", title="V자곡")

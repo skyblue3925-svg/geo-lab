@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from textwrap import dedent
+from typing import Any
 
 from app.services.animation_assets import (
     StoryboardAsset,
@@ -19,6 +20,7 @@ def create_threejs_terrain_viewer_html(
     viewer_height: int = 640,
     grid_size: int = 48,
     surface_frames: int = 10,
+    terrain_payload: dict[str, Any] | None = None,
 ) -> str | None:
     bundle = get_landform_asset_bundle(asset.landform_id)
     if bundle is None:
@@ -29,11 +31,12 @@ def create_threejs_terrain_viewer_html(
         return None
 
     entry = bundle.get("image_sequence_entry") or {}
-    terrain_payload = build_terrain_3d_payload(
-        asset.landform_id,
-        grid_size=grid_size,
-        frame_count=surface_frames,
-    )
+    if terrain_payload is None:
+        terrain_payload = build_terrain_3d_payload(
+            asset.landform_id,
+            grid_size=grid_size,
+            frame_count=surface_frames,
+        )
     payload = {
         "title": asset.title,
         "landformId": asset.landform_id,

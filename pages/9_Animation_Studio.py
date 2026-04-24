@@ -25,6 +25,10 @@ from app.services.animation_assets import (
     read_image_data_uri,
     read_prompt_text,
 )
+from app.services.terrain_simulation_payload import (
+    build_simulation_terrain_3d_payload,
+    is_simulation_terrain_supported,
+)
 
 
 st.set_page_config(page_title="애니메이션 스튜디오", page_icon="🎞️", layout="wide")
@@ -249,12 +253,39 @@ if selected_asset.has_image_sequence:
         with frame_col:
             surface_frames = st.slider("표면 프레임", 6, 20, 10, 1, key="studio_3d_surface_frames")
 
+        simulation_available = is_simulation_terrain_supported(selected_asset.landform_id)
+        terrain_source = "절차적 샘플 지형"
+        if simulation_available:
+            terrain_source = st.radio(
+                "3D 데이터",
+                ["SimpleLEM 물리 시뮬레이션", "절차적 샘플 지형"],
+                horizontal=True,
+                key=f"studio_3d_source_{selected_asset.landform_id}",
+            )
+        else:
+            st.caption("이 지형은 아직 SimpleLEM 시나리오 매핑이 없어 절차적 샘플 지형으로 표시합니다.")
+
+        terrain_payload = None
+        if terrain_source == "SimpleLEM 물리 시뮬레이션":
+            terrain_payload = build_simulation_terrain_3d_payload(
+                selected_asset.landform_id,
+                grid_size=viewer_grid,
+                frame_count=surface_frames,
+            )
+            if terrain_payload is None:
+                st.warning("이 지형은 현재 물리 시뮬레이션 payload를 만들 수 없어 절차적 샘플로 대체합니다.")
+            else:
+                st.caption(
+                    f"SimpleLEM history/process_history 기반 {terrain_payload['surfaceFrameCount']}프레임"
+                )
+
         if renderer_choice == "Babylon.js":
             viewer_html = create_babylon_terrain_viewer_html(
                 selected_asset,
                 viewer_height=viewer_height,
                 grid_size=viewer_grid,
                 surface_frames=surface_frames,
+                terrain_payload=terrain_payload,
             )
         else:
             viewer_html = create_threejs_terrain_viewer_html(
@@ -262,6 +293,7 @@ if selected_asset.has_image_sequence:
                 viewer_height=viewer_height,
                 grid_size=viewer_grid,
                 surface_frames=surface_frames,
+                terrain_payload=terrain_payload,
             )
 
         if viewer_html:
