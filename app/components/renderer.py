@@ -3,8 +3,14 @@
 분리된 모듈로 HuggingFace Spaces 호환성 향상
 """
 import numpy as np
-import plotly.graph_objects as go
+from app.utils.plotly_compat import go, plotly_error_message
 import os
+from app.components.animation_renderer import (
+    _extract_overlay_field,
+    _get_optimal_camera,
+    _normalize_overlay_field,
+    _overlay_colorscale,
+)
 try:
     from PIL import Image
 except ImportError:
@@ -15,7 +21,17 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
                           texture_path=None, force_camera=True, 
                           water_depth_grid=None, sediment_grid=None, 
                           landform_type=None, detailed_type=None,
-                          drainage_area=None, river_threshold_percentile=95):
+                          drainage_area=None, river_threshold_percentile=95,
+                          process_fields=None, overlay_type=None, overlay_opacity=0.46,
+                          camera_profile=None):
+    if go is None:
+        try:
+            import streamlit as st
+            st.error(plotly_error_message())
+        except Exception:
+            pass
+        return None
+
     """Plotly 인터랙티브 3D Surface - 사실적 텍스처(Biome) 적용
     
     Args:
@@ -146,6 +162,28 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
     )
     
     data = [trace_terrain]
+
+    if process_fields and overlay_type and overlay_type != "off":
+        overlay_field = _extract_overlay_field(process_fields, overlay_type, elevation.shape)
+        if overlay_field is not None:
+            overlay_norm = _normalize_overlay_field(overlay_field)
+            if np.isfinite(overlay_norm).any() and float(np.nanmax(overlay_norm)) > 0.0:
+                overlay_offset = max((float(elevation.max()) - float(elevation.min())) * 0.03, 0.75)
+                trace_overlay = go.Surface(
+                    z=visual_z + overlay_offset,
+                    x=x,
+                    y=y,
+                    surfacecolor=overlay_norm,
+                    colorscale=_overlay_colorscale(overlay_type),
+                    cmin=0,
+                    cmax=1,
+                    showscale=False,
+                    opacity=overlay_opacity,
+                    hoverinfo='skip',
+                    lighting=dict(ambient=1.0, diffuse=0.0, specular=0.0, roughness=1.0, fresnel=0.0),
+                    name=f'{overlay_type} overlay',
+                )
+                data.append(trace_overlay)
     
     # Water Surface
     if water_depth_grid is not None:
@@ -236,6 +274,8 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
 
     # Layout
     fig = go.Figure(data=data)
+    camera_settings = _get_optimal_camera(landform_type, detailed_type, camera_profile=camera_profile) if force_camera else None
+
     fig.update_layout(
         title=dict(text=title, font=dict(color='white', size=16)),
         uirevision='terrain_viz',
@@ -244,11 +284,7 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
             yaxis=dict(title='Y (m)', backgroundcolor='#1a1a2e', gridcolor='#444', color='#cccccc'),
             zaxis=dict(title='Elevation', backgroundcolor='#1a1a2e', gridcolor='#444', color='#cccccc'),
             bgcolor='#0e1117',
-            camera=dict(
-                eye=dict(x=1.6, y=-1.6, z=0.8),
-                center=dict(x=0, y=0, z=-0.2),
-                up=dict(x=0, y=0, z=1)
-            ) if force_camera else None,
+            camera=camera_settings,
             aspectmode='manual',
             aspectratio=dict(x=1, y=1, z=z_aspect)
         ),
