@@ -16,6 +16,7 @@ def test_additional_lab_catalog_contains_eighteen_scenarios():
 
     assert len(scenarios) == 18
     assert get_additional_lab_scenario("oxbow_lake").title_ko == "우각호"
+    assert get_additional_lab_scenario("lava_dome").formation_steps_ko[-1] == "급경사 돔 안정화"
     assert get_additional_lab_scenario("esker").simulation_family == "glacial"
     assert get_additional_lab_scenario("polje").group == "karst"
 
@@ -57,9 +58,10 @@ def test_lab_experiment_design_summary_links_factors_to_model_multipliers():
         {"water_scale": 1.6, "deposition_scale": 1.2, "k_scale": 1.0},
     )
 
-    assert summary["title"]
+    assert summary["title"] == "범람원과 자연제방 실험 설계"
+    assert summary["group"] == "하천 지형"
     assert summary["formation_steps"]
-    assert any("80" in line for line in summary["factor_lines"])
+    assert any("홍수 빈도: 80" in line for line in summary["factor_lines"])
     assert "물/수위 조건 x1.60" in summary["multiplier_lines"]
     assert "침식 반응 x1.00" not in summary["multiplier_lines"]
 
