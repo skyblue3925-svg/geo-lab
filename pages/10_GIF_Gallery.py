@@ -134,15 +134,15 @@ if query.strip():
 
 st.caption(f"{len(filtered_assets)}개 표시")
 
-per_page = st.selectbox("페이지당", [9, 12, 18, 38], index=1)
+per_page = st.selectbox("페이지당", [4, 8, 12, 24, 56], index=0)
 page_count = max((len(filtered_assets) + per_page - 1) // per_page, 1)
 page_number = st.number_input("페이지", min_value=1, max_value=page_count, value=1, step=1)
 start = (int(page_number) - 1) * per_page
 visible_assets = filtered_assets[start : start + per_page]
 
-columns = st.columns(3)
+columns = st.columns(2)
 for index, asset in enumerate(visible_assets):
-    with columns[index % 3]:
+    with columns[index % 2]:
         st.markdown(f"### {asset.title}")
         st.caption(f"{asset.landform_id} · {asset.frame_count} frames · {format_size(asset.size_bytes)}")
         render_tag_row(teaching_tags_for_landform(asset.landform_id))

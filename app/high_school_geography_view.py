@@ -198,7 +198,19 @@ def route_to_lab(category: str, landform_key: str, user_mode: str) -> None:
     st.session_state["gallery_lab_preset"] = preset
     lab_page = resolve_page_path("Lab.py")
     if lab_page and hasattr(st, "switch_page"):
-        st.switch_page(lab_page)
+        try:
+            st.switch_page(lab_page)
+            return
+        except Exception as exc:
+            st.warning(f"자동 이동이 막혔습니다. 아래 Lab 링크로 이동하세요. ({exc})")
+    if lab_page:
+        st.success("Lab preset을 준비했습니다. 아래 링크를 누르면 같은 지형과 모드로 열립니다.")
+        if hasattr(st, "page_link"):
+            st.page_link(lab_page, label="Lab으로 이동")
+        else:
+            st.markdown(f"[Lab으로 이동]({lab_page})")
+    else:
+        st.error("Lab 페이지 경로를 찾지 못했습니다.")
 
 
 def open_gallery(category: str, landform_key: str) -> None:
