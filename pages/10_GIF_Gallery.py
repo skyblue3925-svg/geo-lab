@@ -10,12 +10,66 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.beta_navigation import render_beta_sidebar
-from app.services.animation_assets import list_image_sequence_gif_assets, ordered_landform_group_labels
+from app.services.animation_assets import (
+    animation_quality_note_for_landform,
+    is_student_recommended_landform,
+    list_image_sequence_gif_assets,
+    ordered_landform_group_labels,
+    teaching_tags_for_landform,
+)
 from app.services.streamlit_compat import image_stretch
 
 
 def format_size(size_bytes: int) -> str:
     return f"{size_bytes / 1024 / 1024:.1f} MB"
+
+
+def render_tag_row(tags: tuple[str, ...]) -> None:
+    if not tags:
+        return
+    tag_html = "".join(
+        f"<span class='gif-gallery-tag'>{tag}</span>"
+        for tag in tags[:4]
+    )
+    st.markdown(
+        f"""
+        <div class="gif-gallery-tag-row">{tag_html}</div>
+        <style>
+          .gif-gallery-tag-row {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin: 0.25rem 0 0.45rem 0;
+          }}
+          .gif-gallery-tag {{
+            border: 1px solid #d4d4d4;
+            border-radius: 4px;
+            padding: 0.1rem 0.35rem;
+            color: #404040;
+            background: #fafafa;
+            font-size: 0.78rem;
+            line-height: 1.4;
+            white-space: nowrap;
+          }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def open_lab_with_asset(asset) -> None:
+    st.session_state["gallery_lab_preset"] = {
+        "user_mode": "학생 단순모드",
+        "scenario_category": "추가 지형",
+        "selected_landform_id": asset.landform_id,
+        "speed_mode": "균형",
+        "force_level": 60,
+        "auto_run": False,
+        "showcase_title": f"{asset.title} GIF 갤러리",
+    }
+    if hasattr(st, "switch_page"):
+        st.switch_page("pages/3_🧪_Lab.py")
+    st.success("Lab preset을 준비했습니다. 왼쪽 메뉴에서 Lab을 열면 같은 지형으로 시작합니다.")
 
 
 st.set_page_config(
@@ -47,12 +101,29 @@ ordered_categories = [
 ]
 extra_categories = sorted(available_categories - set(ordered_categories))
 categories = ["전체"] + ordered_categories + extra_categories
-category = st.selectbox("분류", categories)
+filter_col1, filter_col2 = st.columns([1.0, 1.2])
+with filter_col1:
+    category = st.selectbox("분류", categories)
+with filter_col2:
+    view_filter = st.selectbox(
+        "보기",
+        ["전체", "학생 설명용 추천", "품질 점검 필요"],
+    )
 query = st.text_input("검색", placeholder="지형 이름 또는 id")
 
 filtered_assets = gif_assets
 if category != "전체":
     filtered_assets = [asset for asset in filtered_assets if asset.category == category]
+if view_filter == "학생 설명용 추천":
+    filtered_assets = [
+        asset for asset in filtered_assets
+        if is_student_recommended_landform(asset.landform_id)
+    ]
+elif view_filter == "품질 점검 필요":
+    filtered_assets = [
+        asset for asset in filtered_assets
+        if animation_quality_note_for_landform(asset.landform_id)
+    ]
 if query.strip():
     needle = query.strip().lower()
     filtered_assets = [
@@ -74,5 +145,11 @@ for index, asset in enumerate(visible_assets):
     with columns[index % 3]:
         st.markdown(f"### {asset.title}")
         st.caption(f"{asset.landform_id} · {asset.frame_count} frames · {format_size(asset.size_bytes)}")
+        render_tag_row(teaching_tags_for_landform(asset.landform_id))
+        quality_note = animation_quality_note_for_landform(asset.landform_id)
+        if quality_note:
+            st.warning(quality_note)
         image_stretch(st, str(asset.gif_path))
+        if st.button("Lab에서 실험", key=f"gif_gallery_lab_{asset.landform_id}"):
+            open_lab_with_asset(asset)
 

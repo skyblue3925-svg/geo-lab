@@ -165,6 +165,7 @@ if pending_gallery_preset:
     st.session_state["lab_user_mode"] = pending_gallery_preset.get("user_mode", STUDENT_MODE_LABEL)
     st.session_state["lab_scenario_category"] = pending_gallery_preset.get("scenario_category", SCENARIO_MOUNTAIN_RIVER)
     st.session_state["lab_selected_landform"] = pending_gallery_preset.get("selected_landform")
+    st.session_state["lab_pending_landform_id"] = pending_gallery_preset.get("selected_landform_id")
     st.session_state["lab_speed_mode"] = pending_gallery_preset.get("speed_mode", "균형")
     st.session_state["lab_force_level"] = pending_gallery_preset.get("force_level", 60)
     st.session_state["lab_pending_autorun"] = bool(pending_gallery_preset.get("auto_run", False))
@@ -278,6 +279,20 @@ ADDITIONAL_LAB_LABEL_TO_ID = {
 }
 PRESETS[SCENARIO_ADDITIONAL_LAB] = list(ADDITIONAL_LAB_LABEL_TO_ID)
 
+pending_landform_id = st.session_state.pop("lab_pending_landform_id", None)
+if pending_landform_id:
+    pending_label = next(
+        (
+            label
+            for label, landform_id in ADDITIONAL_LAB_LABEL_TO_ID.items()
+            if landform_id == pending_landform_id
+        ),
+        None,
+    )
+    if pending_label:
+        st.session_state["lab_scenario_category"] = SCENARIO_ADDITIONAL_LAB
+        st.session_state["lab_selected_landform"] = pending_label
+
 mountain_category = next(iter(PRESETS))
 if "습곡 산지 (구조운동)" not in PRESETS[mountain_category]:
     PRESETS[mountain_category].append("습곡 산지 (구조운동)")
@@ -334,18 +349,32 @@ if selected_catalog_scenario is not None:
             st.markdown(f"{index}. {step}")
 
     defaults = scenario_slider_defaults(selected_catalog_scenario.landform_id)
-    with st.sidebar.expander("조절 요인", expanded=not student_mode):
-        for definition in process_factor_definitions_for_scenario(selected_catalog_scenario.landform_id):
-            value = st.slider(
-                definition.label_ko,
-                int(definition.min_value),
-                int(definition.max_value),
-                int(defaults.get(definition.factor_id, definition.default_value)),
-                step=5,
-                key=f"lab_catalog_factor_{selected_catalog_scenario.landform_id}_{definition.factor_id}",
-                help=definition.description_ko,
-            )
-            catalog_factor_values[definition.factor_id] = float(value)
+    factor_definitions = process_factor_definitions_for_scenario(selected_catalog_scenario.landform_id)
+    primary_factor_definitions = factor_definitions[:3] if student_mode else factor_definitions
+    secondary_factor_definitions = factor_definitions[3:] if student_mode else ()
+
+    def render_catalog_factor_slider(definition) -> None:
+        value = st.slider(
+            definition.label_ko,
+            int(definition.min_value),
+            int(definition.max_value),
+            int(defaults.get(definition.factor_id, definition.default_value)),
+            step=5,
+            key=f"lab_catalog_factor_{selected_catalog_scenario.landform_id}_{definition.factor_id}",
+            help=definition.description_ko,
+        )
+        catalog_factor_values[definition.factor_id] = float(value)
+
+    with st.sidebar.expander("핵심 조절 요인", expanded=True):
+        st.caption("처음에는 핵심 요인만 바꿔도 형성과정 차이를 볼 수 있습니다.")
+        for definition in primary_factor_definitions:
+            render_catalog_factor_slider(definition)
+
+    if secondary_factor_definitions:
+        with st.sidebar.expander("추가 세부 요인", expanded=False):
+            st.caption("수업 설명에 더 필요한 경우에만 여는 보조 조절값입니다.")
+            for definition in secondary_factor_definitions:
+                render_catalog_factor_slider(definition)
     catalog_parameter_multipliers = derive_lab_parameter_multipliers(
         selected_catalog_scenario.landform_id,
         catalog_factor_values,

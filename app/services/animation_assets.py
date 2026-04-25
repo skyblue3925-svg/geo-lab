@@ -171,6 +171,41 @@ LANDFORM_GROUP_BY_ID = {
     "wave_cut_platform": "coastal",
 }
 
+STUDENT_RECOMMENDED_LANDFORMS = (
+    "v_valley",
+    "waterfall",
+    "alluvial_fan",
+    "free_meander",
+    "delta",
+    "u_valley",
+    "fjord",
+    "barchan",
+    "coastal_cliff",
+    "sea_arch",
+    "karst_doline",
+    "stratovolcano",
+)
+
+ANIMATION_QUALITY_REVIEW_NOTES = {
+    "floodplain_natural_levee": "범람원과 자연제방의 높이 차이가 더 분명한 버전으로 개선 후보입니다.",
+    "lava_dome": "용암돔 성장 단계의 질감과 붕괴 흔적을 더 선명하게 개선 후보입니다.",
+    "maar": "일부 프레임의 위아래 이어붙임 느낌을 재점검해야 합니다.",
+    "wave_cut_platform": "파식면과 해식애 경계가 더 안정적으로 이어지는지 재점검해야 합니다.",
+    "sea_cave_stack": "해식동에서 아치, 시스택으로 넘어가는 장면 연결을 재점검해야 합니다.",
+    "moraine": "빙하 말단 퇴적 능선의 위치 변화가 더 분명한 버전으로 개선 후보입니다.",
+    "polje": "분지 바닥과 계절 침수 표현의 프레임 연결을 재점검해야 합니다.",
+}
+
+LANDFORM_TEACHING_TAGS = {
+    "river": ("하천 침식", "퇴적", "수업 추천"),
+    "delta": ("하구", "퇴적", "수업 추천"),
+    "glacial": ("빙하 침식", "빙하 퇴적", "단계 비교"),
+    "volcanic": ("화산 활동", "분출", "형성 과정"),
+    "karst": ("용식", "석회암", "지하수"),
+    "arid": ("바람", "건조", "사구"),
+    "coastal": ("파랑", "연안류", "해안 침식"),
+}
+
 @dataclass(frozen=True)
 class StoryboardAsset:
     landform_id: str
@@ -238,6 +273,24 @@ def landform_group_label_for_landform(landform_id: str) -> str:
 
 def ordered_landform_group_labels() -> list[str]:
     return [LANDFORM_GROUP_LABELS[group_id] for group_id in LANDFORM_GROUP_ORDER]
+
+
+def is_student_recommended_landform(landform_id: str) -> bool:
+    return landform_id in STUDENT_RECOMMENDED_LANDFORMS
+
+
+def animation_quality_note_for_landform(landform_id: str) -> str | None:
+    return ANIMATION_QUALITY_REVIEW_NOTES.get(landform_id)
+
+
+def teaching_tags_for_landform(landform_id: str) -> tuple[str, ...]:
+    group_id = landform_group_id_for_landform(landform_id)
+    tags = list(LANDFORM_TEACHING_TAGS.get(group_id, ()))
+    if is_student_recommended_landform(landform_id):
+        tags.insert(0, "학생 설명용 추천")
+    if animation_quality_note_for_landform(landform_id):
+        tags.append("품질 점검 필요")
+    return tuple(dict.fromkeys(tags))
 
 
 def read_json(path: Path, fallback: dict[str, Any] | None = None) -> dict[str, Any]:

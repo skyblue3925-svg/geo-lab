@@ -17,12 +17,15 @@ from app.components.babylon_renderer import create_babylon_terrain_viewer_html
 from app.components.threejs_renderer import create_threejs_terrain_viewer_html
 from app.services.animation_assets import (
     PROJECT_ROOT,
+    animation_quality_note_for_landform,
     find_image_sequence_filmstrip_path,
     get_asset_counts,
     image_sequence_grid_for_landform,
+    is_student_recommended_landform,
     list_storyboard_assets,
     load_storyboard_panel_image,
     read_image_data_uri,
+    teaching_tags_for_landform,
 )
 from app.services.streamlit_compat import image_stretch
 from app.services.terrain_simulation_payload import (
@@ -217,6 +220,15 @@ with asset_col:
         filtered_assets,
         format_func=lambda asset: f"{asset.title} ({asset.landform_id})",
     )
+
+tags = teaching_tags_for_landform(selected_asset.landform_id)
+if tags:
+    st.caption(" · ".join(tags))
+if is_student_recommended_landform(selected_asset.landform_id):
+    st.success("학생 설명용으로 먼저 보여주기 좋은 지형입니다.")
+quality_note = animation_quality_note_for_landform(selected_asset.landform_id)
+if quality_note:
+    st.warning(quality_note)
 
 catalog_scenario = get_additional_lab_scenario(selected_asset.landform_id)
 if catalog_scenario is not None:
