@@ -713,9 +713,9 @@
       "category": "representative",
       "file": "image_sequence/maar/maar_image_sequence.webp",
       "format": "animated_webp",
-      "frame_count": 36,
+      "frame_count": 30,
       "fps": 7,
-      "filmstrip_cols": 6,
+      "filmstrip_cols": 5,
       "filmstrip_rows": 6,
       "mode": "filmstrip_import",
       "status": "ready",
@@ -732,10 +732,10 @@
       "fps": 7,
       "filmstrip_cols": 5,
       "filmstrip_rows": 6,
-      "mode": "procedural_filmstrip_import",
+      "mode": "filmstrip_import",
       "status": "ready",
-      "source_filmstrip": "assets/cinematic/image_sequence/lava_dome/filmstrip/lava_dome_procedural_filmstrip.png",
-      "description": "API 없이 로컬 절차적 지형 렌더러로 만든 이미지 기반 형성과정 애니메이션입니다."
+      "source_filmstrip": "assets/cinematic/image_sequence/lava_dome/filmstrip/lava_dome_filmstrip.png",
+      "description": "생성된 필름스트립을 프레임으로 분할해 만든 이미지 기반 형성과정 애니메이션입니다."
     },
     {
       "id": "polje_image_sequence",

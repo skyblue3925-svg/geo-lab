@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from PIL import Image
 import streamlit as st
 
 
@@ -12,6 +13,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from app.beta_navigation import render_beta_sidebar
 from app.services.animation_assets import (
     animation_quality_note_for_landform,
+    animation_reinforced_note_for_landform,
     is_student_recommended_landform,
     list_image_sequence_gif_assets,
     ordered_landform_group_labels,
@@ -22,6 +24,16 @@ from app.services.streamlit_compat import image_stretch
 
 def format_size(size_bytes: int) -> str:
     return f"{size_bytes / 1024 / 1024:.1f} MB"
+
+
+@st.cache_data(show_spinner=False)
+def load_gif_thumbnail(path_text: str, mtime_ns: int, size: int) -> Image.Image:
+    """Load only the first frame so the gallery does not autoplay every GIF."""
+
+    del mtime_ns, size
+    with Image.open(path_text) as image:
+        image.seek(0)
+        return image.convert("RGB").copy()
 
 
 def render_tag_row(tags: tuple[str, ...]) -> None:
@@ -68,7 +80,11 @@ def open_lab_with_asset(asset) -> None:
         "showcase_title": f"{asset.title} GIF 갤러리",
     }
     if hasattr(st, "switch_page"):
-        st.switch_page("pages/3_🧪_Lab.py")
+        try:
+            st.switch_page("pages/3_🧪_Lab.py")
+            return
+        except Exception as exc:
+            st.warning(f"자동 이동이 막혔습니다. 왼쪽 메뉴에서 Lab을 열어 주세요. ({exc})")
     st.success("Lab preset을 준비했습니다. 왼쪽 메뉴에서 Lab을 열면 같은 지형으로 시작합니다.")
 
 
@@ -81,7 +97,7 @@ st.set_page_config(
 render_beta_sidebar("gif_gallery")
 
 st.markdown("## GIF 갤러리")
-st.caption("지형 형성 이미지 시퀀스 GIF만 모아 보는 화면입니다.")
+st.caption("지형 형성 이미지 시퀀스를 가볍게 훑어보고, 필요한 지형만 GIF로 재생합니다.")
 
 gif_assets = list_image_sequence_gif_assets()
 if not gif_assets:
@@ -101,15 +117,17 @@ ordered_categories = [
 ]
 extra_categories = sorted(available_categories - set(ordered_categories))
 categories = ["전체"] + ordered_categories + extra_categories
-filter_col1, filter_col2 = st.columns([1.0, 1.2])
+
+filter_col1, filter_col2, filter_col3 = st.columns([1.0, 1.1, 1.2])
 with filter_col1:
     category = st.selectbox("분류", categories)
 with filter_col2:
     view_filter = st.selectbox(
         "보기",
-        ["전체", "학생 설명용 추천", "품질 점검 필요"],
+        ["전체", "학생 설명용 추천", "품질 점검 필요", "보강 완료"],
     )
-query = st.text_input("검색", placeholder="지형 이름 또는 id")
+with filter_col3:
+    query = st.text_input("검색", placeholder="지형 이름 또는 id")
 
 filtered_assets = gif_assets
 if category != "전체":
@@ -124,6 +142,11 @@ elif view_filter == "품질 점검 필요":
         asset for asset in filtered_assets
         if animation_quality_note_for_landform(asset.landform_id)
     ]
+elif view_filter == "보강 완료":
+    filtered_assets = [
+        asset for asset in filtered_assets
+        if animation_reinforced_note_for_landform(asset.landform_id)
+    ]
 if query.strip():
     needle = query.strip().lower()
     filtered_assets = [
@@ -133,23 +156,44 @@ if query.strip():
     ]
 
 st.caption(f"{len(filtered_assets)}개 표시")
+st.info("기본 화면은 정지 썸네일입니다. 재생 버튼을 누른 카드만 GIF로 바뀌어 브라우저 부하를 줄입니다.")
 
-per_page = st.selectbox("페이지당", [4, 8, 12, 24, 56], index=0)
+per_page = st.selectbox("페이지당", [12, 16, 24, 56], index=0)
 page_count = max((len(filtered_assets) + per_page - 1) // per_page, 1)
 page_number = st.number_input("페이지", min_value=1, max_value=page_count, value=1, step=1)
 start = (int(page_number) - 1) * per_page
 visible_assets = filtered_assets[start : start + per_page]
 
-columns = st.columns(2)
+active_key = "gif_gallery_active_landform_id"
+columns = st.columns(3)
 for index, asset in enumerate(visible_assets):
-    with columns[index % 2]:
+    with columns[index % 3]:
         st.markdown(f"### {asset.title}")
         st.caption(f"{asset.landform_id} · {asset.frame_count} frames · {format_size(asset.size_bytes)}")
         render_tag_row(teaching_tags_for_landform(asset.landform_id))
         quality_note = animation_quality_note_for_landform(asset.landform_id)
         if quality_note:
             st.warning(quality_note)
-        image_stretch(st, str(asset.gif_path))
-        if st.button("Lab에서 실험", key=f"gif_gallery_lab_{asset.landform_id}"):
-            open_lab_with_asset(asset)
+        reinforced_note = animation_reinforced_note_for_landform(asset.landform_id)
+        if reinforced_note:
+            st.success(reinforced_note)
 
+        is_active = st.session_state.get(active_key) == asset.landform_id
+        if is_active:
+            image_stretch(st, str(asset.gif_path))
+        else:
+            stat = asset.gif_path.stat()
+            thumbnail = load_gif_thumbnail(str(asset.gif_path), stat.st_mtime_ns, stat.st_size)
+            image_stretch(st, thumbnail)
+
+        button_col1, button_col2 = st.columns(2)
+        with button_col1:
+            if st.button("재생" if not is_active else "정지", key=f"gif_gallery_play_{asset.landform_id}"):
+                if is_active:
+                    st.session_state.pop(active_key, None)
+                else:
+                    st.session_state[active_key] = asset.landform_id
+                st.rerun()
+        with button_col2:
+            if st.button("Lab 실험", key=f"gif_gallery_lab_{asset.landform_id}"):
+                open_lab_with_asset(asset)

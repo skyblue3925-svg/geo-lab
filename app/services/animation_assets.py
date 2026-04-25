@@ -186,14 +186,16 @@ STUDENT_RECOMMENDED_LANDFORMS = (
     "stratovolcano",
 )
 
-ANIMATION_QUALITY_REVIEW_NOTES = {
-    "floodplain_natural_levee": "범람원과 자연제방의 높이 차이가 더 분명한 버전으로 개선 후보입니다.",
-    "lava_dome": "용암돔 성장 단계의 질감과 붕괴 흔적을 더 선명하게 개선 후보입니다.",
-    "maar": "일부 프레임의 위아래 이어붙임 느낌을 재점검해야 합니다.",
-    "wave_cut_platform": "파식면과 해식애 경계가 더 안정적으로 이어지는지 재점검해야 합니다.",
-    "sea_cave_stack": "해식동에서 아치, 시스택으로 넘어가는 장면 연결을 재점검해야 합니다.",
-    "moraine": "빙하 말단 퇴적 능선의 위치 변화가 더 분명한 버전으로 개선 후보입니다.",
-    "polje": "분지 바닥과 계절 침수 표현의 프레임 연결을 재점검해야 합니다.",
+ANIMATION_QUALITY_REVIEW_NOTES = {}
+
+ANIMATION_REINFORCED_LANDFORMS = {
+    "floodplain_natural_levee": "범람원과 자연제방 형성과정 보강 완료",
+    "lava_dome": "용암돔 성장과 붕괴 흔적 보강 완료",
+    "maar": "마르 분화구 형성과 담수화 보강 완료",
+    "wave_cut_platform": "파식대와 해식애 후퇴 표현 보강 완료",
+    "sea_cave_stack": "해식동·아치·시스택 연결 보강 완료",
+    "moraine": "빙하 말단 퇴적 능선 표현 보강 완료",
+    "polje": "폴리에 분지와 계절 침수 표현 보강 완료",
 }
 
 LANDFORM_TEACHING_TAGS = {
@@ -283,6 +285,10 @@ def animation_quality_note_for_landform(landform_id: str) -> str | None:
     return ANIMATION_QUALITY_REVIEW_NOTES.get(landform_id)
 
 
+def animation_reinforced_note_for_landform(landform_id: str) -> str | None:
+    return ANIMATION_REINFORCED_LANDFORMS.get(landform_id)
+
+
 def teaching_tags_for_landform(landform_id: str) -> tuple[str, ...]:
     group_id = landform_group_id_for_landform(landform_id)
     tags = list(LANDFORM_TEACHING_TAGS.get(group_id, ()))
@@ -290,6 +296,8 @@ def teaching_tags_for_landform(landform_id: str) -> tuple[str, ...]:
         tags.insert(0, "학생 설명용 추천")
     if animation_quality_note_for_landform(landform_id):
         tags.append("품질 점검 필요")
+    if animation_reinforced_note_for_landform(landform_id):
+        tags.append("보강 완료")
     return tuple(dict.fromkeys(tags))
 
 

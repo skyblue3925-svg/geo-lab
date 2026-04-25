@@ -139,6 +139,10 @@ def render_frame(landform_id: str, height: np.ndarray, *, progress: float, size:
         return render_thermokarst_oblique(progress=progress, size=size)
     if landform_id == "cinder_cone":
         return render_cinder_cone_oblique(progress=progress, size=size)
+    if landform_id == "moraine":
+        return render_moraine_oblique(progress=progress, size=size)
+    if landform_id == "sea_cave_stack":
+        return render_sea_cave_stack_oblique(progress=progress, size=size)
 
     terrain = terrain_palette(landform_id, height)
     shaded = np.clip(terrain * hillshade(height)[..., None], 0, 255)
@@ -363,6 +367,99 @@ def render_cinder_cone_oblique(*, progress: float, size: int) -> Image.Image:
         y = top[1] + t * height * 0.96
         span = rx * t
         draw.line((cx - span * 0.80, y, cx + span * 0.82, y + size * 0.012), fill=(41, 35, 32, 65), width=1)
+    return _finish_scene(image)
+
+
+def render_moraine_oblique(*, progress: float, size: int) -> Image.Image:
+    p = float(np.clip(progress, 0.0, 1.0))
+    image = _vertical_gradient(size, (174, 184, 183), (105, 111, 92))
+    draw = ImageDraw.Draw(image, "RGBA")
+    ice_front = size * (0.28 + 0.24 * p)
+    draw.polygon(
+        [(0, size * 0.22), (size, size * 0.15), (size, ice_front + size * 0.18), (0, ice_front + size * 0.08)],
+        fill=(218, 228, 228, int(215 * (1.0 - 0.35 * p))),
+    )
+    draw.polygon(
+        [(0, ice_front + size * 0.04), (size, ice_front - size * 0.03), (size, size), (0, size)],
+        fill=(129, 128, 103, 235),
+    )
+
+    for ridge in range(5):
+        active = np.clip((p - ridge * 0.10) / 0.58, 0.0, 1.0)
+        y = size * (0.40 + ridge * 0.095 + 0.07 * active)
+        points = []
+        for step in range(28):
+            t = step / 27
+            x = size * t
+            wobble = np.sin(t * np.pi * (2.0 + ridge * 0.35) + ridge) * size * 0.018
+            points.append((x, y + wobble))
+        width = max(3, round(size * (0.018 + 0.016 * active)))
+        draw.line(points, fill=(91, 82, 64, int(70 + 135 * active)), width=width)
+        draw.line([(x, y - width * 0.55) for x, y in points], fill=(178, 170, 139, int(45 + 105 * active)), width=max(1, width // 2))
+
+    for idx in range(38):
+        t = (idx * 0.071 + p * 0.06) % 1.0
+        x = size * t
+        y = size * (0.48 + ((idx * 0.149) % 0.42))
+        r = size * (0.004 + ((idx * 7) % 5) * 0.0015)
+        color = (53, 48, 42, 115) if idx % 3 else (196, 194, 178, 105)
+        draw.ellipse((x - r, y - r * 0.6, x + r, y + r * 0.6), fill=color)
+    return _finish_scene(image)
+
+
+def render_sea_cave_stack_oblique(*, progress: float, size: int) -> Image.Image:
+    p = float(np.clip(progress, 0.0, 1.0))
+    image = _vertical_gradient(size, (128, 158, 166), (56, 111, 139))
+    draw = ImageDraw.Draw(image, "RGBA")
+    sea_y = size * 0.60
+    draw.rectangle((0, sea_y, size, size), fill=(55, 116, 148, 230))
+    cliff_back = [
+        (0, size * 0.22),
+        (size * 0.82, size * 0.18),
+        (size * 0.96, sea_y + size * 0.03),
+        (size * 0.08, sea_y + size * 0.11),
+    ]
+    draw.polygon(cliff_back, fill=(130, 112, 79, 245))
+    draw.polygon(
+        [(size * 0.09, size * 0.31), (size * 0.93, size * 0.27), (size * 0.96, sea_y + size * 0.03), (size * 0.08, sea_y + size * 0.11)],
+        fill=(92, 78, 61, 235),
+    )
+
+    notch = np.clip((p - 0.12) / 0.28, 0.0, 1.0)
+    cave_w = size * (0.08 + 0.18 * notch)
+    cave_h = size * (0.05 + 0.13 * notch)
+    cave_cx = size * 0.50
+    cave_cy = sea_y - size * 0.02
+    draw.ellipse((cave_cx - cave_w, cave_cy - cave_h, cave_cx + cave_w, cave_cy + cave_h), fill=(28, 29, 31, int(230 * notch)))
+    draw.rectangle((cave_cx - cave_w, cave_cy, cave_cx + cave_w, sea_y + size * 0.06), fill=(28, 29, 31, int(220 * notch)))
+
+    arch = np.clip((p - 0.42) / 0.24, 0.0, 1.0)
+    if arch > 0:
+        arch_w = size * (0.12 + 0.08 * arch)
+        arch_h = size * (0.09 + 0.08 * arch)
+        arch_cx = size * 0.63
+        arch_cy = sea_y - size * 0.03
+        draw.ellipse((arch_cx - arch_w, arch_cy - arch_h, arch_cx + arch_w, arch_cy + arch_h), fill=(54, 116, 148, int(230 * arch)))
+        draw.rectangle((arch_cx - arch_w, arch_cy, arch_cx + arch_w, sea_y + size * 0.07), fill=(54, 116, 148, int(230 * arch)))
+
+    stack = np.clip((p - 0.66) / 0.30, 0.0, 1.0)
+    if stack > 0:
+        sx = size * (0.75 + 0.03 * stack)
+        top = size * (0.34 + 0.03 * stack)
+        base = sea_y + size * 0.04
+        half = size * (0.050 + 0.026 * stack)
+        draw.polygon(
+            [(sx - half, base), (sx - half * 0.70, top), (sx + half * 0.86, top + size * 0.03), (sx + half, base)],
+            fill=(105, 86, 65, int(235 * stack)),
+        )
+        draw.polygon([(sx + half * 0.10, top + size * 0.03), (sx + half * 0.86, top + size * 0.03), (sx + half, base), (sx + half * 0.25, base)], fill=(59, 53, 48, int(130 * stack)))
+
+    for i in range(6):
+        y = sea_y + size * (0.03 + i * 0.055 + 0.012 * np.sin(p * np.pi * 2 + i))
+        draw.arc((-size * 0.05, y - size * 0.025, size * 1.06, y + size * 0.035), 5, 175, fill=(224, 235, 229, 80), width=max(1, size // 150))
+    for i in range(9):
+        x = size * (0.10 + i * 0.095)
+        draw.line((x, size * 0.31, x + size * 0.08, sea_y + size * 0.03), fill=(43, 39, 35, 55), width=1)
     return _finish_scene(image)
 
 
