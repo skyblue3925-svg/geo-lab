@@ -11,6 +11,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.beta_navigation import render_beta_sidebar
 from app.services.animation_assets import list_image_sequence_gif_assets, ordered_landform_group_labels
+from app.services.streamlit_compat import image_stretch
 
 
 def format_size(size_bytes: int) -> str:
@@ -73,4 +74,5 @@ for index, asset in enumerate(visible_assets):
     with columns[index % 3]:
         st.markdown(f"### {asset.title}")
         st.caption(f"{asset.landform_id} · {asset.frame_count} frames · {format_size(asset.size_bytes)}")
-        st.image(str(asset.gif_path), use_column_width=True)
+        image_stretch(st, str(asset.gif_path))
+

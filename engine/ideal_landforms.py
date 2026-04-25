@@ -4998,6 +4998,168 @@ def create_estuary(grid_size: int = 100, stage: float = 1.0):
 
 # 애니메이션 생성기 매핑
 
+def create_esker(
+    grid_size: int = 100,
+    stage: float = 1.0,
+    return_metadata: bool = False,
+) -> np.ndarray:
+    """에스커(Esker): 빙하 밑 융빙수 하천 퇴적물이 남긴 구불구불한 능선."""
+
+    h, w = grid_size, grid_size
+    stage = float(np.clip(stage, 0.0, 1.0))
+    y, x = np.mgrid[0:h, 0:w]
+    x_norm = x / max(w - 1, 1)
+    y_norm = y / max(h - 1, 1)
+
+    base = 12.0 - y_norm * 4.0
+    low_relief = 0.6 * np.sin(y_norm * np.pi * 2.0) + 0.35 * np.cos(x_norm * np.pi * 3.0)
+
+    centerline = (w * 0.5) + np.sin(y_norm * np.pi * 3.2 + 0.8) * (w * 0.16)
+    centerline += np.sin(y_norm * np.pi * 7.0) * (w * 0.035)
+    distance = x - centerline
+
+    ridge_width = max(w * (0.035 + 0.015 * stage), 2.0)
+    ridge_height = 18.0 * stage
+    ridge = np.exp(-(distance**2) / (2.0 * ridge_width**2)) * ridge_height
+    ridge *= 0.82 + 0.18 * np.sin(y_norm * np.pi * 12.0 + 1.4)
+
+    meltwater_trench = -2.5 * np.exp(-(distance**2) / (2.0 * (ridge_width * 2.6) ** 2)) * (1.0 - stage) * 0.7
+    ice_cover = np.clip(1.0 - stage * 1.5, 0.0, 1.0) * (18.0 - y_norm * 7.0)
+    elevation = base + low_relief + meltwater_trench + ridge + ice_cover * 0.35
+
+    if return_metadata:
+        return elevation.astype(float), {
+            "landform": "esker",
+            "stage": stage,
+            "dominant_process": "subglacial meltwater deposition",
+            "teaching_focus": "빙하가 물러난 뒤, 빙하 밑 하천의 퇴적물이 긴 능선으로 남는다.",
+        }
+    return elevation.astype(float)
+
+
+def create_lava_dome(grid_size: int = 100, stage: float = 1.0, return_metadata: bool = False) -> np.ndarray:
+    y, x = np.mgrid[0:grid_size, 0:grid_size]
+    xn = (x - (grid_size - 1) / 2) / max(grid_size - 1, 1)
+    yn = (y - (grid_size - 1) / 2) / max(grid_size - 1, 1)
+    r = np.sqrt(xn * xn + yn * yn)
+    stage = float(np.clip(stage, 0.0, 1.0))
+    base = 22.0 - 10.0 * yn
+    vent_radius = 0.05 + 0.23 * stage
+    dome = 135.0 * stage * np.exp(-(r / max(vent_radius, 0.04)) ** 2.3)
+    plug = 45.0 * stage * np.exp(-(r / max(vent_radius * 0.42, 0.03)) ** 2.0)
+    fracture = np.zeros_like(base)
+    for angle in np.linspace(0.0, 2.0 * np.pi, 9, endpoint=False):
+        ray = np.abs(np.sin(np.arctan2(yn, xn) - angle))
+        fracture += np.exp(-(ray / 0.045) ** 2) * np.exp(-(r / max(vent_radius * 1.15, 0.06)) ** 2)
+    collapse = 26.0 * np.clip((stage - 0.72) / 0.28, 0.0, 1.0)
+    scar = collapse * np.exp(-(((xn - 0.10) / 0.12) ** 2 + ((yn + 0.08) / 0.20) ** 2))
+    elevation = base + dome + plug - 9.0 * fracture * stage - scar
+    if return_metadata:
+        return elevation, {"type": "lava_dome", "stage": stage}
+    return elevation
+
+
+def create_tidal_flat(grid_size: int = 100, stage: float = 1.0, return_metadata: bool = False) -> np.ndarray:
+    y, x = np.mgrid[0:grid_size, 0:grid_size]
+    xn = x / max(grid_size - 1, 1)
+    yn = y / max(grid_size - 1, 1)
+    stage = float(np.clip(stage, 0.0, 1.0))
+    slope = 7.0 - 9.0 * yn
+    accretion = 7.5 * stage * np.exp(-((yn - 0.42) / 0.32) ** 2)
+    channels = np.zeros_like(slope)
+    for offset, amp, width in [(0.12, 0.10, 0.025), (0.50, 0.08, 0.020), (0.82, 0.06, 0.018)]:
+        center = offset + amp * np.sin(yn * np.pi * (1.2 + stage))
+        channels += np.exp(-((xn - center) / width) ** 2) * (1.0 - yn * 0.55)
+    elevation = slope + accretion - channels * (3.0 + 5.0 * stage)
+    if return_metadata:
+        return elevation, {"type": "tidal_flat", "stage": stage}
+    return elevation
+
+
+def create_marine_terrace(grid_size: int = 100, stage: float = 1.0, return_metadata: bool = False) -> np.ndarray:
+    y, x = np.mgrid[0:grid_size, 0:grid_size]
+    yn = y / max(grid_size - 1, 1)
+    xn = x / max(grid_size - 1, 1)
+    stage = float(np.clip(stage, 0.0, 1.0))
+    coast = 0.62 - 0.18 * stage
+    elevation = 70.0 * (1.0 - yn) + 3.0 * np.sin(xn * np.pi * 3)
+    for idx, level in enumerate([0.70, 0.56, 0.42]):
+        active = np.clip((stage - idx * 0.22) / 0.42, 0.0, 1.0)
+        band = np.exp(-((yn - level) / 0.055) ** 8)
+        elevation = elevation * (1.0 - band * active) + (46.0 - idx * 13.0) * band * active
+    sea = yn > coast
+    elevation[sea] = -4.0 - (yn[sea] - coast) * 20.0
+    if return_metadata:
+        return elevation, {"type": "marine_terrace", "stage": stage}
+    return elevation
+
+
+def create_kettle_lake(grid_size: int = 100, stage: float = 1.0, return_metadata: bool = False) -> np.ndarray:
+    y, x = np.mgrid[0:grid_size, 0:grid_size]
+    xn = x / max(grid_size - 1, 1)
+    yn = y / max(grid_size - 1, 1)
+    stage = float(np.clip(stage, 0.0, 1.0))
+    elevation = 42.0 - 18.0 * yn + 2.5 * np.sin(xn * np.pi * 5) * np.sin(yn * np.pi * 2)
+    for cx, cy, radius in [(0.35, 0.48, 0.12), (0.62, 0.58, 0.09), (0.52, 0.33, 0.07)]:
+        melt = np.clip((stage - 0.25) / 0.75, 0.0, 1.0)
+        depression = np.exp(-(((xn - cx) ** 2 + (yn - cy) ** 2) / max(radius, 0.01) ** 2))
+        rim = np.exp(-(((np.sqrt((xn - cx) ** 2 + (yn - cy) ** 2) - radius) / 0.03) ** 2))
+        elevation -= depression * 26.0 * melt
+        elevation += rim * 5.0 * melt
+    if return_metadata:
+        return elevation, {"type": "kettle_lake", "stage": stage}
+    return elevation
+
+
+def create_outwash_plain(grid_size: int = 100, stage: float = 1.0, return_metadata: bool = False) -> np.ndarray:
+    y, x = np.mgrid[0:grid_size, 0:grid_size]
+    xn = x / max(grid_size - 1, 1)
+    yn = y / max(grid_size - 1, 1)
+    stage = float(np.clip(stage, 0.0, 1.0))
+    slope = 65.0 - 45.0 * yn
+    fan = 18.0 * stage * np.exp(-((xn - 0.5) / (0.18 + 0.35 * yn)) ** 2) * (1.0 - yn * 0.65)
+    braid = np.zeros_like(slope)
+    for phase in [0.0, 1.9, 3.8, 5.2]:
+        center = 0.5 + (0.08 + 0.20 * yn) * np.sin(yn * np.pi * 4 + phase)
+        braid += np.exp(-((xn - center) / 0.018) ** 2)
+    elevation = slope + fan - braid * (4.0 + 5.0 * stage)
+    if return_metadata:
+        return elevation, {"type": "outwash_plain", "stage": stage}
+    return elevation
+
+
+def create_thermokarst(grid_size: int = 100, stage: float = 1.0, return_metadata: bool = False) -> np.ndarray:
+    y, x = np.mgrid[0:grid_size, 0:grid_size]
+    xn = x / max(grid_size - 1, 1)
+    yn = y / max(grid_size - 1, 1)
+    stage = float(np.clip(stage, 0.0, 1.0))
+    elevation = 32.0 + 2.0 * np.sin(xn * np.pi * 6) + 1.5 * np.cos(yn * np.pi * 5)
+    centers = [(0.28, 0.36, 0.10), (0.62, 0.42, 0.13), (0.45, 0.66, 0.09), (0.78, 0.72, 0.07)]
+    for idx, (cx, cy, radius) in enumerate(centers):
+        thaw = np.clip((stage - idx * 0.10) / 0.72, 0.0, 1.0)
+        basin = np.exp(-(((xn - cx) ** 2 + (yn - cy) ** 2) / radius ** 2))
+        elevation -= basin * (12.0 + idx * 2.0) * thaw
+    if return_metadata:
+        return elevation, {"type": "thermokarst", "stage": stage}
+    return elevation
+
+
+def create_cinder_cone(grid_size: int = 100, stage: float = 1.0, return_metadata: bool = False) -> np.ndarray:
+    y, x = np.mgrid[0:grid_size, 0:grid_size]
+    xn = (x - (grid_size - 1) / 2) / max(grid_size - 1, 1)
+    yn = (y - (grid_size - 1) / 2) / max(grid_size - 1, 1)
+    r = np.sqrt(xn * xn + yn * yn)
+    stage = float(np.clip(stage, 0.0, 1.0))
+    radius = 0.08 + 0.30 * stage
+    cone = np.clip(1.0 - r / max(radius, 0.02), 0.0, 1.0) * 105.0 * stage
+    crater = np.exp(-(r / max(radius * 0.28, 0.02)) ** 4) * 48.0 * stage
+    apron = 18.0 * stage * np.exp(-(r / max(radius * 1.8, 0.08)) ** 2)
+    elevation = 18.0 + cone + apron - crater
+    if return_metadata:
+        return elevation, {"type": "cinder_cone", "stage": stage}
+    return elevation
+
+
 ANIMATED_LANDFORM_GENERATORS = {
     'delta': create_delta_animated,
     'alluvial_fan': create_alluvial_fan_animated,
@@ -5046,6 +5208,23 @@ ANIMATED_LANDFORM_GENERATORS = {
     'pedestal_rock': create_pedestal_rock,
     'estuary': create_estuary,
     'pediment': create_pediment,  # 추가
+    # Additional teaching IDs backed by existing or lightweight procedural generators.
+    'oxbow_lake': create_free_meander,
+    'floodplain_natural_levee': create_perched_river,
+    'river_terrace': create_incised_meander,
+    'sea_cave_stack': create_sea_arch,
+    'wave_cut_platform': create_coastal_cliff,
+    'barrier_island': create_spit_lagoon,
+    'esker': create_esker,
+    'maar': create_crater_lake,
+    'lava_dome': create_lava_dome,
+    'tidal_flat': create_tidal_flat,
+    'marine_terrace': create_marine_terrace,
+    'kettle_lake': create_kettle_lake,
+    'outwash_plain': create_outwash_plain,
+    'thermokarst': create_thermokarst,
+    'cinder_cone': create_cinder_cone,
+    'polje': create_uvala,
 }
 
 # 지형 생성 함수 매핑
@@ -5097,5 +5276,22 @@ IDEAL_LANDFORM_GENERATORS = {
     'pedestal_rock': lambda gs: create_pedestal_rock(gs, 1.0),
     'estuary': lambda gs: create_estuary(gs, 1.0),
     'pediment': lambda gs: create_pediment(gs, 1.0),  # 추가
+    # Additional teaching IDs.
+    'oxbow_lake': lambda gs: create_free_meander(gs, 1.0),
+    'floodplain_natural_levee': lambda gs: create_perched_river(gs, 1.0),
+    'river_terrace': lambda gs: create_incised_meander(gs, 1.0),
+    'sea_cave_stack': lambda gs: create_sea_arch(gs, 1.0),
+    'wave_cut_platform': lambda gs: create_coastal_cliff(gs, 1.0),
+    'barrier_island': lambda gs: create_spit_lagoon(gs, 1.0),
+    'esker': lambda gs: create_esker(gs, 1.0),
+    'maar': lambda gs: create_crater_lake(gs, 1.0),
+    'lava_dome': lambda gs: create_lava_dome(gs, 1.0),
+    'tidal_flat': lambda gs: create_tidal_flat(gs, 1.0),
+    'marine_terrace': lambda gs: create_marine_terrace(gs, 1.0),
+    'kettle_lake': lambda gs: create_kettle_lake(gs, 1.0),
+    'outwash_plain': lambda gs: create_outwash_plain(gs, 1.0),
+    'thermokarst': lambda gs: create_thermokarst(gs, 1.0),
+    'cinder_cone': lambda gs: create_cinder_cone(gs, 1.0),
+    'polje': lambda gs: create_uvala(gs, 1.0),
 }
 

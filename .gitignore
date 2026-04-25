@@ -6,6 +6,8 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
+.tmp-venv/
 .env
 
 # Streamlit
@@ -32,6 +34,7 @@ assets/reference/
 assets/frames/
 assets/cinematic/*.gif
 *.png
+!assets/cinematic/image_sequence/**/filmstrip/*.png
 *.jpg
 *.jpeg
 
@@ -40,6 +43,12 @@ node_modules/
 playwright-report/
 test-results/
 .playwright-cli/
+.playwright-mcp/
+.tmp-edge-profile/
+.pytest_cache/
+.tmp_*
+tmp/
+apps/school-neighborhood-gis/scripts/sgis-local-env.ps1
 
 # Koppen app raw source datasets
 apps/koppen-climate-lab/data/worldclim/raw/

@@ -156,6 +156,10 @@ class SimpleLEM:
         self.fault_rate = fault_rate
         self.fault_position = fault_position
         self.enable_faulting = enable_faulting
+        self.fold_rate = 0.0004
+        self.fold_wavelength = 0.35
+        self.fold_axis = "x"
+        self.enable_folding = False
         
         # 카르스트 파라미터
         self.Kk = Kk
@@ -239,6 +243,74 @@ class SimpleLEM:
         # 이력 저장
         self.history: List[np.ndarray] = []
         self.time_steps: List[float] = []
+        self.last_step_stats: Dict[str, float] = self._empty_step_stats()
+        self.stats_history: List[Dict[str, float]] = []
+        self.last_process_fields: Dict[str, np.ndarray] = self._empty_process_fields()
+        self.process_history: List[Dict[str, np.ndarray]] = []
+
+    def _empty_step_stats(self) -> Dict[str, float]:
+        mean_elevation = float(self.elevation.mean()) if self.elevation.size else 0.0
+        max_elevation = float(self.elevation.max()) if self.elevation.size else 0.0
+        mean_soil_depth = float(self.soil_depth.mean()) if self.soil_depth.size else 0.0
+        return {
+            'mean_elevation': mean_elevation,
+            'max_elevation': max_elevation,
+            'mean_erosion_rate': 0.0,
+            'max_erosion_rate': 0.0,
+            'mean_weathering_rate': 0.0,
+            'mean_diffusion': 0.0,
+            'mean_deposition_rate': 0.0,
+            'mean_lateral_erosion': 0.0,
+            'mean_glacial': 0.0,
+            'mean_marine': 0.0,
+            'mean_landslide': 0.0,
+            'mean_faulting': 0.0,
+            'mean_folding': 0.0,
+            'mean_karst': 0.0,
+            'mean_aeolian': 0.0,
+            'mean_volcanic': 0.0,
+            'mean_groundwater': 0.0,
+            'mean_freeze_thaw': 0.0,
+            'mean_moraine': 0.0,
+            'mean_uniform_uplift': max(float(self.U), 0.0),
+            'mean_subsidence': max(float(-self.U), 0.0),
+            'mean_soil_depth': mean_soil_depth,
+            'total_erosion': 0.0,
+            'total_deposition': 0.0,
+            'total_weathering': 0.0,
+            'total_uplift': 0.0,
+            'total_folding': 0.0,
+            'total_subsidence': 0.0,
+        }
+
+    def _empty_process_fields(self) -> Dict[str, np.ndarray]:
+        zero = np.zeros_like(self.elevation, dtype=float)
+        return {
+            "uniform": zero.copy(),
+            "faulting": zero.copy(),
+            "folding": zero.copy(),
+            "volcanic": zero.copy(),
+            "tectonic": zero.copy(),
+            "erosion": zero.copy(),
+            "diffusion": zero.copy(),
+            "weathering": zero.copy(),
+            "deposition": zero.copy(),
+            "lateral": zero.copy(),
+            "glacial": zero.copy(),
+            "marine": zero.copy(),
+            "landslide": zero.copy(),
+            "karst": zero.copy(),
+            "aeolian": zero.copy(),
+            "groundwater": zero.copy(),
+            "freeze_thaw": zero.copy(),
+            "lake": zero.copy(),
+            "moraine": zero.copy(),
+            "total_erosion": zero.copy(),
+        }
+
+    def _snapshot_process_fields(self, fields: Dict[str, np.ndarray] | None = None) -> Dict[str, np.ndarray]:
+        source = fields or self._empty_process_fields()
+        return {key: np.array(value, copy=True) for key, value in source.items()}
         
     def set_initial_topography(self, elevation: np.ndarray, initial_soil: float = 0.5):
         """초기 지형 설정
@@ -254,6 +326,8 @@ class SimpleLEM:
         self.drainage_area = np.ones_like(elevation)
         self.erosion_rate = np.zeros_like(elevation)
         self.weathering_rate = np.zeros_like(elevation)
+        self.last_step_stats = self._empty_step_stats()
+        self.last_process_fields = self._empty_process_fields()
         
     def create_initial_mountain(self, peak_height: float = 500.0, noise_amp: float = 10.0, initial_soil: float = 0.5):
         """초기 산지 지형 생성
@@ -974,8 +1048,79 @@ class SimpleLEM:
         
         self.factor_of_safety = fs
         return fs
+
+    def tectonic_folding(self, dt: float = 1.0) -> np.ndarray:
+        """
+        Tectonic Folding - simple sinusoidal uplift/subsidence pattern.
+        Positive values represent anticlines and negative values represent synclines.
+        """
+        if not getattr(self, "enable_folding", False):
+            return np.zeros_like(self.elevation)
+
+        y, x = np.mgrid[0:self.grid_size, 0:self.grid_size]
+        axis = x if getattr(self, "fold_axis", "x") == "x" else y
+        wavelength_cells = max(float(getattr(self, "fold_wavelength", 0.35)) * self.grid_size, 4.0)
+        pattern = np.sin((2.0 * np.pi * axis) / wavelength_cells)
+        taper = np.sin(np.pi * y / max(self.grid_size - 1, 1)) if getattr(self, "fold_axis", "x") == "x" else np.sin(np.pi * x / max(self.grid_size - 1, 1))
+        folding = float(getattr(self, "fold_rate", 0.0004)) * dt * pattern * taper
+        self._fix_boundary_erosion(folding)
+        return folding
+
+    def tectonic_phase(self, dt: float = 100.0) -> Dict[str, np.ndarray]:
+        uniform = np.full_like(self.elevation, self.U * dt, dtype=float)
+        fault_uplift = self.tectonic_faulting(dt)
+        folding = self.tectonic_folding(dt)
+        volcanic = self.volcanic_activity(dt)
+
+        self.bedrock = self.bedrock + uniform + fault_uplift + folding + volcanic
+        self.bedrock = np.maximum(self.bedrock, 0)
+        self.elevation = self.bedrock + self.soil_depth
+        self._fix_boundaries()
+        self.elevation = np.maximum(self.elevation, 0)
+
+        return {
+            "uniform": uniform,
+            "faulting": fault_uplift,
+            "folding": folding,
+            "volcanic": volcanic,
+        }
+
+    def surface_phase(self, dt: float = 100.0) -> Dict[str, np.ndarray]:
+        self.calculate_drainage_area()
+
+        erosion = self.stream_power_erosion(dt)
+        diffusion = self.hillslope_diffusion(dt)
+        weathering = self.exponential_weathering(dt)
+        deposition = self.sediment_transport(erosion, dt)
+        lateral = self.lateral_erosion(dt)
+        glacial = self.glacial_erosion(dt)
+        marine = self.marine_erosion(dt)
+        landslide = self.landslide_process(dt)
+        karst = self.karst_dissolution(dt)
+        aeolian = self.aeolian_erosion(dt)
+        groundwater = self.groundwater_erosion(dt)
+        freeze_thaw = self.freeze_thaw_weathering(dt)
+        lake = self.lake_formation(dt)
+        moraine = self.glacial_deposition(glacial, dt)
+
+        return {
+            "erosion": erosion,
+            "diffusion": diffusion,
+            "weathering": weathering,
+            "deposition": deposition,
+            "lateral": lateral,
+            "glacial": glacial,
+            "marine": marine,
+            "landslide": landslide,
+            "karst": karst,
+            "aeolian": aeolian,
+            "groundwater": groundwater,
+            "freeze_thaw": freeze_thaw,
+            "lake": lake,
+            "moraine": moraine,
+        }
     
-    def step(self, dt: float = 100.0) -> Dict[str, float]:
+    def _step_legacy_pre_refactor(self, dt: float = 100.0) -> Dict[str, float]:
         """
         한 시간 단계 진행
         
@@ -1011,31 +1156,32 @@ class SimpleLEM:
         landslide = self.landslide_process(dt)
         
         # 10. 단층 운동 (Faulting)
-        fault_uplift = self.tectonic_faulting(dt)
+        lateral = surface["lateral"]
         
         # 11. 카르스트 용해 (Karst)
-        karst = self.karst_dissolution(dt)
+        glacial = surface["glacial"]
         
         # 12. 바람 침식 (Aeolian) - 사막 사구
-        aeolian = self.aeolian_erosion(dt)
+        marine = surface["marine"]
         
         # 13. 화산 활동 (Volcanic) - 용암류
-        volcanic = self.volcanic_activity(dt)
+        landslide = surface["landslide"]
         
         # 14. 지하수 침식 (Groundwater)
-        groundwater = self.groundwater_erosion(dt)
+        karst = surface["karst"]
         
         # 15. 동결파쇄 (Freeze-thaw)
-        freeze_thaw = self.freeze_thaw_weathering(dt)
+        aeolian = surface["aeolian"]
         
         # 16. 호수 형성 (Lake)
-        lake = self.lake_formation(dt)
+        groundwater = surface["groundwater"]
         
         # 17. 빙하 퇴적 (Moraine)
-        moraine = self.glacial_deposition(glacial, dt)
+        freeze_thaw = surface["freeze_thaw"]
         
         # 18. 지각 융기
-        uplift = self.U * dt
+        lake = surface["lake"]
+        moraine = surface["moraine"]
         
         # 19. 토양층 업데이트
         # 모든 침식 합산
@@ -1049,7 +1195,7 @@ class SimpleLEM:
         
         # 토양에 풍화 추가, 퇴적물 추가, 화산물질 추가, 모레인 추가
         self.soil_depth = self.soil_depth - soil_erosion + weathering + deposition + moraine
-        self.bedrock = self.bedrock - bedrock_erosion + uplift + fault_uplift + volcanic
+        self.bedrock = self.bedrock - bedrock_erosion
         
         # 20. 전체 고도 업데이트
         self.elevation = self.bedrock + self.soil_depth + diffusion
@@ -1063,23 +1209,160 @@ class SimpleLEM:
         self.bedrock = np.maximum(self.bedrock, 0)
         
         # 통계 반환
-        return {
+        uplift_cells = float(np.maximum(uplift, 0.0).sum())
+        subsidence_cells = float(np.maximum(-uplift, 0.0).sum())
+        fault_total = float(np.maximum(fault_uplift, 0.0).sum())
+        folding_total = float(np.abs(folding).sum())
+        stats = {
             'mean_elevation': float(self.elevation.mean()),
             'max_elevation': float(self.elevation.max()),
             'mean_erosion_rate': float(self.erosion_rate.mean()),
             'max_erosion_rate': float(self.erosion_rate.max()),
             'mean_weathering_rate': float(self.weathering_rate.mean()),
+            'mean_diffusion': float(np.mean(np.abs(diffusion)) / max(dt, 1e-9)),
             'mean_deposition_rate': float(self.deposition_rate.mean()),
             'mean_lateral_erosion': float(self.lateral_erosion_rate.mean()),
             'mean_glacial': float(self.glacial_erosion_rate.mean()),
             'mean_marine': float(self.marine_erosion_rate.mean()),
             'mean_landslide': float(self.landslide_rate.mean()),
+            'mean_faulting': float(np.mean(np.abs(fault_uplift)) / max(dt, 1e-9)),
+            'mean_folding': float(np.mean(np.abs(folding)) / max(dt, 1e-9)),
+            'mean_karst': float(np.mean(np.abs(karst)) / max(dt, 1e-9)),
+            'mean_aeolian': float(self.aeolian_rate.mean()),
+            'mean_volcanic': float(np.mean(np.abs(volcanic)) / max(dt, 1e-9)),
+            'mean_groundwater': float(np.mean(np.abs(groundwater)) / max(dt, 1e-9)),
+            'mean_freeze_thaw': float(self.freeze_thaw_rate.mean()),
+            'mean_moraine': float(np.mean(np.abs(moraine)) / max(dt, 1e-9)),
+            'mean_uniform_uplift': max(float(self.U), 0.0),
+            'mean_subsidence': max(float(-self.U), 0.0),
             'mean_soil_depth': float(self.soil_depth.mean()),
             'total_erosion': float(total_erosion.sum()),
             'total_deposition': float(deposition.sum()),
             'total_weathering': float(weathering.sum()),
-            'total_uplift': float((uplift + fault_uplift.sum()) * self.grid_size**2)
+            'total_uplift': float(uplift_cells + fault_total),
+            'total_folding': folding_total,
+            'total_subsidence': float(subsidence_cells),
         }
+        self.last_step_stats = stats
+        return stats
+
+    def step(self, dt: float = 100.0) -> Dict[str, float]:
+        """
+        Advance the model by one time step and record process statistics.
+        """
+        tectonic = self.tectonic_phase(dt)
+        surface = self.surface_phase(dt)
+
+        uplift = tectonic["uniform"]
+        fault_uplift = tectonic["faulting"]
+        folding = tectonic["folding"]
+        volcanic = tectonic["volcanic"]
+
+        erosion = surface["erosion"]
+        diffusion = surface["diffusion"]
+        weathering = surface["weathering"]
+        deposition = surface["deposition"]
+        lateral = surface["lateral"]
+        glacial = surface["glacial"]
+        marine = surface["marine"]
+        landslide = surface["landslide"]
+        karst = surface["karst"]
+        aeolian = surface["aeolian"]
+        groundwater = surface["groundwater"]
+        freeze_thaw = surface["freeze_thaw"]
+        lake = surface["lake"]
+        moraine = surface["moraine"]
+
+        total_erosion = (
+            erosion
+            + lateral
+            + glacial
+            + marine
+            + landslide
+            + karst
+            + aeolian
+            + groundwater
+            + freeze_thaw
+            + lake
+        )
+        total_erosion = self.apply_vegetation_protection(total_erosion)
+
+        soil_erosion = np.minimum(total_erosion, self.soil_depth)
+        bedrock_erosion = total_erosion - soil_erosion
+
+        self.soil_depth = self.soil_depth - soil_erosion + weathering + deposition + moraine
+        self.bedrock = self.bedrock - bedrock_erosion
+
+        self.elevation = self.bedrock + self.soil_depth + diffusion
+        self._fix_boundaries()
+
+        self.elevation = np.maximum(self.elevation, 0)
+        self.soil_depth = np.maximum(self.soil_depth, 0)
+        self.bedrock = np.maximum(self.bedrock, 0)
+
+        process_fields = {
+            "uniform": uplift,
+            "faulting": fault_uplift,
+            "folding": folding,
+            "volcanic": volcanic,
+            "tectonic": uplift + fault_uplift + folding + volcanic,
+            "erosion": erosion,
+            "diffusion": diffusion,
+            "weathering": weathering,
+            "deposition": deposition,
+            "lateral": lateral,
+            "glacial": glacial,
+            "marine": marine,
+            "landslide": landslide,
+            "karst": karst,
+            "aeolian": aeolian,
+            "groundwater": groundwater,
+            "freeze_thaw": freeze_thaw,
+            "lake": lake,
+            "moraine": moraine,
+            "total_erosion": total_erosion,
+        }
+
+        uplift_cells = float(np.maximum(uplift, 0.0).sum())
+        subsidence_cells = float(np.maximum(-uplift, 0.0).sum())
+        fault_uplift_total = float(np.maximum(fault_uplift, 0.0).sum())
+        fault_subsidence_total = float(np.maximum(-fault_uplift, 0.0).sum())
+        volcanic_total = float(np.maximum(volcanic, 0.0).sum())
+        folding_total = float(np.abs(folding).sum())
+
+        stats = {
+            'mean_elevation': float(self.elevation.mean()),
+            'max_elevation': float(self.elevation.max()),
+            'mean_erosion_rate': float(self.erosion_rate.mean()),
+            'max_erosion_rate': float(self.erosion_rate.max()),
+            'mean_weathering_rate': float(self.weathering_rate.mean()),
+            'mean_diffusion': float(np.mean(np.abs(diffusion)) / max(dt, 1e-9)),
+            'mean_deposition_rate': float(self.deposition_rate.mean()),
+            'mean_lateral_erosion': float(self.lateral_erosion_rate.mean()),
+            'mean_glacial': float(self.glacial_erosion_rate.mean()),
+            'mean_marine': float(self.marine_erosion_rate.mean()),
+            'mean_landslide': float(self.landslide_rate.mean()),
+            'mean_faulting': float(np.mean(np.abs(fault_uplift)) / max(dt, 1e-9)),
+            'mean_folding': float(np.mean(np.abs(folding)) / max(dt, 1e-9)),
+            'mean_karst': float(np.mean(np.abs(karst)) / max(dt, 1e-9)),
+            'mean_aeolian': float(self.aeolian_rate.mean()),
+            'mean_volcanic': float(np.mean(np.abs(volcanic)) / max(dt, 1e-9)),
+            'mean_groundwater': float(np.mean(np.abs(groundwater)) / max(dt, 1e-9)),
+            'mean_freeze_thaw': float(self.freeze_thaw_rate.mean()),
+            'mean_moraine': float(np.mean(np.abs(moraine)) / max(dt, 1e-9)),
+            'mean_uniform_uplift': max(float(self.U), 0.0),
+            'mean_subsidence': max(float(-self.U), 0.0),
+            'mean_soil_depth': float(self.soil_depth.mean()),
+            'total_erosion': float(total_erosion.sum()),
+            'total_deposition': float(deposition.sum()),
+            'total_weathering': float(weathering.sum()),
+            'total_uplift': float(uplift_cells + fault_uplift_total + volcanic_total),
+            'total_folding': folding_total,
+            'total_subsidence': float(subsidence_cells + fault_subsidence_total),
+        }
+        self.last_step_stats = stats
+        self.last_process_fields = self._snapshot_process_fields(process_fields)
+        return stats
     
     def run(
         self,
@@ -1104,6 +1387,10 @@ class SimpleLEM:
         
         self.history = [self.elevation.copy()]
         self.time_steps = [0.0]
+        self.stats_history = [self._empty_step_stats()]
+        self.process_history = [self._empty_process_fields()]
+        self.last_step_stats = self.stats_history[0]
+        self.last_process_fields = self.process_history[0]
         
         current_time = 0.0
         
@@ -1115,6 +1402,8 @@ class SimpleLEM:
             if (i + 1) % save_interval == 0:
                 self.history.append(self.elevation.copy())
                 self.time_steps.append(current_time)
+                self.stats_history.append(dict(stats))
+                self.process_history.append(self._snapshot_process_fields(self.last_process_fields))
                 
                 if verbose:
                     print(f"[{current_time:,.0f}년] "

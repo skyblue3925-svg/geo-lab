@@ -35,35 +35,52 @@ IMAGE_MIME_TYPES = {
 
 KOREAN_TITLES = {
     "alluvial_fan": "선상지",
-    "arcuate_delta": "원호상 삼각주",
+    "arcuate_delta": "호상 삼각주",
     "arete": "아레트",
+    "barrier_island": "사주섬",
     "barchan": "바르한",
     "bird_foot_delta": "조족상 삼각주",
     "braided_river": "망상 하천",
     "caldera": "칼데라",
+    "cinder_cone": "분석구",
     "cirque": "권곡",
     "coastal_cliff": "해식애",
     "coastal_dune": "해안사구",
     "crater_lake": "화구호",
     "cuspate_delta": "첨상 삼각주",
     "delta": "삼각주",
+    "drumlin": "드럼린",
+    "esker": "에스커",
     "estuary": "에스추어리",
     "fjord": "피오르",
+    "floodplain_natural_levee": "범람원과 자연제방",
     "free_meander": "자유곡류천",
     "horn": "호른",
-    "karst_doline": "돌리네",
     "karren": "카렌",
+    "karst_doline": "돌리네",
+    "kettle_lake": "케틀호",
+    "lava_dome": "용암돔",
     "lava_plateau": "용암대지",
+    "maar": "마르",
+    "marine_terrace": "해안단구",
     "mesa_butte": "메사와 뷰트",
+    "moraine": "모레인",
+    "outwash_plain": "빙수평원",
+    "oxbow_lake": "우각호",
     "pedestal_rock": "버섯바위",
     "pediment": "페디먼트",
     "playa": "플라야",
+    "polje": "폴리에",
     "ria_coast": "리아스식 해안",
+    "river_terrace": "하안단구",
     "sea_arch": "해식아치",
+    "sea_cave_stack": "해식동과 시스택",
     "shield_volcano": "순상화산",
     "spit_lagoon": "사주와 석호",
     "star_dune": "성상사구",
     "stratovolcano": "성층화산",
+    "thermokarst": "열카르스트",
+    "tidal_flat": "갯벌",
     "tombolo": "육계사주",
     "tower_karst": "탑 카르스트",
     "transverse_dune": "횡사구",
@@ -72,6 +89,7 @@ KOREAN_TITLES = {
     "v_valley": "V자곡",
     "wadi": "와디",
     "waterfall": "폭포",
+    "wave_cut_platform": "파식대",
 }
 
 LANDFORM_GROUP_ORDER = (
@@ -97,7 +115,10 @@ LANDFORM_GROUP_LABELS = {
 LANDFORM_GROUP_BY_ID = {
     "alluvial_fan": "river",
     "braided_river": "river",
+    "floodplain_natural_levee": "river",
     "free_meander": "river",
+    "oxbow_lake": "river",
+    "river_terrace": "river",
     "v_valley": "river",
     "waterfall": "river",
     "arcuate_delta": "delta",
@@ -107,16 +128,26 @@ LANDFORM_GROUP_BY_ID = {
     "estuary": "delta",
     "arete": "glacial",
     "cirque": "glacial",
+    "drumlin": "glacial",
+    "esker": "glacial",
     "fjord": "glacial",
     "horn": "glacial",
+    "kettle_lake": "glacial",
+    "moraine": "glacial",
+    "outwash_plain": "glacial",
+    "thermokarst": "glacial",
     "u_valley": "glacial",
     "caldera": "volcanic",
+    "cinder_cone": "volcanic",
     "crater_lake": "volcanic",
+    "lava_dome": "volcanic",
     "lava_plateau": "volcanic",
+    "maar": "volcanic",
     "shield_volcano": "volcanic",
     "stratovolcano": "volcanic",
     "karren": "karst",
     "karst_doline": "karst",
+    "polje": "karst",
     "tower_karst": "karst",
     "uvala": "karst",
     "barchan": "arid",
@@ -127,14 +158,18 @@ LANDFORM_GROUP_BY_ID = {
     "star_dune": "arid",
     "transverse_dune": "arid",
     "wadi": "arid",
+    "barrier_island": "coastal",
     "coastal_cliff": "coastal",
     "coastal_dune": "coastal",
+    "marine_terrace": "coastal",
     "ria_coast": "coastal",
     "sea_arch": "coastal",
+    "sea_cave_stack": "coastal",
     "spit_lagoon": "coastal",
+    "tidal_flat": "coastal",
     "tombolo": "coastal",
+    "wave_cut_platform": "coastal",
 }
-
 
 @dataclass(frozen=True)
 class StoryboardAsset:
@@ -271,6 +306,30 @@ def load_cinematic_metadata() -> dict[str, Any]:
 
 def load_image_sequence_metadata() -> dict[str, Any]:
     return read_json(IMAGE_SEQUENCE_ROOT / "metadata.json", {"videos": []})
+
+
+def image_sequence_metadata_entry_for_landform(landform_id: str) -> dict[str, Any]:
+    video_id = f"{landform_id}_image_sequence"
+    for video in load_image_sequence_metadata().get("videos", []):
+        if video.get("id") == video_id:
+            return video
+    return {}
+
+
+def image_sequence_grid_for_landform(landform_id: str) -> tuple[int, int, int]:
+    entry = image_sequence_metadata_entry_for_landform(landform_id)
+    cols = _positive_int(entry.get("filmstrip_cols"), 5)
+    rows = _positive_int(entry.get("filmstrip_rows"), 6)
+    frame_count = _positive_int(entry.get("frame_count"), cols * rows)
+    return cols, rows, frame_count
+
+
+def _positive_int(value: Any, fallback: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    return parsed if parsed > 0 else fallback
 
 
 def list_storyboard_assets() -> list[StoryboardAsset]:
@@ -532,13 +591,14 @@ def load_storyboard_panel_image(landform_key: str, stage: float, *, crop_label_b
             return None
         image = Image.open(filmstrip_path).convert("RGB")
         width, height = image.size
-        frame_idx = int(np.clip(round(float(stage) * 29), 0, 29))
-        col = frame_idx % 5
-        row = frame_idx // 5
-        left = round(col * width / 5)
-        right = round((col + 1) * width / 5)
-        top = round(row * height / 6)
-        bottom = round((row + 1) * height / 6)
+        cols, rows, frame_count = image_sequence_grid_for_landform(landform_key)
+        frame_idx = int(np.clip(round(float(stage) * (frame_count - 1)), 0, frame_count - 1))
+        col = frame_idx % cols
+        row = min(rows - 1, frame_idx // cols)
+        left = round(col * width / cols)
+        right = round((col + 1) * width / cols)
+        top = round(row * height / rows)
+        bottom = round((row + 1) * height / rows)
         return image.crop((left, top, right, bottom))
     except Exception:
         return None

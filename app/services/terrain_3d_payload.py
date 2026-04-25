@@ -16,16 +16,37 @@ RIVER_DELTA_LANDFORMS = {
     "braided_river",
     "cuspate_delta",
     "delta",
+    "floodplain_natural_levee",
     "free_meander",
+    "oxbow_lake",
+    "river_terrace",
     "v_valley",
     "wadi",
     "waterfall",
 }
 
-GLACIAL_LANDFORMS = {"arete", "cirque", "fjord", "horn", "u_valley"}
-COASTAL_LANDFORMS = {"coastal_cliff", "estuary", "ria_coast", "sea_arch", "spit_lagoon", "tombolo"}
-VOLCANIC_LANDFORMS = {"caldera", "crater_lake", "lava_plateau", "shield_volcano", "stratovolcano"}
-KARST_LANDFORMS = {"karst_doline", "karren", "tower_karst", "uvala"}
+GLACIAL_LANDFORMS = {"arete", "cirque", "drumlin", "esker", "fjord", "horn", "moraine", "u_valley"}
+COASTAL_LANDFORMS = {
+    "barrier_island",
+    "coastal_cliff",
+    "estuary",
+    "ria_coast",
+    "sea_arch",
+    "sea_cave_stack",
+    "spit_lagoon",
+    "tombolo",
+    "wave_cut_platform",
+}
+VOLCANIC_LANDFORMS = {
+    "caldera",
+    "crater_lake",
+    "lava_dome",
+    "lava_plateau",
+    "maar",
+    "shield_volcano",
+    "stratovolcano",
+}
+KARST_LANDFORMS = {"karst_doline", "karren", "polje", "tower_karst", "uvala"}
 AEOLIAN_ARID_LANDFORMS = {"barchan", "coastal_dune", "pediment", "playa", "star_dune", "transverse_dune"}
 
 PLAN_CAMERA_LANDFORMS = {
@@ -34,7 +55,9 @@ PLAN_CAMERA_LANDFORMS = {
     "braided_river",
     "cuspate_delta",
     "delta",
+    "floodplain_natural_levee",
     "free_meander",
+    "oxbow_lake",
     "spit_lagoon",
     "tombolo",
 }
@@ -237,12 +260,21 @@ def _infer_water_depth(frame: np.ndarray, landform_id: str) -> np.ndarray:
     if float(np.max(valley_water)) > 0.0:
         valley_water = valley_water / max(float(np.max(valley_water)), 1e-6)
 
-    if landform_id in {"delta", "arcuate_delta", "bird_foot_delta", "cuspate_delta", "estuary", "ria_coast"}:
+    if landform_id in {
+        "barrier_island",
+        "delta",
+        "arcuate_delta",
+        "bird_foot_delta",
+        "cuspate_delta",
+        "estuary",
+        "floodplain_natural_levee",
+        "ria_coast",
+    }:
         y = np.linspace(0.0, 1.0, frame.shape[0])[:, None]
         seaward = np.repeat(np.clip(y - 0.42, 0.0, 1.0), frame.shape[1], axis=1)
         return np.maximum(valley_water, seaward)
 
-    if landform_id in {"crater_lake", "fjord", "spit_lagoon", "tombolo", "playa"}:
+    if landform_id in {"crater_lake", "fjord", "maar", "oxbow_lake", "spit_lagoon", "tombolo", "playa"}:
         return valley_water
 
     return valley_water * 0.7
@@ -254,7 +286,7 @@ def _infer_erosion_frames(frames: np.ndarray, landform_id: str) -> list[np.ndarr
     for idx, frame in enumerate(frames):
         change = np.clip(previous - frame, 0.0, None) if idx else np.zeros_like(frame)
         fallback = _focused_gradient(frame)
-        if landform_id in {"v_valley", "waterfall", "free_meander", "braided_river"}:
+        if landform_id in {"v_valley", "waterfall", "free_meander", "oxbow_lake", "river_terrace", "braided_river"}:
             change = np.maximum(change, fallback * (0.25 + idx / max(len(frames) - 1, 1)))
         erosion_frames.append(_normalize_field(change))
         previous = frame
@@ -266,7 +298,15 @@ def _infer_deposition_frames(frames: np.ndarray, landform_id: str) -> list[np.nd
     previous = frames[0]
     for idx, frame in enumerate(frames):
         change = np.clip(frame - previous, 0.0, None) if idx else np.zeros_like(frame)
-        if landform_id in {"alluvial_fan", "delta", "arcuate_delta", "bird_foot_delta", "cuspate_delta"}:
+        if landform_id in {
+            "alluvial_fan",
+            "barrier_island",
+            "delta",
+            "arcuate_delta",
+            "bird_foot_delta",
+            "cuspate_delta",
+            "floodplain_natural_levee",
+        }:
             low_slope = 1.0 - _focused_gradient(frame)
             lowland = np.clip(0.58 - frame, 0.0, None)
             change = np.maximum(change, low_slope * lowland * (0.2 + idx / max(len(frames) - 1, 1)))

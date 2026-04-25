@@ -10,6 +10,7 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STYLE_PATH = PROJECT_ROOT / "assets" / "style.css"
 KOPPEN_CLIMATE_URL = "https://koppen-climate-lab.pages.dev/"
+CREATOR_LABEL = "제작자 : 한백고등학교 김한솔"
 
 NAV_ITEMS = [
     {
@@ -164,11 +165,35 @@ def apply_sidebar_override() -> None:
     )
 
 
+def render_creator_banner() -> None:
+    """Show the project author line at the top of public beta pages."""
+
+    st.markdown(
+        f"""
+        <div class="geo-creator-banner">
+          {CREATOR_LABEL}
+        </div>
+        <style>
+          .geo-creator-banner {{
+            margin: 0 0 0.75rem 0;
+            padding: 0.45rem 0 0.2rem 0;
+            color: #525252;
+            font-size: 0.92rem;
+            font-weight: 600;
+            letter-spacing: 0;
+          }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_beta_sidebar(active: str) -> None:
     """Append beta shortcuts while keeping the native local-style sidebar."""
 
     load_project_style()
     apply_sidebar_override()
+    render_creator_banner()
 
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 공개 베타 빠른 링크")

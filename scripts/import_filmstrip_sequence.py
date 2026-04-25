@@ -44,8 +44,8 @@ def split_filmstrip(
     if cols is None or rows is None:
         x_segments, y_segments = infer_filmstrip_cells(image)
     else:
-        x_segments = _uniform_segments(image.width, cols)
-        y_segments = _uniform_segments(image.height, rows)
+        x_segments = _segments_for_requested_count(image, axis="x", count=cols)
+        y_segments = _segments_for_requested_count(image, axis="y", count=rows)
     frames: list[Image.Image] = []
 
     for y_start, y_end in y_segments:
@@ -83,6 +83,15 @@ def infer_filmstrip_cells(image: Image.Image) -> tuple[list[tuple[int, int]], li
 
 def _uniform_segments(limit: int, count: int) -> list[tuple[int, int]]:
     return [(round(index * limit / count), round((index + 1) * limit / count)) for index in range(count)]
+
+
+def _segments_for_requested_count(image: Image.Image, *, axis: str, count: int) -> list[tuple[int, int]]:
+    limit = image.width if axis == "x" else image.height
+    groups = _separator_groups(image, axis=axis)
+    segments = _segments_from_separator_groups(limit, groups)
+    if len(segments) == count:
+        return segments
+    return _uniform_segments(limit, count)
 
 
 def _infer_axis_count_by_boundary_score(image: Image.Image, *, axis: str) -> int:

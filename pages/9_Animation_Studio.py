@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from contextlib import suppress
-import inspect
 from PIL import Image
 import subprocess
 import sys
@@ -20,13 +19,20 @@ from app.services.animation_assets import (
     PROJECT_ROOT,
     find_image_sequence_filmstrip_path,
     get_asset_counts,
+    image_sequence_grid_for_landform,
     list_storyboard_assets,
     load_storyboard_panel_image,
     read_image_data_uri,
 )
+from app.services.streamlit_compat import image_stretch
 from app.services.terrain_simulation_payload import (
     build_simulation_terrain_3d_payload,
     is_simulation_terrain_supported,
+)
+from app.services.terrain_lab_catalog import (
+    GROUP_LABELS_KO,
+    get_additional_lab_scenario,
+    process_factor_definitions_for_scenario,
 )
 
 
@@ -39,10 +45,7 @@ def short_path(path: Path) -> str:
 
 
 def show_responsive_image(image) -> None:
-    if "use_container_width" in inspect.signature(st.image).parameters:
-        st.image(image, use_container_width=True)
-    else:
-        st.image(image, use_column_width=True)
+    image_stretch(st, image)
 
 
 def show_static_media_frame(path: Path) -> bool:
@@ -62,14 +65,15 @@ def show_filmstrip_sequence_player(asset, *, frame_interval_ms: int, height: int
 
     data_uri = read_image_data_uri(filmstrip_path)
     root_id = f"filmstrip-player-{asset.landform_id.replace('_', '-')}"
+    cols, rows, frame_count = image_sequence_grid_for_landform(asset.landform_id)
     config = json.dumps(
         {
             "rootId": root_id,
             "title": asset.title,
             "dataUri": data_uri,
-            "cols": 5,
-            "rows": 6,
-            "frameCount": 30,
+            "cols": cols,
+            "rows": rows,
+            "frameCount": frame_count,
             "frameIntervalMs": int(frame_interval_ms),
             "cellTrimPx": 2,
         },
@@ -213,6 +217,28 @@ with asset_col:
         filtered_assets,
         format_func=lambda asset: f"{asset.title} ({asset.landform_id})",
     )
+
+catalog_scenario = get_additional_lab_scenario(selected_asset.landform_id)
+if catalog_scenario is not None:
+    st.markdown("### Lab 카탈로그")
+    catalog_cols = st.columns([1.0, 1.0, 1.2])
+    catalog_cols[0].metric(
+        "분류",
+        GROUP_LABELS_KO.get(catalog_scenario.group, catalog_scenario.group),
+    )
+    catalog_cols[1].metric("모형 계열", catalog_scenario.simulation_family)
+    catalog_cols[2].caption(f"표면 소스: {catalog_scenario.procedural_surface_source}")
+
+    with st.expander("형성 단계와 조절 요인", expanded=False):
+        st.markdown("**형성 단계**")
+        for index, step in enumerate(catalog_scenario.formation_steps_ko, start=1):
+            st.markdown(f"{index}. {step}")
+
+        factor_definitions = process_factor_definitions_for_scenario(catalog_scenario.landform_id)
+        if factor_definitions:
+            st.markdown("**Lab 조절 요인**")
+            for definition in factor_definitions:
+                st.caption(f"{definition.label_ko}: {definition.description_ko}")
 
 image_frame_interval_ms = 140
 if selected_asset.has_image_sequence:
@@ -410,3 +436,4 @@ with build_col2:
         else:
             st.error("AI 프롬프트 플랜 생성 실패")
             st.code(result.stderr or result.stdout)
+

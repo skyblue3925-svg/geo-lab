@@ -1,0 +1,382 @@
+{
+  "version": 1,
+  "purpose_ko": "?? ?? ??? ??? GIF? Lab ?? ?? ???? ???? ?? ?? ?? ?????.",
+  "filmstrip_contract": {
+    "grid": "5 columns x 6 rows",
+    "frame_count": 30,
+    "frame_rate_ms": 140,
+    "visual_rules": [
+      "각 셀은 같은 카메라 높이와 같은 지형 범위를 유지한다.",
+      "프레임 사이에 얇고 일정한 여백을 둔다.",
+      "텍스트, 숫자, 화살표, UI, 워터마크를 넣지 않는다.",
+      "위쪽 프레임 일부가 아래쪽에 반복되거나 아래쪽 프레임이 위에 붙는 래핑 현상을 허용하지 않는다.",
+      "첫 프레임은 초기 조건, 마지막 프레임은 교과서적 완성 지형을 보여준다."
+    ]
+  },
+  "landforms": [
+    {
+      "id": "oxbow_lake",
+      "title_ko": "우각호",
+      "group": "river",
+      "simulation_family": "river_delta",
+      "procedural_surface_source": "free_meander alias",
+      "formation_steps_ko": [
+        "곡류 하천 발달",
+        "공격사면 침식과 활주사면 퇴적",
+        "목 절단",
+        "구하도 호수화"
+      ],
+      "process_factors": [
+        "lateral_erosion",
+        "cutoff_threshold",
+        "overbank_deposition",
+        "flood_frequency"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of an oxbow lake forming on a broad floodplain: a meandering river migrates laterally, the meander neck narrows, a flood cuts through the neck, and the abandoned loop becomes a crescent-shaped lake. Fixed oblique aerial camera, same landscape extent in all 30 cells, no text, no arrows, no labels, no UI, clean gutters, no cropped or wrapped frames."
+    },
+    {
+      "id": "floodplain_natural_levee",
+      "title_ko": "범람원과 자연제방",
+      "group": "river",
+      "simulation_family": "river_delta",
+      "procedural_surface_source": "perched_river alias",
+      "formation_steps_ko": [
+        "평탄한 하천 주변 저지",
+        "홍수 범람",
+        "하도 가까운 곳에 조립질 퇴적",
+        "자연제방과 배후습지 분화"
+      ],
+      "process_factors": [
+        "flood_frequency",
+        "settling_velocity",
+        "sediment_grain_size",
+        "channel_aggradation"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of a floodplain and natural levees forming: floodwater spreads from a river, coarse sediment settles near the banks, lower backswamps remain farther away, and raised levees become visible along both sides of the channel. Fixed aerial-oblique view, same scale across all 30 frames, no labels, no arrows, clean gutters, no frame wrapping."
+    },
+    {
+      "id": "river_terrace",
+      "title_ko": "하안단구",
+      "group": "river",
+      "simulation_family": "river_delta",
+      "procedural_surface_source": "incised_meander alias",
+      "formation_steps_ko": [
+        "기존 범람원 형성",
+        "융기 또는 기준면 하강",
+        "하천 재침식",
+        "계단형 옛 하상면 잔존"
+      ],
+      "process_factors": [
+        "uplift_rate",
+        "base_level_fall",
+        "incision_rate",
+        "sediment_supply"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of river terraces forming: a river first builds a floodplain, then base level falls or land uplifts, the river incises downward, and older floodplain surfaces remain as paired step-like terraces. Fixed oblique valley camera, consistent lighting, no labels, no arrows, no text, clean gutters."
+    },
+    {
+      "id": "sea_cave_stack",
+      "title_ko": "해식동과 시스택",
+      "group": "coastal",
+      "simulation_family": "coastal_marine",
+      "procedural_surface_source": "sea_arch alias",
+      "formation_steps_ko": [
+        "절리 많은 암석 해안",
+        "해식동 확대",
+        "해식아치 발달",
+        "아치 붕괴와 시스택 잔존"
+      ],
+      "process_factors": [
+        "wave_energy",
+        "joint_density",
+        "rock_resistance",
+        "cliff_retreat_rate"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of sea caves, sea arches, and sea stacks forming along a rocky coast: waves exploit joints, caves enlarge, an arch opens through a headland, the arch roof collapses, and an isolated sea stack remains offshore. Fixed low oblique coastal camera, no text, no arrows, clean gutters, no cropped frames."
+    },
+    {
+      "id": "wave_cut_platform",
+      "title_ko": "파식대",
+      "group": "coastal",
+      "simulation_family": "coastal_marine",
+      "procedural_surface_source": "coastal_cliff alias",
+      "formation_steps_ko": [
+        "초기 해식애",
+        "기저부 파랑 침식",
+        "절벽 후퇴",
+        "평탄한 파식면 노출"
+      ],
+      "process_factors": [
+        "wave_energy",
+        "tidal_range",
+        "rock_resistance",
+        "sea_level_stability"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of a wave-cut platform forming: waves erode the base of a sea cliff, the cliff retreats landward, collapsed debris is removed, and a broad flat rock platform is exposed at low tide. Fixed oblique shoreline camera, same scale and horizon in every frame, no labels, no arrows, clean gutters."
+    },
+    {
+      "id": "barrier_island",
+      "title_ko": "사주섬",
+      "group": "coastal",
+      "simulation_family": "coastal_marine",
+      "procedural_surface_source": "spit_lagoon alias",
+      "formation_steps_ko": [
+        "연안 모래 공급",
+        "해안선 평행 사주 성장",
+        "석호와 본토 분리",
+        "폭풍 통로와 사주섬 안정"
+      ],
+      "process_factors": [
+        "longshore_drift",
+        "sediment_supply",
+        "wave_angle",
+        "storm_overwash",
+        "sea_level_rise"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of a barrier island forming: longshore drift moves sand, a narrow offshore bar grows parallel to the coast, a lagoon separates it from the mainland, and storm overwash creates subtle breaks and dunes. Fixed aerial coastal camera, no text, no arrows, no UI, clean gutters, no wrapped frames."
+    },
+    {
+      "id": "moraine",
+      "title_ko": "모레인",
+      "group": "glacial",
+      "simulation_family": "glacial",
+      "procedural_surface_source": "moraine generator",
+      "formation_steps_ko": [
+        "빙하 전진",
+        "암설 운반",
+        "빙하 말단 정체",
+        "말단·측퇴석 퇴적"
+      ],
+      "process_factors": [
+        "ice_thickness",
+        "ice_velocity",
+        "debris_supply",
+        "ablation_rate",
+        "terminal_position"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of moraines forming: a valley glacier advances, carries rock debris along its sides and base, pauses at its terminus, then retreats and leaves ridges of unsorted till as terminal and lateral moraines. Fixed oblique alpine valley camera, no labels, no arrows, clean gutters."
+    },
+    {
+      "id": "drumlin",
+      "title_ko": "드럼린",
+      "group": "glacial",
+      "simulation_family": "glacial",
+      "procedural_surface_source": "drumlin generator",
+      "formation_steps_ko": [
+        "빙상 하부 퇴적 평원",
+        "빙하 흐름 압축",
+        "퇴적물 유선형 재배열",
+        "빙하 후퇴 뒤 군집 노출"
+      ],
+      "process_factors": [
+        "ice_flow_direction",
+        "basal_shear_stress",
+        "till_thickness",
+        "water_pressure"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of drumlins forming beneath an ice sheet: subglacial till is pressed and streamlined by moving ice, elongated teardrop hills align with ice flow, and the drumlin field is exposed after retreat. Fixed aerial-oblique camera, same direction of ice flow, no text, no arrows, clean gutters."
+    },
+    {
+      "id": "esker",
+      "title_ko": "에스커",
+      "group": "glacial",
+      "simulation_family": "glacial",
+      "procedural_surface_source": "esker generator",
+      "formation_steps_ko": [
+        "빙하 밑 융빙수 통로",
+        "모래·자갈 하천 퇴적",
+        "빙하 후퇴",
+        "구불구불한 능선 노출"
+      ],
+      "process_factors": [
+        "meltwater_discharge",
+        "tunnel_slope",
+        "sediment_load",
+        "ice_retreat_rate"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of an esker forming: meltwater flows through a tunnel beneath a glacier, sand and gravel accumulate in the tunnel, the glacier retreats, and a long winding ridge remains on a low plain. Fixed aerial-oblique camera, no text, no arrows, clean gutters, no frame wrapping."
+    },
+    {
+      "id": "maar",
+      "title_ko": "마르",
+      "group": "volcanic",
+      "simulation_family": "volcanic",
+      "procedural_surface_source": "crater_lake alias",
+      "formation_steps_ko": [
+        "지하수 풍부한 저지",
+        "마그마-지하수 폭발",
+        "낮은 화구륜 형성",
+        "분화구 호수화"
+      ],
+      "process_factors": [
+        "magma_supply",
+        "groundwater_contact",
+        "explosion_energy",
+        "ejecta_ring_height",
+        "water_table"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of a maar forming: rising magma meets groundwater, a phreatomagmatic explosion blasts a broad low crater, ejecta forms a low rim, and groundwater fills the crater lake. Fixed oblique volcanic plain camera, no labels, no arrows, no text, clean gutters."
+    },
+    {
+      "id": "lava_dome",
+      "title_ko": "용암돔",
+      "group": "volcanic",
+      "simulation_family": "volcanic",
+      "procedural_surface_source": "stratovolcano alias",
+      "formation_steps_ko": [
+        "고점성 마그마 상승",
+        "화구 주변 압출",
+        "돔 성장",
+        "붕괴와 암설류 위험"
+      ],
+      "process_factors": [
+        "lava_viscosity",
+        "eruption_rate",
+        "dome_growth_rate",
+        "slope_failure_threshold"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of a lava dome forming: viscous lava extrudes slowly from a volcanic vent, piles up into a steep rounded dome, fractures develop, and small collapse scars appear on the dome flanks. Fixed low oblique volcano camera, no labels, no arrows, clean gutters."
+    },
+    {
+      "id": "polje",
+      "title_ko": "폴리에",
+      "group": "karst",
+      "simulation_family": "karst",
+      "procedural_surface_source": "uvala alias",
+      "formation_steps_ko": [
+        "절리 많은 석회암 지대",
+        "돌리네·우발라 결합",
+        "대형 평탄 분지 확대",
+        "지하 배수와 계절적 침수"
+      ],
+      "process_factors": [
+        "limestone_purity",
+        "fracture_density",
+        "dissolution_rate",
+        "water_table",
+        "seasonal_flooding"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of a polje forming in karst terrain: small dolines and uvalas merge, dissolution enlarges a broad flat-floored basin, underground drainage develops, and seasonal water temporarily floods the basin floor. Fixed aerial-oblique karst camera, no text, no arrows, clean gutters."
+    },
+    {
+      "id": "tidal_flat",
+      "title_ko": "갯벌",
+      "group": "coastal",
+      "simulation_family": "coastal_marine",
+      "procedural_surface_source": "tidal_flat generator",
+      "formation_steps_ko": [
+        "??? ??? ??",
+        "??? ?? ??? ??",
+        "?? ??? ??",
+        "???? ?? ?? ??"
+      ],
+      "process_factors": [
+        "tidal_range",
+        "sediment_supply",
+        "wave_energy",
+        "sea_level_stability"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of a tidal flat forming on a low-energy coast: broad shallow intertidal flats accumulate fine sediment, tidal channels become more visible, and the surface alternates between wet reflective mud and exposed flats. Fixed aerial oblique camera, no labels, clean gutters."
+    },
+    {
+      "id": "marine_terrace",
+      "title_ko": "해안단구",
+      "group": "coastal",
+      "simulation_family": "coastal_marine",
+      "procedural_surface_source": "marine_terrace generator",
+      "formation_steps_ko": [
+        "??? ??",
+        "?? ?? ??? ??",
+        "? ??? ??",
+        "??? ???? ??"
+      ],
+      "process_factors": [
+        "uplift_rate",
+        "sea_level_rise",
+        "wave_energy",
+        "rock_resistance"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of marine terraces forming: waves cut a flat platform, the coast uplifts or sea level falls, older shore platforms become steps above the sea, and multiple terraces remain along the coast. Fixed oblique shoreline camera, no text, clean gutters."
+    },
+    {
+      "id": "kettle_lake",
+      "title_ko": "케틀호",
+      "group": "glacial",
+      "simulation_family": "glacial",
+      "procedural_surface_source": "kettle_lake generator",
+      "formation_steps_ko": [
+        "?? ??",
+        "?? ??? ??? ??",
+        "?? ?? ??",
+        "?? ??? ?? ??"
+      ],
+      "process_factors": [
+        "ice_retreat_rate",
+        "debris_supply",
+        "ablation_rate",
+        "water_table"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of a kettle lake forming: blocks of stagnant ice are buried in outwash, the glacier retreats, buried ice melts, and rounded depressions fill with water. Fixed aerial oblique camera, no labels, clean gutters."
+    },
+    {
+      "id": "outwash_plain",
+      "title_ko": "빙수평원",
+      "group": "glacial",
+      "simulation_family": "glacial",
+      "procedural_surface_source": "outwash_plain generator",
+      "formation_steps_ko": [
+        "?? ?? ??? ??",
+        "??? ?? ??",
+        "?? ?? ??",
+        "?? ????? ?? ?? ??"
+      ],
+      "process_factors": [
+        "meltwater_discharge",
+        "sediment_load",
+        "ice_retreat_rate",
+        "sediment_grain_size"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of an outwash plain forming in front of a retreating glacier: meltwater carries sand and gravel, braided streams spread across the forefield, and a broad sorted plain develops. Fixed aerial oblique camera, no labels, clean gutters."
+    },
+    {
+      "id": "thermokarst",
+      "title_ko": "열카르스트",
+      "group": "glacial",
+      "simulation_family": "glacial",
+      "procedural_surface_source": "thermokarst generator",
+      "formation_steps_ko": [
+        "????? ? ?? ?? ??",
+        "?? ??? ??",
+        "?? ??? ??? ??",
+        "??? ??? ?? ??"
+      ],
+      "process_factors": [
+        "ablation_rate",
+        "water_table",
+        "seasonal_flooding",
+        "flood_frequency"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of thermokarst forming: ice-rich permafrost thaws, the ground subsides unevenly, shallow ponds appear, and irregular low basins expand. Fixed aerial oblique tundra camera, no labels, clean gutters."
+    },
+    {
+      "id": "cinder_cone",
+      "title_ko": "분석구",
+      "group": "volcanic",
+      "simulation_family": "volcanic",
+      "procedural_surface_source": "cinder_cone generator",
+      "formation_steps_ko": [
+        "??? ?? ??",
+        "????? ??",
+        "??? ?? ??",
+        "?? ??? ??? ?? ??"
+      ],
+      "process_factors": [
+        "eruption_rate",
+        "ejecta_ring_height",
+        "sediment_grain_size",
+        "slope_failure_threshold"
+      ],
+      "image_prompt_en": "Create a realistic 5x6 filmstrip of a cinder cone forming: pyroclasts erupt from a small vent, scoria accumulates around the vent, a steep cone grows at the angle of repose, and a central crater remains. Fixed oblique volcanic field camera, no labels, clean gutters."
+    }
+  ]
+}
