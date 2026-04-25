@@ -16,3 +16,17 @@ def test_high_school_animation_figure_has_playback_controls():
         for button in (menu.buttons or [])
     ]
     assert any(getattr(button, "method", None) == "animate" for button in buttons)
+
+
+def test_high_school_animation_figure_uses_plain_json_surface_arrays():
+    topic = get_high_school_world_topic("v_valley")
+
+    figure = build_high_school_animation_figure(topic, grid_size=16, num_frames=4)
+    payload = figure.to_plotly_json()
+
+    assert isinstance(payload["data"][0]["z"], list)
+    assert isinstance(payload["data"][0]["x"], list)
+    assert isinstance(payload["data"][0]["y"], list)
+    assert isinstance(payload["data"][0]["surfacecolor"], list)
+    assert isinstance(payload["frames"][0]["data"][0]["z"], list)
+    assert isinstance(payload["frames"][0]["data"][0]["surfacecolor"], list)

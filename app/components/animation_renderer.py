@@ -15,6 +15,12 @@ except ImportError:
     Image = None
 
 
+def _plotly_json_array(values: Any) -> list:
+    """Return plain JSON arrays so Streamlit renders 3D animation surfaces."""
+
+    return np.asarray(values).tolist()
+
+
 def create_animated_terrain_figure(
     landform_func: Callable,
     grid_size: int = 50,
@@ -52,6 +58,8 @@ def create_animated_terrain_figure(
     h, w = grid_size, grid_size
     x = np.arange(w)
     y = np.arange(h)
+    x_plot = _plotly_json_array(x)
+    y_plot = _plotly_json_array(y)
     
     # Normalize invalid inputs
     render_style = render_style if render_style in {"terrain", "satellite"} else "terrain"
@@ -129,10 +137,10 @@ def create_animated_terrain_figure(
             go.Frame(
                 data=[
                     go.Surface(
-                        z=elevation,
-                        x=x,
-                        y=y,
-                        surfacecolor=surfacecolor,
+                        z=_plotly_json_array(elevation),
+                        x=x_plot,
+                        y=y_plot,
+                        surfacecolor=_plotly_json_array(surfacecolor),
                         colorscale=colorscale,
                         cmin=0,
                         cmax=1,
@@ -164,9 +172,10 @@ def create_animated_terrain_figure(
     
     fig = go.Figure(
         data=[go.Surface(
-            z=initial_elevation,
-            x=x, y=y,
-            surfacecolor=initial_surfacecolor,
+            z=_plotly_json_array(initial_elevation),
+            x=x_plot,
+            y=y_plot,
+            surfacecolor=_plotly_json_array(initial_surfacecolor),
             colorscale=initial_colorscale,
             cmin=0, cmax=1,
             showscale=False,
