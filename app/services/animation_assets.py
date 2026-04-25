@@ -114,6 +114,19 @@ class StoryboardAsset:
         return self.image_sequence_plan_path is not None and self.image_sequence_plan_path.exists()
 
 
+@dataclass(frozen=True)
+class ImageSequenceGifAsset:
+    landform_id: str
+    title: str
+    category: str
+    gif_path: Path
+    source_webp_path: Path
+    size_bytes: int
+    frame_count: int
+    width: int
+    height: int
+
+
 def title_for_landform(landform_id: str) -> str:
     return KOREAN_TITLES.get(landform_id, landform_id.replace("_", " "))
 
@@ -148,6 +161,18 @@ def find_image_sequence_animation_path(landform_key: str) -> Path | None:
         return None
     candidate = image_sequence_dir / f"{landform_key}_image_sequence.webp"
     return candidate if candidate.exists() else None
+
+
+def find_image_sequence_gif_path(landform_key: str) -> Path | None:
+    image_sequence_dir = find_image_sequence_dir(landform_key)
+    if image_sequence_dir is None:
+        return None
+    candidate = image_sequence_dir / f"{landform_key}_image_sequence.gif"
+    return candidate if candidate.exists() else None
+
+
+def image_sequence_gif_output_path(landform_key: str) -> Path:
+    return IMAGE_SEQUENCE_ROOT / landform_key / f"{landform_key}_image_sequence.gif"
 
 
 def resolve_cinematic_media_path(file_name: str) -> Path:
@@ -247,6 +272,41 @@ def get_asset_counts() -> dict[str, int]:
         "image_sequences": sum(1 for asset in assets if asset.has_image_sequence),
         "image_sequence_plans": sum(1 for asset in assets if asset.has_image_sequence_plan),
     }
+
+
+def _inspect_image(path: Path) -> tuple[int, int, int]:
+    try:
+        image = Image.open(path)
+        width, height = image.size
+        frame_count = int(getattr(image, "n_frames", 1))
+        return width, height, frame_count
+    except Exception:
+        return 0, 0, 0
+
+
+def list_image_sequence_gif_assets() -> list[ImageSequenceGifAsset]:
+    gif_assets: list[ImageSequenceGifAsset] = []
+    asset_categories = {asset.landform_id: asset.category for asset in list_storyboard_assets()}
+    for source_webp_path in sorted(IMAGE_SEQUENCE_ROOT.glob("*/*_image_sequence.webp")):
+        landform_id = source_webp_path.parent.name
+        gif_path = image_sequence_gif_output_path(landform_id)
+        if not gif_path.exists():
+            continue
+        width, height, frame_count = _inspect_image(gif_path)
+        gif_assets.append(
+            ImageSequenceGifAsset(
+                landform_id=landform_id,
+                title=title_for_landform(landform_id),
+                category=asset_categories.get(landform_id, "image_sequence"),
+                gif_path=gif_path,
+                source_webp_path=source_webp_path,
+                size_bytes=gif_path.stat().st_size,
+                frame_count=frame_count,
+                width=width,
+                height=height,
+            )
+        )
+    return gif_assets
 
 
 def get_storyboard_asset(landform_id: str) -> StoryboardAsset | None:

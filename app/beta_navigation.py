@@ -25,6 +25,12 @@ NAV_ITEMS = [
         "caption": "지형 형성 이미지 시퀀스",
     },
     {
+        "key": "gif_gallery",
+        "label": "GIF 갤러리",
+        "url": "/GIF_Gallery",
+        "caption": "지형 형성 GIF 모아보기",
+    },
+    {
         "key": "high_school",
         "label": "고등학교 세계지리",
         "url": "/High_School_Geography",
