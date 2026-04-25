@@ -66,4 +66,4 @@ for index, asset in enumerate(visible_assets):
     with columns[index % 3]:
         st.markdown(f"### {asset.title}")
         st.caption(f"{asset.landform_id} · {asset.frame_count} frames · {format_size(asset.size_bytes)}")
-        st.image(str(asset.gif_path), use_container_width=True)
+        st.image(str(asset.gif_path), use_column_width=True)

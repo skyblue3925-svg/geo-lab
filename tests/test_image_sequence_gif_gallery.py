@@ -24,4 +24,6 @@ def test_gif_gallery_page_and_sidebar_link_exist():
     assert "list_image_sequence_gif_assets" in source
     assert "GIF 갤러리" in source
     assert "st.container(border=True)" not in source
+    assert "use_container_width=True" not in source
+    assert "use_column_width=True" in source
     assert "/GIF_Gallery" in nav
