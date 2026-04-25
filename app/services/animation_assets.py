@@ -74,6 +74,67 @@ KOREAN_TITLES = {
     "waterfall": "폭포",
 }
 
+LANDFORM_GROUP_ORDER = (
+    "river",
+    "delta",
+    "glacial",
+    "volcanic",
+    "karst",
+    "arid",
+    "coastal",
+)
+
+LANDFORM_GROUP_LABELS = {
+    "river": "하천 지형",
+    "delta": "하구·삼각주 지형",
+    "glacial": "빙하 지형",
+    "volcanic": "화산 지형",
+    "karst": "카르스트 지형",
+    "arid": "건조 지형",
+    "coastal": "해안 지형",
+}
+
+LANDFORM_GROUP_BY_ID = {
+    "alluvial_fan": "river",
+    "braided_river": "river",
+    "free_meander": "river",
+    "v_valley": "river",
+    "waterfall": "river",
+    "arcuate_delta": "delta",
+    "bird_foot_delta": "delta",
+    "cuspate_delta": "delta",
+    "delta": "delta",
+    "estuary": "delta",
+    "arete": "glacial",
+    "cirque": "glacial",
+    "fjord": "glacial",
+    "horn": "glacial",
+    "u_valley": "glacial",
+    "caldera": "volcanic",
+    "crater_lake": "volcanic",
+    "lava_plateau": "volcanic",
+    "shield_volcano": "volcanic",
+    "stratovolcano": "volcanic",
+    "karren": "karst",
+    "karst_doline": "karst",
+    "tower_karst": "karst",
+    "uvala": "karst",
+    "barchan": "arid",
+    "mesa_butte": "arid",
+    "pedestal_rock": "arid",
+    "pediment": "arid",
+    "playa": "arid",
+    "star_dune": "arid",
+    "transverse_dune": "arid",
+    "wadi": "arid",
+    "coastal_cliff": "coastal",
+    "coastal_dune": "coastal",
+    "ria_coast": "coastal",
+    "sea_arch": "coastal",
+    "spit_lagoon": "coastal",
+    "tombolo": "coastal",
+}
+
 
 @dataclass(frozen=True)
 class StoryboardAsset:
@@ -129,6 +190,19 @@ class ImageSequenceGifAsset:
 
 def title_for_landform(landform_id: str) -> str:
     return KOREAN_TITLES.get(landform_id, landform_id.replace("_", " "))
+
+
+def landform_group_id_for_landform(landform_id: str) -> str:
+    return LANDFORM_GROUP_BY_ID.get(landform_id, "other")
+
+
+def landform_group_label_for_landform(landform_id: str) -> str:
+    group_id = landform_group_id_for_landform(landform_id)
+    return LANDFORM_GROUP_LABELS.get(group_id, "기타 지형")
+
+
+def ordered_landform_group_labels() -> list[str]:
+    return [LANDFORM_GROUP_LABELS[group_id] for group_id in LANDFORM_GROUP_ORDER]
 
 
 def read_json(path: Path, fallback: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -286,7 +360,6 @@ def _inspect_image(path: Path) -> tuple[int, int, int]:
 
 def list_image_sequence_gif_assets() -> list[ImageSequenceGifAsset]:
     gif_assets: list[ImageSequenceGifAsset] = []
-    asset_categories = {asset.landform_id: asset.category for asset in list_storyboard_assets()}
     for source_webp_path in sorted(IMAGE_SEQUENCE_ROOT.glob("*/*_image_sequence.webp")):
         landform_id = source_webp_path.parent.name
         gif_path = image_sequence_gif_output_path(landform_id)
@@ -297,7 +370,7 @@ def list_image_sequence_gif_assets() -> list[ImageSequenceGifAsset]:
             ImageSequenceGifAsset(
                 landform_id=landform_id,
                 title=title_for_landform(landform_id),
-                category=asset_categories.get(landform_id, "image_sequence"),
+                category=landform_group_label_for_landform(landform_id),
                 gif_path=gif_path,
                 source_webp_path=source_webp_path,
                 size_bytes=gif_path.stat().st_size,

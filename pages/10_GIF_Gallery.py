@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.beta_navigation import render_beta_sidebar
-from app.services.animation_assets import list_image_sequence_gif_assets
+from app.services.animation_assets import list_image_sequence_gif_assets, ordered_landform_group_labels
 
 
 def format_size(size_bytes: int) -> str:
@@ -38,7 +38,14 @@ metric_cols[0].metric("GIF", len(gif_assets))
 metric_cols[1].metric("전체 용량", format_size(sum(asset.size_bytes for asset in gif_assets)))
 metric_cols[2].metric("평균 프레임", round(sum(asset.frame_count for asset in gif_assets) / len(gif_assets)))
 
-categories = ["전체"] + sorted({asset.category for asset in gif_assets})
+available_categories = {asset.category for asset in gif_assets}
+ordered_categories = [
+    category
+    for category in ordered_landform_group_labels()
+    if category in available_categories
+]
+extra_categories = sorted(available_categories - set(ordered_categories))
+categories = ["전체"] + ordered_categories + extra_categories
 category = st.selectbox("분류", categories)
 query = st.text_input("검색", placeholder="지형 이름 또는 id")
 
