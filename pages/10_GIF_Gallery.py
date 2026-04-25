@@ -64,7 +64,6 @@ visible_assets = filtered_assets[start : start + per_page]
 columns = st.columns(3)
 for index, asset in enumerate(visible_assets):
     with columns[index % 3]:
-        with st.container(border=True):
-            st.markdown(f"### {asset.title}")
-            st.caption(f"{asset.landform_id} · {asset.frame_count} frames · {format_size(asset.size_bytes)}")
-            st.image(str(asset.gif_path), use_container_width=True)
+        st.markdown(f"### {asset.title}")
+        st.caption(f"{asset.landform_id} · {asset.frame_count} frames · {format_size(asset.size_bytes)}")
+        st.image(str(asset.gif_path), use_container_width=True)
