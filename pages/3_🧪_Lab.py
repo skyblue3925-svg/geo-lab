@@ -28,15 +28,28 @@ from app.services.morphometric_metrics import (
 )
 
 
-def surface_figure(surface: np.ndarray, title: str) -> go.Figure:
+def surface_figure(surface: np.ndarray, title: str, overlay: np.ndarray | None = None, overlay_label: str | None = None) -> go.Figure:
+    surface_kwargs = {
+        "z": surface,
+        "showscale": False,
+        "contours": {"z": {"show": False}},
+    }
+    if overlay is not None:
+        surface_kwargs.update(
+            {
+                "surfacecolor": overlay,
+                "colorscale": "Viridis",
+                "cmin": 0,
+                "cmax": 1,
+                "showscale": True,
+                "colorbar": {"title": overlay_label or "작용장"},
+            }
+        )
+    else:
+        surface_kwargs["colorscale"] = "Earth"
     figure = go.Figure(
         data=[
-            go.Surface(
-                z=surface,
-                colorscale="Earth",
-                showscale=False,
-                contours={"z": {"show": False}},
-            )
+            go.Surface(**surface_kwargs)
         ]
     )
     figure.update_layout(
@@ -188,8 +201,18 @@ with st.expander("모델 검증 지표", expanded=True):
 view_col, note_col = st.columns([1.35, 0.85])
 with view_col:
     frame_index = st.slider("시간 단계", 0, len(history) - 1, len(history) - 1)
+    frame_process_fields = result["process_history"][frame_index]
+    surface_options = process_field_options(frame_process_fields)
+    surface_overlay = None
+    surface_overlay_label = None
+    if surface_options:
+        surface_overlay_labels = ["지형 색상"] + [label for _key, label in surface_options]
+        surface_overlay_label = st.selectbox("3D 표면 색상", surface_overlay_labels, index=0)
+        if surface_overlay_label != "지형 색상":
+            surface_overlay_key = dict((label, key) for key, label in surface_options)[surface_overlay_label]
+            surface_overlay = normalize_process_field(frame_process_fields, surface_overlay_key)
     st.plotly_chart(
-        surface_figure(history[frame_index], f"{scenario.title} 지형 표면"),
+        surface_figure(history[frame_index], f"{scenario.title} 지형 표면", surface_overlay, surface_overlay_label),
         width="stretch",
         config={"displayModeBar": False, "scrollZoom": False},
     )
