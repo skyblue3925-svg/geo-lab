@@ -19,6 +19,7 @@ from app.services.terrain_physics_lab import (
     list_physics_lab_scenarios,
     run_physics_lab_simulation,
 )
+from app.services.morphometric_metrics import metric_cards
 
 
 def surface_figure(surface: np.ndarray, title: str) -> go.Figure:
@@ -84,6 +85,15 @@ st.markdown("## 지형 물리 실험실")
 st.caption(
     "지형 형성 요인을 직접 조절해 같은 지형도 시간, 에너지, 퇴적 조건에 따라 어떻게 달라지는지 비교합니다."
 )
+st.markdown(
+    """
+    **사용 방법**
+    1. 왼쪽에서 지형을 고릅니다.
+    2. 주 작용 강도와 보조 조건을 움직입니다.
+    3. 3D 표면에서 모양 변화를 보고, 아래 정량 지표에서 어떤 작용이 우세했는지 확인합니다.
+    4. 같은 지형에서 조건 하나만 바꿔 다시 비교하면 수업·연구용 가설을 만들 수 있습니다.
+    """
+)
 
 scenarios = list_physics_lab_scenarios()
 scenario_titles = [f"{scenario.title} · {scenario.group}" for scenario in scenarios]
@@ -116,6 +126,7 @@ initial = history[0]
 final = history[-1]
 change = final - initial
 summary = result["change"]
+metrics = result.get("metrics", {})
 
 top_cols = st.columns([1.2, 1.0, 1.0, 1.0])
 top_cols[0].metric("실험 지형", scenario.title)
@@ -125,6 +136,12 @@ top_cols[3].metric("활성 영역", f"{summary['active_fraction'] * 100:.0f}%")
 
 st.info(stage_label(result))
 st.caption(f"모델 커널: {result.get('kernel', 'unknown')} · {result.get('kernel_notes', '')}")
+if metrics.get("diagnosis"):
+    st.success(str(metrics["diagnosis"]))
+
+metric_cols = st.columns(4)
+for col, (label, value, help_text) in zip(metric_cols, metric_cards(metrics), strict=False):
+    col.metric(label, value, help=help_text)
 
 view_col, note_col = st.columns([1.35, 0.85])
 with view_col:
@@ -152,6 +169,7 @@ with note_col:
         - 최대 상승: `{summary['max_uplift']:.2f}`
         - 최대 하강: `{summary['max_lowering']:.2f}`
         - 저장 프레임: `{len(history)}`
+        - 지표 진단: `{metrics.get('diagnosis', '계산 중')}`
         """
     )
 

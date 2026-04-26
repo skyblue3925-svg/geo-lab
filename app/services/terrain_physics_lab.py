@@ -18,6 +18,7 @@ from app.services.geomorphic_process_kernels import (
     ProcessKernelParameters,
     run_process_morphology_model,
 )
+from app.services.morphometric_metrics import compute_morphometric_metrics
 
 
 @dataclass(frozen=True)
@@ -138,6 +139,7 @@ def _run_river_kernel_scenario(
         "stage_history": stage_history,
         "final_stage": final_stage,
         "change": _change_summary(history[0], history[-1]),
+        "metrics": compute_morphometric_metrics(scenario.landform_id, history, process_history),
         "dominant_process": format_process_summary(stats_history[-1] if stats_history else None),
         "kernel": raw["kernel"],
         "kernel_notes": (
@@ -188,6 +190,7 @@ def _run_process_kernel_scenario(
         "stage_history": stage_history,
         "final_stage": final_stage,
         "change": _change_summary(history[0], history[-1]),
+        "metrics": compute_morphometric_metrics(scenario.landform_id, history, process_history),
         "dominant_process": format_process_summary(stats_history[-1] if stats_history else None),
         "kernel": raw["kernel"],
         "kernel_notes": (
@@ -302,6 +305,7 @@ def run_physics_lab_simulation(
         "stage_history": stage_history,
         "final_stage": final_stage,
         "change": _change_summary(history[0], history[-1]),
+        "metrics": compute_morphometric_metrics(scenario.landform_id, history, list(lem.process_history)),
         "dominant_process": format_process_summary(lem.stats_history[-1] if lem.stats_history else None),
         "kernel": "simple_lem",
         "kernel_notes": "기존 SimpleLEM 기반 실험 경로입니다. 계열별 전용 커널로 순차 교체할 예정입니다.",
