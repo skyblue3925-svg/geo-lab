@@ -18,6 +18,7 @@ from app.services.geomorphic_process_kernels import (
     ProcessKernelParameters,
     run_process_morphology_model,
 )
+from app.services.geomorphic_engine import GeomorphicEngineParameters, run_geomorphic_engine
 from app.services.morphometric_metrics import compute_morphometric_metrics
 
 
@@ -200,6 +201,123 @@ def _run_process_kernel_scenario(
     }
 
 
+def _scenario_engine_parameters(
+    scenario: PhysicsLabScenario,
+    *,
+    force: int,
+    secondary: int,
+    uplift: int,
+    diffusion: int,
+    total_time: int,
+    grid_size: int,
+) -> GeomorphicEngineParameters:
+    primary = _map_range(force, 0.0, 2.2)
+    support = _map_range(secondary, 0.0, 1.8)
+    uplift_rate = _map_range(uplift, -0.00008, 0.00042)
+    diffusion_d = _map_range(diffusion, 0.004, 0.052)
+    process: dict[str, float] = {
+        "fluvial": 0.0,
+        "sediment": max(support, 0.15),
+        "marine": 0.0,
+        "glacial": 0.0,
+        "aeolian": 0.0,
+        "volcanic": 0.0,
+        "karst": 0.0,
+        "groundwater": 0.0,
+    }
+    base_level = 0.0
+
+    if scenario.landform_id == "v_valley":
+        process.update(fluvial=primary, sediment=0.35 + support * 0.35)
+    elif scenario.landform_id == "alluvial_fan":
+        process.update(fluvial=0.55 + primary * 0.55, sediment=0.85 + primary * 0.75 + support * 0.45)
+        uplift_rate *= 0.45
+    elif scenario.landform_id == "delta":
+        process.update(fluvial=0.45 + primary * 0.45, sediment=0.9 + primary * 0.85 + support * 0.35, marine=0.08)
+        uplift_rate *= 0.3
+        base_level = _map_range(secondary, -2.0, 8.0)
+    elif scenario.landform_id == "u_valley":
+        process.update(glacial=primary, sediment=0.45 + support * 0.4)
+    elif scenario.landform_id == "coastal_cliff":
+        process.update(marine=primary, sediment=0.35 + support * 0.35)
+    elif scenario.landform_id == "barchan":
+        process.update(aeolian=primary, sediment=0.55 + support * 0.7)
+        uplift_rate *= 0.1
+    elif scenario.landform_id == "lava_dome":
+        process.update(volcanic=primary, sediment=0.35 + support * 0.2)
+        diffusion_d = _map_range(secondary, 0.006, 0.06)
+    elif scenario.landform_id == "karst_doline":
+        process.update(karst=primary, groundwater=0.45 + support, sediment=0.25 + support * 0.2)
+        uplift_rate *= 0.2
+
+    return GeomorphicEngineParameters(
+        preset_id=scenario.landform_id,
+        grid_size=grid_size,
+        total_time_years=total_time,
+        fluvial=process["fluvial"],
+        sediment=process["sediment"],
+        marine=process["marine"],
+        glacial=process["glacial"],
+        aeolian=process["aeolian"],
+        volcanic=process["volcanic"],
+        karst=process["karst"],
+        groundwater=process["groundwater"],
+        uplift_rate=uplift_rate,
+        diffusion_d=diffusion_d,
+        base_level=base_level,
+    )
+
+
+def _run_common_engine_scenario(
+    scenario: PhysicsLabScenario,
+    *,
+    force: int,
+    secondary: int,
+    uplift: int,
+    diffusion: int,
+    total_time: int,
+    grid_size: int,
+) -> dict[str, Any]:
+    params = _scenario_engine_parameters(
+        scenario,
+        force=force,
+        secondary=secondary,
+        uplift=uplift,
+        diffusion=diffusion,
+        total_time=total_time,
+        grid_size=grid_size,
+    )
+    raw = run_geomorphic_engine(params)
+    history = [_normalize_surface(frame) for frame in raw["history"]]
+    stats_history = list(raw["stats_history"])
+    process_history = list(raw["process_history"])
+    stage_history = build_lab_stage_history(scenario.model_label, stats_history, process_history)
+    final_stage = describe_lab_process_stage(
+        scenario.model_label,
+        1.0,
+        stats_history[-1] if stats_history else None,
+        process_fields=process_history[-1] if process_history else None,
+    )
+    return {
+        "scenario": scenario,
+        "config": params,
+        "history": history,
+        "times": list(raw["times"]),
+        "stats_history": stats_history,
+        "process_history": process_history,
+        "stage_history": stage_history,
+        "final_stage": final_stage,
+        "change": _change_summary(history[0], history[-1]),
+        "metrics": compute_morphometric_metrics(scenario.landform_id, history, process_history),
+        "dominant_process": format_process_summary(stats_history[-1] if stats_history else None),
+        "kernel": raw["kernel"],
+        "kernel_notes": (
+            "공통 지형물리 엔진 v2입니다. 지형별 전용 식이 아니라 하천·해안·빙하·바람·화산·"
+            "카르스트·구조운동·사면확산 작용장을 같은 시간 적분 루프에서 합산합니다."
+        ),
+    }
+
+
 def _apply_user_factors(
     lem: Any,
     scenario: PhysicsLabScenario,
@@ -249,18 +367,17 @@ def run_physics_lab_simulation(
     grid_size: int,
 ) -> dict[str, Any]:
     scenario = get_physics_lab_scenario(landform_id)
-    if scenario.landform_id in {"v_valley", "alluvial_fan", "delta"}:
-        return _run_river_kernel_scenario(
-            scenario,
-            force=force,
-            secondary=secondary,
-            uplift=uplift,
-            diffusion=diffusion,
-            total_time=total_time,
-            grid_size=grid_size,
-        )
-    if scenario.landform_id in {"u_valley", "coastal_cliff", "barchan", "lava_dome", "karst_doline"}:
-        return _run_process_kernel_scenario(
+    if scenario.landform_id in {
+        "v_valley",
+        "alluvial_fan",
+        "delta",
+        "u_valley",
+        "coastal_cliff",
+        "barchan",
+        "lava_dome",
+        "karst_doline",
+    }:
+        return _run_common_engine_scenario(
             scenario,
             force=force,
             secondary=secondary,

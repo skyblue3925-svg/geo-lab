@@ -51,6 +51,6 @@ def test_lab_uses_process_kernels_for_non_river_representatives():
     for landform_id in ["u_valley", "coastal_cliff", "barchan", "lava_dome", "karst_doline"]:
         result = run_physics_lab_simulation(landform_id, 60, 55, 35, 35, 5_000, 32)
 
-        assert result["kernel"] == f"{landform_id}_process_v1"
+        assert result["kernel"] == "geomorphic_engine_v2"
         assert result["dominant_process"]
         assert result["change"]["relief"] > 0

@@ -45,6 +45,6 @@ def test_stronger_stream_power_increases_total_erosion():
 def test_lab_uses_river_kernel_for_river_landforms():
     result = run_physics_lab_simulation("alluvial_fan", 60, 55, 35, 40, 5_000, 32)
 
-    assert result["kernel"] == "river_morphology_v1"
+    assert result["kernel"] == "geomorphic_engine_v2"
     assert result["dominant_process"]
     assert result["change"]["relief"] > 0

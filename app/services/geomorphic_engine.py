@@ -1,0 +1,300 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from functools import lru_cache
+from typing import Any
+
+import numpy as np
+
+
+@dataclass(frozen=True)
+class GeomorphicEngineParameters:
+    preset_id: str
+    grid_size: int = 56
+    total_time_years: int = 40_000
+    dt_years: float = 250.0
+    save_frames: int = 25
+    fluvial: float = 0.0
+    sediment: float = 0.0
+    marine: float = 0.0
+    glacial: float = 0.0
+    aeolian: float = 0.0
+    volcanic: float = 0.0
+    karst: float = 0.0
+    groundwater: float = 0.0
+    uplift_rate: float = 0.0
+    diffusion_d: float = 0.012
+    base_level: float = 0.0
+
+
+def _grid(grid_size: int) -> tuple[np.ndarray, np.ndarray]:
+    y, x = np.indices((grid_size, grid_size), dtype=float)
+    denom = max(grid_size - 1, 1)
+    return x / denom, y / denom
+
+
+def _normalize(field: np.ndarray) -> np.ndarray:
+    arr = np.nan_to_num(np.asarray(field, dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+    low = float(np.min(arr))
+    high = float(np.max(arr))
+    if high - low <= 1e-12:
+        return np.zeros_like(arr)
+    return (arr - low) / (high - low)
+
+
+def _laplacian(z: np.ndarray) -> np.ndarray:
+    return (
+        np.roll(z, 1, axis=0)
+        + np.roll(z, -1, axis=0)
+        + np.roll(z, 1, axis=1)
+        + np.roll(z, -1, axis=1)
+        - 4.0 * z
+    )
+
+
+def _fixed_boundaries(z: np.ndarray, base_level: float) -> np.ndarray:
+    out = z.copy()
+    out[0, :] = out[1, :]
+    out[:, 0] = out[:, 1]
+    out[:, -1] = out[:, -2]
+    out[-1, :] = np.minimum(out[-2, :], base_level + 2.0)
+    return np.maximum(out, base_level)
+
+
+def _empty_process(z: np.ndarray) -> dict[str, np.ndarray]:
+    zero = np.zeros_like(z)
+    return {
+        "erosion": zero,
+        "deposition": zero,
+        "diffusion": zero,
+        "transport": zero,
+        "tectonic": zero,
+        "glacial": zero,
+        "marine": zero,
+        "aeolian": zero,
+        "volcanic": zero,
+        "karst": zero,
+        "groundwater": zero,
+        "moraine": zero,
+        "fluvial_erosion": zero,
+        "total_erosion": zero,
+    }
+
+
+def _initial_surface(preset_id: str, grid_size: int, base_level: float) -> np.ndarray:
+    x, y = _grid(grid_size)
+    downstream_slope = 130.0 * (1.0 - y) + base_level
+    valley_sides = 38.0 * np.abs(x - 0.5) ** 1.45
+    channel = np.exp(-(((x - 0.5 - 0.06 * np.sin(2.5 * np.pi * y)) / (0.04 + 0.09 * y)) ** 2))
+
+    if preset_id == "alluvial_fan":
+        apex = np.exp(-(((x - 0.5) / 0.18) ** 2 + ((y - 0.18) / 0.08) ** 2))
+        surface = downstream_slope * 0.72 + 28.0 * apex + 18.0 * np.abs(x - 0.5)
+    elif preset_id == "delta":
+        marine_plain = base_level + 9.0 * (1.0 - y)
+        river_plain = downstream_slope * 0.35 + 14.0
+        surface = np.where(y > 0.52, marine_plain, river_plain)
+    elif preset_id == "u_valley":
+        surface = 95.0 * (1.0 - y) + 42.0 * np.abs(x - 0.5) ** 1.55
+        surface -= 28.0 * np.exp(-((x - 0.5) / 0.16) ** 4)
+    elif preset_id == "coastal_cliff":
+        land = 72.0 * (1.0 - x) + 10.0 * np.sin(2.0 * np.pi * y)
+        sea = base_level + 2.0 * (x > 0.68)
+        surface = np.where(x > 0.68, sea, land)
+    elif preset_id == "barchan":
+        horn_left = np.exp(-(((x - 0.35) / 0.11) ** 2 + ((y - 0.62) / 0.23) ** 2))
+        horn_right = np.exp(-(((x - 0.65) / 0.11) ** 2 + ((y - 0.62) / 0.23) ** 2))
+        body = 42.0 * np.exp(-(((x - 0.5) / 0.18) ** 2 + ((y - 0.45) / 0.17) ** 2))
+        surface = base_level + body + 18.0 * (horn_left + horn_right)
+    elif preset_id == "lava_dome":
+        r = np.hypot(x - 0.5, y - 0.5)
+        surface = base_level + 105.0 * np.exp(-((r / 0.22) ** 2)) + 8.0 * (1.0 - y)
+    elif preset_id == "karst_doline":
+        upland = 42.0 + 10.0 * np.sin(2.5 * np.pi * x) * np.sin(2.0 * np.pi * y)
+        surface = upland - 24.0 * np.exp(-(((x - 0.5) / 0.18) ** 2 + ((y - 0.5) / 0.16) ** 2))
+    else:
+        surface = downstream_slope + valley_sides - 18.0 * channel
+
+    return _fixed_boundaries(surface, base_level)
+
+
+def _process_masks(preset_id: str, grid_size: int) -> dict[str, np.ndarray]:
+    x, y = _grid(grid_size)
+    centerline = np.exp(-(((x - 0.5 - 0.06 * np.sin(2.5 * np.pi * y)) / (0.04 + 0.09 * y)) ** 2))
+    downstream = np.clip((y - 0.35) / 0.65, 0.0, 1.0)
+    lower = np.clip(y - 0.5, 0.0, 1.0)
+    r = np.hypot(x - 0.5, y - 0.5)
+
+    fan_spread = np.clip((y - 0.18) / 0.82, 0.0, 1.0)
+    fan_width = 0.035 + 0.42 * fan_spread
+    fan = np.exp(-((np.abs(x - 0.5) / (fan_width + 1e-6)) ** 2)) * fan_spread
+
+    mouth = np.clip((y - 0.48) / 0.52, 0.0, 1.0)
+    delta = mouth * np.exp(-((x - 0.5) / (0.18 + 0.25 * mouth)) ** 2)
+
+    glacial = np.exp(-((x - 0.5) / 0.16) ** 4) * (0.35 + 0.65 * (1.0 - y))
+    shore = np.exp(-((x - 0.66) / 0.045) ** 2)
+    platform = np.exp(-((x - 0.74) / 0.12) ** 2) * np.clip(x - 0.68, 0.0, 1.0)
+    aeolian_path = np.exp(-((x - 0.5) / 0.26) ** 2) * (0.35 + y)
+    lee = np.exp(-(((x - 0.5) / 0.22) ** 2 + ((y - 0.68) / 0.12) ** 2))
+    stoss = np.exp(-(((x - 0.5) / 0.22) ** 2 + ((y - 0.35) / 0.16) ** 2))
+    vent = np.exp(-((r / 0.12) ** 2))
+    lava_apron = np.exp(-((r / 0.34) ** 2)) * (1.0 - vent)
+    sink = np.exp(-(((x - 0.5) / 0.21) ** 2 + ((y - 0.5) / 0.18) ** 2))
+    groundwater = sink * np.exp(-((y - 0.56) / 0.28) ** 2)
+
+    fluvial_deposition = centerline * lower
+    if preset_id == "alluvial_fan":
+        centerline = fan
+        fluvial_deposition = fan
+    elif preset_id == "delta":
+        centerline = np.maximum(centerline * (y < 0.62), delta)
+        fluvial_deposition = delta
+
+    return {
+        "channel": np.clip(centerline, 0.0, 1.0),
+        "fluvial_deposition": np.clip(fluvial_deposition, 0.0, 1.0),
+        "glacial": np.clip(glacial, 0.0, 1.0),
+        "moraine": np.clip(glacial * downstream, 0.0, 1.0),
+        "shore": np.clip(shore, 0.0, 1.0),
+        "platform": np.clip(platform, 0.0, 1.0),
+        "aeolian": np.clip(aeolian_path, 0.0, 1.0),
+        "lee": np.clip(lee, 0.0, 1.0),
+        "stoss": np.clip(stoss, 0.0, 1.0),
+        "vent": np.clip(vent, 0.0, 1.0),
+        "lava_apron": np.clip(lava_apron, 0.0, 1.0),
+        "flank": np.clip(_normalize(r), 0.0, 1.0),
+        "sink": np.clip(sink, 0.0, 1.0),
+        "groundwater": np.clip(groundwater, 0.0, 1.0),
+    }
+
+
+def _fluvial_process(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if params.fluvial <= 0.0 and params.sediment <= 0.0:
+        zero = np.zeros_like(z)
+        return zero, zero, zero
+    gy, gx = np.gradient(z)
+    slope = np.hypot(gx, gy)
+    slope_norm = _normalize(slope)
+    _x, y = _grid(z.shape[0])
+    area = (0.08 + np.power(np.clip(y, 0.0, 1.0), 1.55)) * (0.28 + 1.45 * masks["channel"])
+    stream_power = 0.00018 * params.fluvial * np.power(area, 0.5) * np.power(slope + 1e-6, 1.0)
+    erosion = params.dt_years * stream_power * (0.22 + 1.55 * masks["channel"])
+    transport = params.sediment * (0.65 * erosion + 0.35 * area * masks["channel"])
+    deposition = params.dt_years * 0.42 * transport * (1.0 - slope_norm) * masks["fluvial_deposition"] * 0.018
+    return erosion, deposition, transport
+
+
+def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np.ndarray]) -> tuple[np.ndarray, dict[str, np.ndarray], dict[str, float]]:
+    fluvial_erosion, fluvial_deposition, transport = _fluvial_process(z, params, masks)
+    diffusion = params.dt_years * params.diffusion_d * _laplacian(z) * 0.00068
+    tectonic = np.full_like(z, params.uplift_rate * params.dt_years)
+
+    glacial = params.dt_years * 0.018 * params.glacial * masks["glacial"]
+    moraine = params.dt_years * 0.004 * params.glacial * params.sediment * masks["moraine"]
+    marine = params.dt_years * 0.026 * params.marine * masks["shore"]
+    beach = params.dt_years * 0.004 * params.marine * params.sediment * masks["platform"]
+    aeolian = params.dt_years * 0.014 * params.aeolian * masks["aeolian"]
+    dune_erosion = aeolian * masks["stoss"]
+    dune_deposition = params.dt_years * 0.018 * params.aeolian * params.sediment * masks["lee"]
+    volcanic = params.dt_years * 0.036 * params.volcanic * masks["vent"]
+    lava_apron = params.dt_years * 0.006 * params.volcanic * max(params.diffusion_d, 0.001) * 50.0 * masks["lava_apron"]
+    flank_erosion = params.dt_years * 0.003 * params.volcanic * masks["flank"]
+    karst = params.dt_years * 0.016 * params.karst * masks["sink"]
+    groundwater = params.dt_years * 0.006 * params.groundwater * masks["groundwater"]
+    sink_fill = params.dt_years * 0.002 * params.sediment * masks["sink"] * np.clip(_grid(z.shape[0])[1] - 0.55, 0.0, 1.0)
+
+    erosion = fluvial_erosion + glacial + marine + dune_erosion + flank_erosion + karst + groundwater
+    deposition = fluvial_deposition + moraine + beach + dune_deposition + lava_apron + sink_fill
+    construction = volcanic
+    new_z = z + tectonic + diffusion + construction - erosion + deposition
+    new_z = _fixed_boundaries(new_z, params.base_level)
+
+    fields = _empty_process(z)
+    fields.update(
+        {
+            "erosion": erosion,
+            "deposition": deposition,
+            "diffusion": diffusion,
+            "transport": transport + aeolian,
+            "tectonic": tectonic,
+            "glacial": glacial,
+            "marine": marine,
+            "aeolian": aeolian,
+            "volcanic": volcanic,
+            "karst": karst,
+            "groundwater": groundwater,
+            "moraine": moraine,
+            "fluvial_erosion": fluvial_erosion,
+            "total_erosion": erosion,
+        }
+    )
+    return new_z, fields, _stats(new_z, params, fields)
+
+
+def _stats(z: np.ndarray, params: GeomorphicEngineParameters, fields: dict[str, np.ndarray]) -> dict[str, float]:
+    dt = max(params.dt_years, 1e-9)
+    tectonic = fields.get("tectonic", np.zeros_like(z))
+    return {
+        "mean_elevation": float(np.mean(z)),
+        "max_elevation": float(np.max(z)),
+        "mean_erosion_rate": float(np.mean(fields["fluvial_erosion"]) / dt),
+        "max_erosion_rate": float(np.max(fields["fluvial_erosion"]) / dt),
+        "mean_weathering_rate": 0.0,
+        "mean_diffusion": float(np.mean(np.abs(fields["diffusion"])) / dt),
+        "mean_deposition_rate": float(np.mean(fields["deposition"]) / dt),
+        "mean_lateral_erosion": 0.0,
+        "mean_glacial": float(np.mean(fields["glacial"]) / dt),
+        "mean_marine": float(np.mean(fields["marine"]) / dt),
+        "mean_landslide": 0.0,
+        "mean_faulting": 0.0,
+        "mean_folding": 0.0,
+        "mean_karst": float(np.mean(fields["karst"]) / dt),
+        "mean_aeolian": float(np.mean(fields["aeolian"]) / dt),
+        "mean_volcanic": float(np.mean(fields["volcanic"]) / dt),
+        "mean_groundwater": float(np.mean(fields["groundwater"]) / dt),
+        "mean_freeze_thaw": 0.0,
+        "mean_moraine": float(np.mean(fields["moraine"]) / dt),
+        "mean_uniform_uplift": max(float(params.uplift_rate), 0.0),
+        "mean_subsidence": max(float(-params.uplift_rate), 0.0),
+        "mean_soil_depth": float(np.mean(np.maximum(z - params.base_level, 0.0)) * 0.016),
+        "total_erosion": float(np.sum(fields["total_erosion"])),
+        "total_deposition": float(np.sum(fields["deposition"])),
+        "total_weathering": 0.0,
+        "total_uplift": float(np.sum(np.maximum(tectonic, 0.0))),
+        "total_folding": 0.0,
+        "total_subsidence": float(np.sum(np.maximum(-tectonic, 0.0))),
+    }
+
+
+@lru_cache(maxsize=96)
+def run_geomorphic_engine(params: GeomorphicEngineParameters) -> dict[str, Any]:
+    grid_size = int(np.clip(params.grid_size, 24, 96))
+    total_time = int(np.clip(params.total_time_years, 2_500, 160_000))
+    steps = max(int(total_time / max(params.dt_years, 1e-9)), 1)
+    save_every = max(steps // max(params.save_frames - 1, 1), 1)
+    z = _initial_surface(params.preset_id, grid_size, params.base_level)
+    masks = _process_masks(params.preset_id, grid_size)
+
+    history = [z.copy()]
+    times = [0.0]
+    process_history = [_empty_process(z)]
+    stats_history = [_stats(z, params, process_history[0])]
+    current_time = 0.0
+    for step_idx in range(steps):
+        z, fields, stats = _step(z, params, masks)
+        current_time += params.dt_years
+        if (step_idx + 1) % save_every == 0 or step_idx == steps - 1:
+            history.append(z.copy())
+            times.append(float(current_time))
+            process_history.append({key: value.copy() for key, value in fields.items()})
+            stats_history.append(dict(stats))
+
+    return {
+        "history": history,
+        "times": times,
+        "stats_history": stats_history,
+        "process_history": process_history,
+        "kernel": "geomorphic_engine_v2",
+        "parameters": params,
+    }
