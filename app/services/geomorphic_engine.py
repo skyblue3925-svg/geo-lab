@@ -76,6 +76,8 @@ def _empty_process(z: np.ndarray) -> dict[str, np.ndarray]:
         "karst": zero,
         "groundwater": zero,
         "moraine": zero,
+        "ice_thickness": zero,
+        "glacial_velocity": zero,
         "fluvial_erosion": zero,
         "drainage_area": zero,
         "transport_capacity": zero,
@@ -240,13 +242,35 @@ def _fluvial_process(
     return erosion, deposition, sediment_flux, drainage, transport_capacity
 
 
+def _glacial_process(
+    z: np.ndarray,
+    params: GeomorphicEngineParameters,
+    masks: dict[str, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    if params.glacial <= 0.0:
+        zero = np.zeros_like(z)
+        return zero, zero, zero, zero
+    gy, gx = np.gradient(z)
+    surface_slope = _normalize(np.hypot(gx, gy))
+    altitude = _normalize(z)
+    accumulation = np.clip(0.55 * altitude + 0.45 * masks["glacial"], 0.0, 1.0)
+    thickness = params.glacial * accumulation * masks["glacial"]
+    velocity = _normalize(np.power(thickness + 1e-9, 3.0) * (0.18 + surface_slope))
+    basal_sliding = thickness * (0.35 + 0.65 * velocity)
+    erosion = params.dt_years * 0.014 * params.glacial * basal_sliding
+
+    thickness_gradient = np.maximum(thickness - np.roll(thickness, -1, axis=0), 0.0)
+    terminus = masks["moraine"] * (0.45 + 0.55 * _normalize(thickness_gradient))
+    moraine = params.dt_years * 0.0045 * params.glacial * max(params.sediment, 0.15) * terminus
+    return erosion, moraine, thickness, velocity
+
+
 def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np.ndarray]) -> tuple[np.ndarray, dict[str, np.ndarray], dict[str, float]]:
     fluvial_erosion, fluvial_deposition, transport, drainage, transport_capacity = _fluvial_process(z, params, masks)
     diffusion = params.dt_years * params.diffusion_d * _laplacian(z) * 0.00068
     tectonic = np.full_like(z, params.uplift_rate * params.dt_years)
 
-    glacial = params.dt_years * 0.018 * params.glacial * masks["glacial"]
-    moraine = params.dt_years * 0.004 * params.glacial * params.sediment * masks["moraine"]
+    glacial, moraine, ice_thickness, glacial_velocity = _glacial_process(z, params, masks)
     marine = params.dt_years * 0.026 * params.marine * masks["shore"]
     beach = params.dt_years * 0.004 * params.marine * params.sediment * masks["platform"]
     aeolian = params.dt_years * 0.014 * params.aeolian * masks["aeolian"]
@@ -280,6 +304,8 @@ def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np
             "karst": karst,
             "groundwater": groundwater,
             "moraine": moraine,
+            "ice_thickness": ice_thickness,
+            "glacial_velocity": glacial_velocity,
             "fluvial_erosion": fluvial_erosion,
             "drainage_area": drainage,
             "transport_capacity": transport_capacity,
@@ -302,6 +328,8 @@ def _stats(z: np.ndarray, params: GeomorphicEngineParameters, fields: dict[str, 
         "mean_deposition_rate": float(np.mean(fields["deposition"]) / dt),
         "mean_lateral_erosion": 0.0,
         "mean_glacial": float(np.mean(fields["glacial"]) / dt),
+        "mean_ice_thickness": float(np.mean(fields["ice_thickness"])),
+        "max_glacial_velocity": float(np.max(fields["glacial_velocity"])),
         "mean_marine": float(np.mean(fields["marine"]) / dt),
         "mean_landslide": 0.0,
         "mean_faulting": 0.0,
@@ -318,6 +346,7 @@ def _stats(z: np.ndarray, params: GeomorphicEngineParameters, fields: dict[str, 
         "total_erosion": float(np.sum(fields["total_erosion"])),
         "total_deposition": float(np.sum(fields["deposition"])),
         "total_fluvial_erosion": float(np.sum(fields["fluvial_erosion"])),
+        "total_ice_volume": float(np.sum(fields["ice_thickness"])),
         "total_transport_capacity": float(np.sum(fields["transport_capacity"])),
         "total_sediment_flux": float(np.sum(fields["transport"])),
         "total_weathering": 0.0,

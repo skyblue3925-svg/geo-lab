@@ -69,6 +69,30 @@ def test_fluvial_area_responds_to_dem_and_deposition_is_flux_limited():
     assert float(deposition.sum()) <= float(transport.sum()) + 1e-9
 
 
+def test_glacial_process_uses_ice_thickness_and_velocity_fields():
+    result = run_geomorphic_engine(
+        GeomorphicEngineParameters(
+            preset_id="u_valley",
+            grid_size=32,
+            total_time_years=5_000,
+            save_frames=8,
+            glacial=1.7,
+            sediment=0.8,
+            diffusion_d=0.014,
+        )
+    )
+    fields = result["process_history"][-1]
+    stats = result["stats_history"][-1]
+
+    assert "ice_thickness" in fields
+    assert "glacial_velocity" in fields
+    assert float(fields["ice_thickness"].max()) > float(fields["ice_thickness"].mean())
+    assert float(fields["glacial_velocity"].max()) > 0
+    assert stats["total_ice_volume"] > 0
+    assert stats["max_glacial_velocity"] > 0
+    assert stats["mean_glacial"] > 0
+
+
 def test_lab_routes_representative_landforms_to_common_engine_v2():
     for landform_id in [
         "v_valley",
