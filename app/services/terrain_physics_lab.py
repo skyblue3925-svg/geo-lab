@@ -20,6 +20,7 @@ from app.services.geomorphic_process_kernels import (
 )
 from app.services.geomorphic_engine import GeomorphicEngineParameters, run_geomorphic_engine
 from app.services.morphometric_metrics import compute_morphometric_metrics
+from app.services.terrain_lab_catalog import GROUP_LABELS_KO, list_additional_lab_scenarios
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,15 @@ class PhysicsLabScenario:
     default_time: int = 40_000
 
 
+@dataclass(frozen=True)
+class PhysicsLabTheory:
+    landform_id: str
+    model_family: str
+    equations: tuple[tuple[str, str, str], ...]
+    assumptions: tuple[str, ...]
+    classroom_note: str
+
+
 SCENARIOS: tuple[PhysicsLabScenario, ...] = (
     PhysicsLabScenario("v_valley", "V자곡", "하천 지형", "V자곡", "하천 침식력", "강수량", 60, 45, 25, 45_000),
     PhysicsLabScenario("alluvial_fan", "선상지", "하천 지형", "선상지", "퇴적물 공급", "경사 완화", 55, 35, 40, 35_000),
@@ -48,8 +58,157 @@ SCENARIOS: tuple[PhysicsLabScenario, ...] = (
 )
 
 
+THEORY_NOTES: dict[str, PhysicsLabTheory] = {
+    "v_valley": PhysicsLabTheory(
+        "v_valley",
+        "하천 침식 + 사면 확산",
+        (
+            ("하천 침식", "E = K A^m S^n", "집수면적 A와 경사 S가 클수록 하방 침식이 커집니다."),
+            ("사면 완화", "∂z/∂t = D∇²z", "경사가 급한 곳은 확산적으로 낮아지고 완만해집니다."),
+            ("퇴적 한계", "Q_s ≤ Q_c", "운반능력보다 많은 퇴적물은 하류나 완경사부에 남습니다."),
+        ),
+        (
+            "강수량은 유량과 집수 효과를 키우는 상대값으로 사용합니다.",
+            "암석 차이와 식생 피복은 아직 하나의 침식계수 K 안에 묶여 있습니다.",
+        ),
+        "V자곡은 하방 침식이 사면 완화보다 우세할 때 깊고 좁은 골짜기로 발달합니다.",
+    ),
+    "alluvial_fan": PhysicsLabTheory(
+        "alluvial_fan",
+        "하천 운반능력 감소 + 퇴적",
+        (
+            ("운반능력", "Q_c ∝ Q S", "유량 Q와 경사 S가 낮아지면 운반 가능한 퇴적물 양이 줄어듭니다."),
+            ("퇴적", "D_s = max(Q_s - Q_c, 0)", "운반능력을 넘는 퇴적물이 산지 출구에 쌓입니다."),
+        ),
+        (
+            "선상지의 실제 입도 분급은 단순화해 퇴적물 공급과 경사 완화로 표현합니다.",
+            "홍수 빈도와 유로 변동은 현재 하나의 시간 평균 효과로 처리합니다.",
+        ),
+        "선상지는 급경사 산지 하천이 완경사 평지로 나오며 에너지를 잃을 때 잘 발달합니다.",
+    ),
+    "delta": PhysicsLabTheory(
+        "delta",
+        "하천 퇴적 + 기준면/해수면 조건",
+        (
+            ("하천 공급", "D_s = f(Q_s, Q_c)", "하천이 운반한 퇴적물이 하구에서 쌓입니다."),
+            ("기준면", "base level = sea level", "해수면이 안정적일수록 퇴적체가 넓게 보존됩니다."),
+        ),
+        (
+            "파랑과 조석의 세부 분류는 아직 약한 해안 작용 항으로만 반영합니다.",
+            "삼각주의 조류형·파랑형·하천형 구분은 다음 프리셋 확장 단계에서 나눕니다.",
+        ),
+        "삼각주는 하천 퇴적물 공급이 해안의 제거 작용보다 클 때 전진합니다.",
+    ),
+    "u_valley": PhysicsLabTheory(
+        "u_valley",
+        "빙하 침식 + 모레인 퇴적",
+        (
+            ("빙하 침식", "E_g ∝ H_i U_i |∇z|", "빙하 두께 H와 속도 U가 클수록 바닥 침식이 커집니다."),
+            ("빙하 퇴적", "D_m = f(debris, retreat)", "빙하가 약해지거나 후퇴하면 암설이 남습니다."),
+        ),
+        (
+            "빙하 역학은 교육용 상대 모델이며 실제 열역학·질량수지 계산은 단순화되어 있습니다.",
+            "빙하 두께는 침식력과 유속을 동시에 키우는 보조 조건입니다.",
+        ),
+        "U자곡은 빙하가 골짜기 바닥과 양쪽 사면을 넓게 깎을 때 만들어집니다.",
+    ),
+    "coastal_cliff": PhysicsLabTheory(
+        "coastal_cliff",
+        "파랑 에너지 + 해안선 후퇴",
+        (
+            ("파랑 침식", "R_c ∝ W / R_r", "파랑 에너지 W가 크고 암석 저항 R이 작을수록 후퇴가 커집니다."),
+            ("파식대", "P = flatten(z ≈ sea level)", "해수면 근처의 암반면이 반복적으로 깎여 평탄화됩니다."),
+        ),
+        (
+            "조석, 암석 절리, 폭풍 파랑은 현재 파랑 에너지와 해수면 위치로 압축해 표현합니다.",
+            "실제 해안선 좌표 변화가 아니라 격자 표면의 상대 후퇴로 계산합니다.",
+        ),
+        "해식애는 파랑 침식이 절벽 하부에 집중되고 상부가 붕괴하면서 후퇴합니다.",
+    ),
+    "barchan": PhysicsLabTheory(
+        "barchan",
+        "바람 운반 + 풍상/풍하 퇴적",
+        (
+            ("모래 이동", "q_s ∝ u_*^3", "풍속이 커질수록 모래 이동량이 빠르게 증가합니다."),
+            ("풍상 침식", "E_s = f(stoss)", "바람을 맞는 쪽에서는 모래가 깎이고 이동합니다."),
+            ("풍하 퇴적", "D_l = f(lee)", "그늘진 풍하면에는 모래가 쌓입니다."),
+        ),
+        (
+            "현재 바람 방향은 고정된 주풍 방향장으로 계산합니다.",
+            "모래 공급이 적고 바닥이 단단한 조건을 바르한 기본 조건으로 둡니다.",
+        ),
+        "바르한은 모래 공급이 제한된 곳에서 초승달 모양으로 이동하는 사구입니다.",
+    ),
+    "lava_dome": PhysicsLabTheory(
+        "lava_dome",
+        "화산 분출 + 점성 제한 확산",
+        (
+            ("분출 성장", "C_v = eruption rate", "중앙부 공급률이 클수록 돔이 높아집니다."),
+            ("점성 저항", "spread ∝ 1 / viscosity", "점성이 클수록 멀리 흐르지 못하고 중심부에 쌓입니다."),
+            ("냉각 제한", "L_c = f(cooling)", "냉각이 빠르면 확산 범위가 작아집니다."),
+        ),
+        (
+            "용암 온도, 결정 함량, 붕괴류는 현재 점성/확산 슬라이더로 묶여 있습니다.",
+            "성층화산·순상화산은 같은 화산 모듈의 다른 프리셋으로 확장할 예정입니다.",
+        ),
+        "용암돔은 점성이 큰 용암이 분화구 주변에 두껍게 쌓이며 성장합니다.",
+    ),
+    "karst_doline": PhysicsLabTheory(
+        "karst_doline",
+        "용식 + 지하수 집중 + 붕괴 위험",
+        (
+            ("용식률", "S_r ∝ water × solubility", "물 공급과 석회암 용해도가 클수록 지표가 낮아집니다."),
+            ("지하 배수", "G = ∇h_w", "지하수 흐름이 집중되는 곳에서 용식이 커집니다."),
+            ("붕괴 위험", "C_r = f(void, slope)", "지하 공동과 경사가 커지면 함몰 가능성이 커집니다."),
+        ),
+        (
+            "석회암 순도와 절리망은 현재 용식 강도 안에 통합되어 있습니다.",
+            "동굴 네트워크는 명시적 3D 공간으로 계산하지 않고 표면 변화로 환산합니다.",
+        ),
+        "돌리네는 석회암 용식과 지하 배수 집중, 때로는 붕괴가 함께 만든 폐쇄 와지입니다.",
+    ),
+}
+
+
 def list_physics_lab_scenarios() -> tuple[PhysicsLabScenario, ...]:
     return SCENARIOS
+
+
+def get_physics_lab_theory(landform_id: str) -> PhysicsLabTheory:
+    return THEORY_NOTES.get(landform_id, THEORY_NOTES["v_valley"])
+
+
+def active_physics_lab_rows() -> tuple[dict[str, str], ...]:
+    return tuple(
+        {
+            "상태": "실험 가능",
+            "지형": scenario.title,
+            "분류": scenario.group,
+            "주 작용": scenario.primary_factor,
+            "보조 조건": scenario.secondary_factor,
+            "모델 계열": get_physics_lab_theory(scenario.landform_id).model_family,
+        }
+        for scenario in SCENARIOS
+    )
+
+
+def planned_physics_lab_rows() -> tuple[dict[str, str], ...]:
+    active_ids = {scenario.landform_id for scenario in SCENARIOS}
+    rows = []
+    for scenario in list_additional_lab_scenarios():
+        if scenario.landform_id in active_ids:
+            continue
+        rows.append(
+            {
+                "상태": "프리셋 예정",
+                "지형": scenario.title_ko,
+                "분류": GROUP_LABELS_KO.get(scenario.group, scenario.group),
+                "주 작용": scenario.simulation_family,
+                "보조 조건": ", ".join(scenario.process_factors[:2]),
+                "모델 계열": "공통 엔진 연결 예정",
+            }
+        )
+    return tuple(rows)
 
 
 def get_physics_lab_scenario(landform_id: str) -> PhysicsLabScenario:

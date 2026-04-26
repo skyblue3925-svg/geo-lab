@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -15,8 +16,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.beta_navigation import render_beta_sidebar
 from app.services.terrain_physics_lab import (
+    active_physics_lab_rows,
     get_physics_lab_scenario,
+    get_physics_lab_theory,
     list_physics_lab_scenarios,
+    planned_physics_lab_rows,
     run_physics_lab_simulation,
 )
 from app.services.morphometric_metrics import (
@@ -129,21 +133,34 @@ st.caption(
 st.markdown(
     """
     **사용 방법**
-    1. 왼쪽에서 지형을 고릅니다.
+    1. 아래에서 지형 프리셋을 고릅니다.
     2. 주 작용 강도와 보조 조건을 움직입니다.
-    3. 3D 표면에서 모양 변화를 보고, 아래 정량 지표에서 어떤 작용이 우세했는지 확인합니다.
+    3. 재생 또는 시간 단계 슬라이더로 형성과정을 살펴봅니다.
     4. 같은 지형에서 조건 하나만 바꿔 다시 비교하면 수업·연구용 가설을 만들 수 있습니다.
     """
 )
 
 scenarios = list_physics_lab_scenarios()
 scenario_titles = [f"{scenario.title} · {scenario.group}" for scenario in scenarios]
+scenario_by_title = dict(zip(scenario_titles, scenarios, strict=False))
+
+st.markdown("### 지형 프리셋")
+st.caption("현재 실험 가능한 대표 프리셋은 8개입니다. 나머지 지형은 같은 공통 물리엔진에 프리셋으로 확장하는 단계입니다.")
+selected_label = st.selectbox("실험 지형 선택", scenario_titles, index=0, key="lab_main_scenario")
+selected_id = scenario_by_title[selected_label].landform_id
+scenario = get_physics_lab_scenario(selected_id)
+
+with st.expander("프리셋 목록과 확장 예정 지형", expanded=False):
+    st.markdown("#### 현재 실험 가능")
+    st.dataframe(active_physics_lab_rows(), hide_index=True, use_container_width=True)
+    planned_rows = planned_physics_lab_rows()
+    if planned_rows:
+        st.markdown("#### 다음 프리셋 후보")
+        st.dataframe(planned_rows, hide_index=True, use_container_width=True)
 
 with st.sidebar:
     st.markdown("### 실험 조건")
-    selected_label = st.selectbox("지형", scenario_titles, index=0)
-    selected_id = scenarios[scenario_titles.index(selected_label)].landform_id
-    scenario = get_physics_lab_scenario(selected_id)
+    st.caption(f"선택한 지형: {scenario.title} · {scenario.group}")
 
     force = st.slider(scenario.primary_factor, 0, 100, scenario.default_force, 5)
     secondary = st.slider(scenario.secondary_factor, 0, 100, 55, 5)
@@ -168,6 +185,12 @@ final = history[-1]
 change = final - initial
 summary = result["change"]
 metrics = result.get("metrics", {})
+theory = get_physics_lab_theory(selected_id)
+
+if st.session_state.get("lab_run_key") != run_key:
+    st.session_state["lab_run_key"] = run_key
+    st.session_state["lab_frame_index"] = len(history) - 1
+    st.session_state["lab_playing"] = False
 
 top_cols = st.columns([1.2, 1.0, 1.0, 1.0])
 top_cols[0].metric("실험 지형", scenario.title)
@@ -198,9 +221,43 @@ with st.expander("모델 검증 지표", expanded=True):
     else:
         st.write("이 지형의 전용 검증 지표는 아직 준비 중입니다.")
 
+with st.expander("현재 적용 중인 물리식과 이론", expanded=False):
+    st.markdown(f"**모델 계열:** {theory.model_family}")
+    st.caption(theory.classroom_note)
+    equation_rows = [
+        {"작용": label, "식": equation, "의미": explanation}
+        for label, equation, explanation in theory.equations
+    ]
+    st.dataframe(equation_rows, hide_index=True, use_container_width=True)
+    st.markdown("**현재 단순화한 부분**")
+    for assumption in theory.assumptions:
+        st.write(f"- {assumption}")
+    st.info("이 식들은 연구용 수치모델로 확장할 때 검증 가능한 작용장과 파라미터로 분리해 나갈 기준입니다.")
+
 view_col, note_col = st.columns([1.35, 0.85])
 with view_col:
-    frame_index = st.slider("시간 단계", 0, len(history) - 1, len(history) - 1)
+    control_cols = st.columns([0.9, 0.9, 1.2, 1.2])
+    with control_cols[0]:
+        if st.button("처음", use_container_width=True):
+            st.session_state["lab_frame_index"] = 0
+            st.session_state["lab_playing"] = False
+    with control_cols[1]:
+        if st.button("끝", use_container_width=True):
+            st.session_state["lab_frame_index"] = len(history) - 1
+            st.session_state["lab_playing"] = False
+    with control_cols[2]:
+        play_label = "정지" if st.session_state.get("lab_playing") else "재생"
+        if st.button(play_label, use_container_width=True):
+            st.session_state["lab_playing"] = not st.session_state.get("lab_playing", False)
+    with control_cols[3]:
+        playback_delay_ms = st.select_slider(
+            "재생 속도",
+            options=[250, 500, 800, 1200, 1600],
+            value=800,
+            format_func=lambda value: f"{value}ms",
+        )
+
+    frame_index = st.slider("시간 단계", 0, len(history) - 1, key="lab_frame_index")
     frame_process_fields = result["process_history"][frame_index]
     surface_options = process_field_options(frame_process_fields)
     surface_overlay = None
@@ -284,3 +341,8 @@ with st.expander("형성과정 프레임 로그", expanded=False):
             st.markdown(f"**{idx + 1}. {name}** · {progress:.0f}%")
             if note:
                 st.caption(str(note))
+
+if st.session_state.get("lab_playing"):
+    time.sleep(float(playback_delay_ms) / 1000.0)
+    st.session_state["lab_frame_index"] = (int(st.session_state["lab_frame_index"]) + 1) % len(history)
+    st.rerun()
