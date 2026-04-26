@@ -577,6 +577,17 @@ def _scenario_engine_parameters(
         uplift_rate=uplift_rate,
         diffusion_d=diffusion_d,
         base_level=base_level,
+        sea_level=base_level if process["marine"] > 0.0 else None,
+        wave_energy_scale=0.75 + process["marine"] * 0.22,
+        wind_direction_degrees=_map_range(secondary, 62.0, 118.0) if process["aeolian"] > 0.0 else 90.0,
+        wind_speed=process["aeolian"] if process["aeolian"] > 0.0 else None,
+        sand_supply=process["sediment"] if process["aeolian"] > 0.0 else None,
+        eruption_rate=process["volcanic"] if process["volcanic"] > 0.0 else None,
+        viscosity=np.clip(_map_range(100 - secondary, 0.12, 0.95), 0.05, 1.0) if process["volcanic"] > 0.0 else None,
+        lava_spread=_map_range(secondary, 0.65, 1.85) if process["volcanic"] > 0.0 else 1.0,
+        cooling_rate=_map_range(100 - secondary, 0.55, 1.55) if process["volcanic"] > 0.0 else 1.0,
+        rock_solubility=0.65 + process["karst"] * 0.24 if process["karst"] > 0.0 else 1.0,
+        water_supply=process["groundwater"] if process["groundwater"] > 0.0 else None,
     )
 
 

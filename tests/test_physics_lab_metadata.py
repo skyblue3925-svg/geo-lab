@@ -50,3 +50,38 @@ def test_new_catalog_scenarios_route_to_common_engine():
         assert result["history"][-1].shape == (32, 32)
         assert result["dominant_process"]
         assert result["change"]["relief"] > 0
+
+
+def test_lab_common_engine_exposes_process_force_fields():
+    expected_fields = {
+        "coastal_cliff": (
+            "wave_energy",
+            "shoreline_retreat",
+            "wave_cut_platform",
+            "beach_deposition",
+            "longshore_transport",
+            "wave_refraction",
+            "storm_runup",
+            "coastal_sediment_budget",
+        ),
+        "barchan": (
+            "sand_flux",
+            "stoss_erosion",
+            "lee_deposition",
+            "wind_vector_y",
+            "wind_shear_stress",
+            "sand_availability",
+            "shelter_factor",
+            "dune_migration",
+        ),
+        "lava_dome": ("volcanic_construction", "lava_flow", "viscosity_resistance", "cooling_limited_spread"),
+        "karst_doline": ("groundwater_flow", "solution_rate", "subsurface_drainage", "collapse_risk"),
+    }
+
+    for landform_id, field_names in expected_fields.items():
+        result = run_physics_lab_simulation(landform_id, 65, 60, 35, 35, 5_000, 32)
+        process_fields = result["process_history"][-1]
+
+        for field_name in field_names:
+            assert field_name in process_fields
+            assert float(abs(process_fields[field_name]).sum()) > 0.0
