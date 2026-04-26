@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import time
 from pathlib import Path
 
 import numpy as np
@@ -32,7 +31,11 @@ from app.services.morphometric_metrics import (
 )
 
 
-def surface_figure(surface: np.ndarray, title: str, overlay: np.ndarray | None = None, overlay_label: str | None = None) -> go.Figure:
+def _surface_trace_kwargs(
+    surface: np.ndarray,
+    overlay: np.ndarray | None = None,
+    overlay_label: str | None = None,
+) -> dict:
     surface_kwargs = {
         "z": surface,
         "showscale": False,
@@ -51,14 +54,19 @@ def surface_figure(surface: np.ndarray, title: str, overlay: np.ndarray | None =
         )
     else:
         surface_kwargs["colorscale"] = "Earth"
+    return surface_kwargs
+
+
+def surface_figure(surface: np.ndarray, title: str, overlay: np.ndarray | None = None, overlay_label: str | None = None) -> go.Figure:
     figure = go.Figure(
         data=[
-            go.Surface(**surface_kwargs)
+            go.Surface(**_surface_trace_kwargs(surface, overlay, overlay_label))
         ]
     )
     figure.update_layout(
         title=title,
         height=520,
+        uirevision="lab_surface_camera",
         margin=dict(l=0, r=0, t=42, b=0),
         scene=dict(
             xaxis=dict(visible=False),
@@ -67,7 +75,99 @@ def surface_figure(surface: np.ndarray, title: str, overlay: np.ndarray | None =
             aspectmode="manual",
             aspectratio=dict(x=1.15, y=1.0, z=0.36),
             camera=dict(eye=dict(x=1.45, y=-1.65, z=0.95)),
+            uirevision="lab_surface_camera",
         ),
+    )
+    return figure
+
+
+def animated_surface_figure(
+    history: list[np.ndarray],
+    title: str,
+    *,
+    initial_index: int,
+    frame_duration_ms: int,
+    overlay_frames: list[np.ndarray] | None = None,
+    overlay_label: str | None = None,
+) -> go.Figure:
+    safe_index = int(np.clip(initial_index, 0, len(history) - 1))
+    initial_overlay = overlay_frames[safe_index] if overlay_frames else None
+    figure = surface_figure(history[safe_index], title, initial_overlay, overlay_label)
+    figure.frames = [
+        go.Frame(
+            name=str(idx),
+            data=[
+                go.Surface(
+                    **_surface_trace_kwargs(
+                        surface,
+                        overlay_frames[idx] if overlay_frames else None,
+                        overlay_label,
+                    )
+                )
+            ],
+        )
+        for idx, surface in enumerate(history)
+    ]
+    steps = [
+        {
+            "label": str(idx),
+            "method": "animate",
+            "args": [
+                [str(idx)],
+                {
+                    "mode": "immediate",
+                    "frame": {"duration": 0, "redraw": True},
+                    "transition": {"duration": 0},
+                },
+            ],
+        }
+        for idx in range(len(history))
+    ]
+    figure.update_layout(
+        updatemenus=[
+            {
+                "type": "buttons",
+                "direction": "left",
+                "x": 0.0,
+                "y": 1.08,
+                "showactive": False,
+                "buttons": [
+                    {
+                        "label": "재생",
+                        "method": "animate",
+                        "args": [
+                            None,
+                            {
+                                "fromcurrent": True,
+                                "frame": {"duration": frame_duration_ms, "redraw": True},
+                                "transition": {"duration": 0},
+                                "mode": "immediate",
+                            },
+                        ],
+                    },
+                    {
+                        "label": "정지",
+                        "method": "animate",
+                        "args": [
+                            [None],
+                            {
+                                "mode": "immediate",
+                                "frame": {"duration": 0, "redraw": False},
+                                "transition": {"duration": 0},
+                            },
+                        ],
+                    },
+                ],
+            }
+        ],
+        sliders=[
+            {
+                "active": safe_index,
+                "currentvalue": {"prefix": "형성 단계: "},
+                "pad": {"t": 34},
+                "steps": steps,
+            }
+        ],
     )
     return figure
 
@@ -236,22 +336,16 @@ with st.expander("현재 적용 중인 물리식과 이론", expanded=False):
 
 view_col, note_col = st.columns([1.35, 0.85])
 with view_col:
-    control_cols = st.columns([0.9, 0.9, 1.2, 1.2])
+    control_cols = st.columns([0.9, 0.9, 1.2])
     with control_cols[0]:
         if st.button("처음", use_container_width=True):
             st.session_state["lab_frame_index"] = 0
-            st.session_state["lab_playing"] = False
     with control_cols[1]:
         if st.button("끝", use_container_width=True):
             st.session_state["lab_frame_index"] = len(history) - 1
-            st.session_state["lab_playing"] = False
     with control_cols[2]:
-        play_label = "정지" if st.session_state.get("lab_playing") else "재생"
-        if st.button(play_label, use_container_width=True):
-            st.session_state["lab_playing"] = not st.session_state.get("lab_playing", False)
-    with control_cols[3]:
         playback_delay_ms = st.select_slider(
-            "재생 속도",
+            "그래프 안 재생 속도",
             options=[250, 500, 800, 1200, 1600],
             value=800,
             format_func=lambda value: f"{value}ms",
@@ -262,16 +356,32 @@ with view_col:
     surface_options = process_field_options(frame_process_fields)
     surface_overlay = None
     surface_overlay_label = None
+    surface_overlay_key = None
     if surface_options:
         surface_overlay_labels = ["지형 색상"] + [label for _key, label in surface_options]
         surface_overlay_label = st.selectbox("3D 표면 색상", surface_overlay_labels, index=0)
         if surface_overlay_label != "지형 색상":
             surface_overlay_key = dict((label, key) for key, label in surface_options)[surface_overlay_label]
             surface_overlay = normalize_process_field(frame_process_fields, surface_overlay_key)
+    overlay_frames = None
+    if surface_overlay_key is not None:
+        overlay_frames = [
+            normalize_process_field(frame_fields, surface_overlay_key)
+            for frame_fields in result["process_history"]
+        ]
+    st.caption("3D 화면 안의 재생/정지 버튼을 쓰면 카메라를 돌린 상태에서 형성과정을 볼 수 있습니다.")
     st.plotly_chart(
-        surface_figure(history[frame_index], f"{scenario.title} 지형 표면", surface_overlay, surface_overlay_label),
+        animated_surface_figure(
+            history,
+            f"{scenario.title} 지형 표면",
+            initial_index=frame_index,
+            frame_duration_ms=int(playback_delay_ms),
+            overlay_frames=overlay_frames,
+            overlay_label=surface_overlay_label if surface_overlay is not None else None,
+        ),
         width="stretch",
-        config={"displayModeBar": False, "scrollZoom": False},
+        key=f"lab_surface_plot_{selected_id}_{surface_overlay_key or 'terrain'}",
+        config={"displayModeBar": True, "scrollZoom": True},
     )
 
 with note_col:
@@ -341,8 +451,3 @@ with st.expander("형성과정 프레임 로그", expanded=False):
             st.markdown(f"**{idx + 1}. {name}** · {progress:.0f}%")
             if note:
                 st.caption(str(note))
-
-if st.session_state.get("lab_playing"):
-    time.sleep(float(playback_delay_ms) / 1000.0)
-    st.session_state["lab_frame_index"] = (int(st.session_state["lab_frame_index"]) + 1) % len(history)
-    st.rerun()
