@@ -93,6 +93,108 @@ def test_glacial_process_uses_ice_thickness_and_velocity_fields():
     assert stats["mean_glacial"] > 0
 
 
+def test_marine_process_splits_wave_retreat_platform_and_beach_fields():
+    result = run_geomorphic_engine(
+        GeomorphicEngineParameters(
+            preset_id="coastal_cliff",
+            grid_size=32,
+            total_time_years=5_000,
+            save_frames=8,
+            marine=1.5,
+            sediment=0.7,
+            diffusion_d=0.02,
+            base_level=0.0,
+        )
+    )
+    fields = result["process_history"][-1]
+    stats = result["stats_history"][-1]
+
+    for key in ["wave_energy", "shoreline_retreat", "wave_cut_platform", "beach_deposition"]:
+        assert key in fields
+
+    assert float(fields["wave_energy"].max()) > 0
+    assert float(fields["shoreline_retreat"].sum()) > 0
+    assert float(fields["wave_cut_platform"].sum()) > 0
+    assert float(fields["beach_deposition"].sum()) > 0
+    assert stats["total_shoreline_retreat"] > 0
+    assert stats["total_wave_cut_platform"] > 0
+
+
+def test_aeolian_process_exposes_wind_vectors_and_sand_flux_fields():
+    result = run_geomorphic_engine(
+        GeomorphicEngineParameters(
+            preset_id="barchan",
+            grid_size=32,
+            total_time_years=5_000,
+            save_frames=8,
+            aeolian=1.6,
+            sediment=1.1,
+            diffusion_d=0.012,
+        )
+    )
+    fields = result["process_history"][-1]
+    stats = result["stats_history"][-1]
+
+    for key in ["wind_vector_x", "wind_vector_y", "sand_flux", "stoss_erosion", "lee_deposition"]:
+        assert key in fields
+
+    assert float(fields["wind_vector_y"].mean()) > 0
+    assert float(fields["sand_flux"].sum()) > 0
+    assert float(fields["stoss_erosion"].sum()) > 0
+    assert float(fields["lee_deposition"].sum()) > 0
+    assert stats["total_sand_flux"] > 0
+
+
+def test_volcanic_process_splits_construction_flow_viscosity_and_cooling_fields():
+    result = run_geomorphic_engine(
+        GeomorphicEngineParameters(
+            preset_id="lava_dome",
+            grid_size=32,
+            total_time_years=5_000,
+            save_frames=8,
+            volcanic=1.5,
+            diffusion_d=0.02,
+        )
+    )
+    fields = result["process_history"][-1]
+    stats = result["stats_history"][-1]
+
+    for key in ["volcanic_construction", "lava_flow", "viscosity_resistance", "cooling_limited_spread"]:
+        assert key in fields
+
+    assert float(fields["volcanic_construction"].sum()) > 0
+    assert float(fields["lava_flow"].sum()) > 0
+    assert float(fields["viscosity_resistance"].max()) > 0
+    assert float(fields["cooling_limited_spread"].max()) > 0
+    assert stats["total_lava_flow"] > 0
+
+
+def test_karst_process_exposes_groundwater_solution_drainage_and_collapse_fields():
+    result = run_geomorphic_engine(
+        GeomorphicEngineParameters(
+            preset_id="karst_doline",
+            grid_size=32,
+            total_time_years=5_000,
+            save_frames=8,
+            karst=1.4,
+            groundwater=1.2,
+            sediment=0.5,
+            diffusion_d=0.014,
+        )
+    )
+    fields = result["process_history"][-1]
+    stats = result["stats_history"][-1]
+
+    for key in ["groundwater_flow", "solution_rate", "subsurface_drainage", "collapse_risk"]:
+        assert key in fields
+
+    assert float(fields["groundwater_flow"].sum()) > 0
+    assert float(fields["solution_rate"].sum()) > 0
+    assert float(fields["subsurface_drainage"].sum()) > 0
+    assert float(fields["collapse_risk"].max()) > 0
+    assert stats["total_solution"] > 0
+
+
 def test_lab_routes_representative_landforms_to_common_engine_v2():
     for landform_id in [
         "v_valley",

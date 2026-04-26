@@ -76,6 +76,23 @@ def _empty_process(z: np.ndarray) -> dict[str, np.ndarray]:
         "karst": zero,
         "groundwater": zero,
         "moraine": zero,
+        "wave_energy": zero,
+        "shoreline_retreat": zero,
+        "wave_cut_platform": zero,
+        "beach_deposition": zero,
+        "wind_vector_x": zero,
+        "wind_vector_y": zero,
+        "sand_flux": zero,
+        "stoss_erosion": zero,
+        "lee_deposition": zero,
+        "volcanic_construction": zero,
+        "lava_flow": zero,
+        "viscosity_resistance": zero,
+        "cooling_limited_spread": zero,
+        "groundwater_flow": zero,
+        "solution_rate": zero,
+        "subsurface_drainage": zero,
+        "collapse_risk": zero,
         "ice_thickness": zero,
         "glacial_velocity": zero,
         "fluvial_erosion": zero,
@@ -265,26 +282,85 @@ def _glacial_process(
     return erosion, moraine, thickness, velocity
 
 
+def _marine_process(
+    z: np.ndarray,
+    params: GeomorphicEngineParameters,
+    masks: dict[str, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    if params.marine <= 0.0:
+        zero = np.zeros_like(z)
+        return zero, zero, zero, zero, zero
+    relative_level = np.clip(1.0 - np.abs(z - params.base_level) / 80.0, 0.0, 1.0)
+    wave_energy = params.marine * masks["shore"] * (0.45 + 0.55 * relative_level)
+    shoreline_retreat = params.dt_years * 0.026 * wave_energy
+    wave_cut_platform = params.dt_years * 0.009 * params.marine * masks["platform"] * relative_level
+    beach_deposition = params.dt_years * 0.0045 * params.marine * max(params.sediment, 0.15) * masks["platform"]
+    return shoreline_retreat, wave_cut_platform, beach_deposition, wave_energy, shoreline_retreat
+
+
+def _aeolian_process(
+    z: np.ndarray,
+    params: GeomorphicEngineParameters,
+    masks: dict[str, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    if params.aeolian <= 0.0:
+        zero = np.zeros_like(z)
+        return zero, zero, zero, zero, zero, zero
+    wind_vector_x = np.zeros_like(z)
+    wind_vector_y = np.full_like(z, params.aeolian)
+    sand_flux = params.dt_years * 0.014 * params.aeolian * max(params.sediment, 0.15) * masks["aeolian"]
+    stoss_erosion = sand_flux * masks["stoss"]
+    lee_deposition = params.dt_years * 0.018 * params.aeolian * max(params.sediment, 0.15) * masks["lee"]
+    return sand_flux, stoss_erosion, lee_deposition, wind_vector_x, wind_vector_y, sand_flux
+
+
+def _volcanic_process(
+    z: np.ndarray,
+    params: GeomorphicEngineParameters,
+    masks: dict[str, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    if params.volcanic <= 0.0:
+        zero = np.zeros_like(z)
+        return zero, zero, zero, zero, zero
+    eruption_rate = params.volcanic
+    viscosity_resistance = np.clip(1.0 - params.diffusion_d / 0.06, 0.05, 1.0) * masks["vent"]
+    volcanic_construction = params.dt_years * 0.036 * eruption_rate * masks["vent"]
+    lava_flow = params.dt_years * 0.006 * eruption_rate * (1.0 - viscosity_resistance) * masks["lava_apron"]
+    cooling_limited_spread = lava_flow * np.clip(1.0 - _normalize(np.hypot(*np.gradient(z))), 0.0, 1.0)
+    flank_erosion = params.dt_years * 0.0022 * eruption_rate * masks["flank"]
+    return volcanic_construction, lava_flow, viscosity_resistance, cooling_limited_spread, flank_erosion
+
+
+def _karst_process(
+    z: np.ndarray,
+    params: GeomorphicEngineParameters,
+    masks: dict[str, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    if params.karst <= 0.0 and params.groundwater <= 0.0:
+        zero = np.zeros_like(z)
+        return zero, zero, zero, zero, zero
+    gy, gx = np.gradient(z)
+    groundwater_flow = params.groundwater * masks["groundwater"] * (0.35 + 0.65 * _normalize(np.hypot(gx, gy)))
+    solution_rate = params.dt_years * 0.016 * params.karst * masks["sink"]
+    subsurface_drainage = params.dt_years * 0.006 * groundwater_flow
+    collapse_risk = _normalize(solution_rate + subsurface_drainage) * masks["sink"]
+    sink_fill = params.dt_years * 0.002 * params.sediment * masks["sink"] * np.clip(_grid(z.shape[0])[1] - 0.55, 0.0, 1.0)
+    return solution_rate, subsurface_drainage, groundwater_flow, collapse_risk, sink_fill
+
+
 def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np.ndarray]) -> tuple[np.ndarray, dict[str, np.ndarray], dict[str, float]]:
     fluvial_erosion, fluvial_deposition, transport, drainage, transport_capacity = _fluvial_process(z, params, masks)
     diffusion = params.dt_years * params.diffusion_d * _laplacian(z) * 0.00068
     tectonic = np.full_like(z, params.uplift_rate * params.dt_years)
 
     glacial, moraine, ice_thickness, glacial_velocity = _glacial_process(z, params, masks)
-    marine = params.dt_years * 0.026 * params.marine * masks["shore"]
-    beach = params.dt_years * 0.004 * params.marine * params.sediment * masks["platform"]
-    aeolian = params.dt_years * 0.014 * params.aeolian * masks["aeolian"]
-    dune_erosion = aeolian * masks["stoss"]
-    dune_deposition = params.dt_years * 0.018 * params.aeolian * params.sediment * masks["lee"]
-    volcanic = params.dt_years * 0.036 * params.volcanic * masks["vent"]
-    lava_apron = params.dt_years * 0.006 * params.volcanic * max(params.diffusion_d, 0.001) * 50.0 * masks["lava_apron"]
-    flank_erosion = params.dt_years * 0.0022 * params.volcanic * masks["flank"]
-    karst = params.dt_years * 0.016 * params.karst * masks["sink"]
-    groundwater = params.dt_years * 0.006 * params.groundwater * masks["groundwater"]
-    sink_fill = params.dt_years * 0.002 * params.sediment * masks["sink"] * np.clip(_grid(z.shape[0])[1] - 0.55, 0.0, 1.0)
+    marine, wave_cut_platform, beach, wave_energy, shoreline_retreat = _marine_process(z, params, masks)
+    aeolian, dune_erosion, dune_deposition, wind_vector_x, wind_vector_y, sand_flux = _aeolian_process(z, params, masks)
+    volcanic, lava_apron, viscosity_resistance, cooling_limited_spread, flank_erosion = _volcanic_process(z, params, masks)
+    karst, groundwater, groundwater_flow, collapse_risk, sink_fill = _karst_process(z, params, masks)
 
     erosion = fluvial_erosion + glacial + marine + dune_erosion + flank_erosion + karst + groundwater
-    deposition = fluvial_deposition + moraine + beach + dune_deposition + lava_apron + sink_fill
+    deposition = fluvial_deposition + moraine + beach + dune_deposition + lava_apron + wave_cut_platform + sink_fill
     construction = volcanic
     new_z = z + tectonic + diffusion + construction - erosion + deposition
     new_z = _fixed_boundaries(new_z, params.base_level)
@@ -304,6 +380,23 @@ def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np
             "karst": karst,
             "groundwater": groundwater,
             "moraine": moraine,
+            "wave_energy": wave_energy,
+            "shoreline_retreat": shoreline_retreat,
+            "wave_cut_platform": wave_cut_platform,
+            "beach_deposition": beach,
+            "wind_vector_x": wind_vector_x,
+            "wind_vector_y": wind_vector_y,
+            "sand_flux": sand_flux,
+            "stoss_erosion": dune_erosion,
+            "lee_deposition": dune_deposition,
+            "volcanic_construction": volcanic,
+            "lava_flow": lava_apron,
+            "viscosity_resistance": viscosity_resistance,
+            "cooling_limited_spread": cooling_limited_spread,
+            "groundwater_flow": groundwater_flow,
+            "solution_rate": karst,
+            "subsurface_drainage": groundwater,
+            "collapse_risk": collapse_risk,
             "ice_thickness": ice_thickness,
             "glacial_velocity": glacial_velocity,
             "fluvial_erosion": fluvial_erosion,
@@ -347,6 +440,15 @@ def _stats(z: np.ndarray, params: GeomorphicEngineParameters, fields: dict[str, 
         "total_deposition": float(np.sum(fields["deposition"])),
         "total_fluvial_erosion": float(np.sum(fields["fluvial_erosion"])),
         "total_ice_volume": float(np.sum(fields["ice_thickness"])),
+        "total_shoreline_retreat": float(np.sum(fields["shoreline_retreat"])),
+        "total_wave_cut_platform": float(np.sum(fields["wave_cut_platform"])),
+        "total_sand_flux": float(np.sum(fields["sand_flux"])),
+        "total_stoss_erosion": float(np.sum(fields["stoss_erosion"])),
+        "total_lee_deposition": float(np.sum(fields["lee_deposition"])),
+        "total_lava_flow": float(np.sum(fields["lava_flow"])),
+        "total_volcanic_construction": float(np.sum(fields["volcanic_construction"])),
+        "total_solution": float(np.sum(fields["solution_rate"])),
+        "total_subsurface_drainage": float(np.sum(fields["subsurface_drainage"])),
         "total_transport_capacity": float(np.sum(fields["transport_capacity"])),
         "total_sediment_flux": float(np.sum(fields["transport"])),
         "total_weathering": 0.0,
