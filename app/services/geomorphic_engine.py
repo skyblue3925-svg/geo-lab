@@ -77,6 +77,8 @@ def _empty_process(z: np.ndarray) -> dict[str, np.ndarray]:
         "groundwater": zero,
         "moraine": zero,
         "fluvial_erosion": zero,
+        "drainage_area": zero,
+        "transport_capacity": zero,
         "total_erosion": zero,
     }
 
@@ -116,6 +118,39 @@ def _initial_surface(preset_id: str, grid_size: int, base_level: float) -> np.nd
         surface = downstream_slope + valley_sides - 18.0 * channel
 
     return _fixed_boundaries(surface, base_level)
+
+
+def _drainage_area(z: np.ndarray) -> np.ndarray:
+    rows, cols = z.shape
+    receivers = np.full((rows, cols, 2), -1, dtype=int)
+    for row in range(rows):
+        for col in range(cols):
+            steepest_drop = 0.0
+            receiver = (-1, -1)
+            current = float(z[row, col])
+            for d_row in (-1, 0, 1):
+                for d_col in (-1, 0, 1):
+                    if d_row == 0 and d_col == 0:
+                        continue
+                    n_row = row + d_row
+                    n_col = col + d_col
+                    if n_row < 0 or n_row >= rows or n_col < 0 or n_col >= cols:
+                        continue
+                    distance = float(np.hypot(d_row, d_col))
+                    drop = (current - float(z[n_row, n_col])) / max(distance, 1e-9)
+                    if drop > steepest_drop:
+                        steepest_drop = drop
+                        receiver = (n_row, n_col)
+            receivers[row, col] = receiver
+
+    area = np.ones_like(z, dtype=float)
+    flat_indices = np.argsort(z, axis=None)[::-1]
+    for flat_index in flat_indices:
+        row, col = np.unravel_index(int(flat_index), z.shape)
+        n_row, n_col = receivers[row, col]
+        if n_row >= 0:
+            area[n_row, n_col] += area[row, col]
+    return _normalize(area)
 
 
 def _process_masks(preset_id: str, grid_size: int) -> dict[str, np.ndarray]:
@@ -169,24 +204,44 @@ def _process_masks(preset_id: str, grid_size: int) -> dict[str, np.ndarray]:
     }
 
 
-def _fluvial_process(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _fluvial_process(
+    z: np.ndarray,
+    params: GeomorphicEngineParameters,
+    masks: dict[str, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if params.fluvial <= 0.0 and params.sediment <= 0.0:
         zero = np.zeros_like(z)
-        return zero, zero, zero
+        return zero, zero, zero, zero, zero
     gy, gx = np.gradient(z)
     slope = np.hypot(gx, gy)
     slope_norm = _normalize(slope)
     _x, y = _grid(z.shape[0])
-    area = (0.08 + np.power(np.clip(y, 0.0, 1.0), 1.55)) * (0.28 + 1.45 * masks["channel"])
+    drainage = _drainage_area(z)
+    channel_weight = np.clip(0.65 * drainage + 0.35 * masks["channel"], 0.0, 1.0)
+    area = 0.08 + np.power(channel_weight, 1.35)
     stream_power = 0.00018 * params.fluvial * np.power(area, 0.5) * np.power(slope + 1e-6, 1.0)
-    erosion = params.dt_years * stream_power * (0.22 + 1.55 * masks["channel"])
-    transport = params.sediment * (0.65 * erosion + 0.35 * area * masks["channel"])
-    deposition = params.dt_years * 0.42 * transport * (1.0 - slope_norm) * masks["fluvial_deposition"] * 0.018
-    return erosion, deposition, transport
+    erosion = params.dt_years * stream_power * (0.22 + 1.55 * channel_weight)
+    transport_capacity = params.dt_years * 0.0012 * params.fluvial * np.power(area + 1e-6, 0.7) * np.power(slope + 1e-6, 0.9)
+    sediment_flux = params.sediment * (0.82 * erosion + 0.18 * area * channel_weight)
+    if params.preset_id == "alluvial_fan":
+        erosion *= 0.55
+        sediment_flux *= 1.65
+        transport_capacity *= 0.35
+    elif params.preset_id == "delta":
+        erosion *= 0.25
+        sediment_flux *= 2.5
+        transport_capacity *= 0.18
+    elif params.preset_id == "v_valley":
+        sediment_flux *= 0.65
+    low_energy_excess = np.maximum(sediment_flux - transport_capacity, 0.0)
+    depositional_window = np.clip(0.5 * masks["fluvial_deposition"] + 0.5 * y, 0.0, 1.0)
+    deposition = 0.55 * low_energy_excess * (1.0 - slope_norm) * depositional_window
+    deposition = np.minimum(deposition, sediment_flux)
+    return erosion, deposition, sediment_flux, drainage, transport_capacity
 
 
 def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np.ndarray]) -> tuple[np.ndarray, dict[str, np.ndarray], dict[str, float]]:
-    fluvial_erosion, fluvial_deposition, transport = _fluvial_process(z, params, masks)
+    fluvial_erosion, fluvial_deposition, transport, drainage, transport_capacity = _fluvial_process(z, params, masks)
     diffusion = params.dt_years * params.diffusion_d * _laplacian(z) * 0.00068
     tectonic = np.full_like(z, params.uplift_rate * params.dt_years)
 
@@ -199,7 +254,7 @@ def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np
     dune_deposition = params.dt_years * 0.018 * params.aeolian * params.sediment * masks["lee"]
     volcanic = params.dt_years * 0.036 * params.volcanic * masks["vent"]
     lava_apron = params.dt_years * 0.006 * params.volcanic * max(params.diffusion_d, 0.001) * 50.0 * masks["lava_apron"]
-    flank_erosion = params.dt_years * 0.003 * params.volcanic * masks["flank"]
+    flank_erosion = params.dt_years * 0.0022 * params.volcanic * masks["flank"]
     karst = params.dt_years * 0.016 * params.karst * masks["sink"]
     groundwater = params.dt_years * 0.006 * params.groundwater * masks["groundwater"]
     sink_fill = params.dt_years * 0.002 * params.sediment * masks["sink"] * np.clip(_grid(z.shape[0])[1] - 0.55, 0.0, 1.0)
@@ -226,6 +281,8 @@ def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np
             "groundwater": groundwater,
             "moraine": moraine,
             "fluvial_erosion": fluvial_erosion,
+            "drainage_area": drainage,
+            "transport_capacity": transport_capacity,
             "total_erosion": erosion,
         }
     )
@@ -260,6 +317,9 @@ def _stats(z: np.ndarray, params: GeomorphicEngineParameters, fields: dict[str, 
         "mean_soil_depth": float(np.mean(np.maximum(z - params.base_level, 0.0)) * 0.016),
         "total_erosion": float(np.sum(fields["total_erosion"])),
         "total_deposition": float(np.sum(fields["deposition"])),
+        "total_fluvial_erosion": float(np.sum(fields["fluvial_erosion"])),
+        "total_transport_capacity": float(np.sum(fields["transport_capacity"])),
+        "total_sediment_flux": float(np.sum(fields["transport"])),
         "total_weathering": 0.0,
         "total_uplift": float(np.sum(np.maximum(tectonic, 0.0))),
         "total_folding": 0.0,

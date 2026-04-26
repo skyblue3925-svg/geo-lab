@@ -233,7 +233,7 @@ def _scenario_engine_parameters(
         process.update(fluvial=0.55 + primary * 0.55, sediment=0.85 + primary * 0.75 + support * 0.45)
         uplift_rate *= 0.45
     elif scenario.landform_id == "delta":
-        process.update(fluvial=0.45 + primary * 0.45, sediment=0.9 + primary * 0.85 + support * 0.35, marine=0.08)
+        process.update(fluvial=0.45 + primary * 0.45, sediment=1.1 + primary * 0.9 + support * 0.45, marine=0.02)
         uplift_rate *= 0.3
         base_level = _map_range(secondary, -2.0, 8.0)
     elif scenario.landform_id == "u_valley":

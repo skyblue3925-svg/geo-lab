@@ -20,6 +20,8 @@ def test_common_engine_returns_shared_contract():
     assert len(result["history"]) >= 2
     assert result["history"][-1].shape == (32, 32)
     assert "total_erosion" in result["process_history"][-1]
+    assert "drainage_area" in result["process_history"][-1]
+    assert "transport_capacity" in result["process_history"][-1]
     assert "mean_erosion_rate" in result["stats_history"][-1]
 
 
@@ -42,6 +44,29 @@ def test_common_engine_combines_internal_and_external_processes():
     assert stats["mean_marine"] > 0
     assert stats["mean_diffusion"] > 0
     assert stats["mean_uniform_uplift"] > 0
+
+
+def test_fluvial_area_responds_to_dem_and_deposition_is_flux_limited():
+    result = run_geomorphic_engine(
+        GeomorphicEngineParameters(
+            preset_id="v_valley",
+            grid_size=32,
+            total_time_years=5_000,
+            save_frames=8,
+            fluvial=1.6,
+            sediment=1.2,
+            uplift_rate=0.0002,
+            diffusion_d=0.016,
+        )
+    )
+    fields = result["process_history"][-1]
+    drainage = fields["drainage_area"]
+    deposition = fields["deposition"]
+    transport = fields["transport"]
+
+    assert float(drainage.max()) > float(drainage.mean())
+    assert float(drainage[-6:, :].mean()) > float(drainage[:6, :].mean())
+    assert float(deposition.sum()) <= float(transport.sum()) + 1e-9
 
 
 def test_lab_routes_representative_landforms_to_common_engine_v2():
