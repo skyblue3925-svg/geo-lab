@@ -19,7 +19,7 @@ from app.services.terrain_physics_lab import (
     list_physics_lab_scenarios,
     run_physics_lab_simulation,
 )
-from app.services.morphometric_metrics import metric_cards
+from app.services.morphometric_metrics import metric_cards, validation_cards
 
 
 def surface_figure(surface: np.ndarray, title: str) -> go.Figure:
@@ -142,6 +142,20 @@ if metrics.get("diagnosis"):
 metric_cols = st.columns(4)
 for col, (label, value, help_text) in zip(metric_cols, metric_cards(metrics), strict=False):
     col.metric(label, value, help=help_text)
+
+with st.expander("모델 검증 지표", expanded=True):
+    st.caption(
+        "이 지표는 결과가 해당 지형의 전형적 형성 방향과 맞는지 빠르게 점검하기 위한 v1 진단값입니다. "
+        "실측 DEM 보정값은 아니며, 수업·프로토타입 단계의 비교 기준으로 사용합니다."
+    )
+    validation_rows = [
+        {"지표": label, "값": value, "해석": help_text}
+        for label, value, help_text in validation_cards(selected_id, metrics)
+    ]
+    if validation_rows:
+        st.dataframe(validation_rows, hide_index=True)
+    else:
+        st.write("이 지형의 전용 검증 지표는 아직 준비 중입니다.")
 
 view_col, note_col = st.columns([1.35, 0.85])
 with view_col:

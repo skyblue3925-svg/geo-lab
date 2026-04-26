@@ -60,6 +60,87 @@ def _radial_concentration(field: np.ndarray, radius: float) -> float:
     return float(np.sum(magnitude[r <= radius]) / total)
 
 
+def _weighted_lateral_spread(field: np.ndarray, row_start_fraction: float) -> float:
+    magnitude = np.maximum(np.asarray(field, dtype=float), 0.0)
+    rows, cols = magnitude.shape
+    start = int(rows * row_start_fraction)
+    window = magnitude[start:, :]
+    total = float(np.sum(window))
+    if total <= 0.0:
+        return 0.0
+    x = np.linspace(-1.0, 1.0, cols)
+    weights = np.sum(window, axis=0)
+    mean = float(np.sum(weights * x) / total)
+    variance = float(np.sum(weights * np.square(x - mean)) / total)
+    return float(np.clip(np.sqrt(max(variance, 0.0)), 0.0, 1.0))
+
+
+def _cross_section_profile(surface: np.ndarray) -> np.ndarray:
+    rows = surface.shape[0]
+    start = int(rows * 0.38)
+    end = max(int(rows * 0.62), start + 1)
+    return np.mean(surface[start:end, :], axis=0)
+
+
+def _valley_depth_index(surface: np.ndarray) -> float:
+    profile = _cross_section_profile(surface)
+    cols = profile.shape[0]
+    width = max(cols // 10, 1)
+    center = cols // 2
+    center_mean = float(np.mean(profile[center - width : center + width + 1]))
+    side_width = max(cols // 5, 1)
+    side_mean = float(np.mean(np.concatenate([profile[:side_width], profile[-side_width:]])))
+    relief = max(float(np.max(surface) - np.min(surface)), 1e-9)
+    return float(np.clip((side_mean - center_mean) / relief, 0.0, 1.0))
+
+
+def _u_floor_width_index(surface: np.ndarray) -> float:
+    profile = _cross_section_profile(surface)
+    span = max(float(np.max(profile) - np.min(profile)), 1e-9)
+    low_floor = profile <= float(np.min(profile)) + span * 0.22
+    cols = profile.shape[0]
+    center = cols // 2
+    central_band = low_floor[max(center - cols // 4, 0) : min(center + cols // 4 + 1, cols)]
+    return float(np.mean(central_band))
+
+
+def _shoreline_gradient_index(surface: np.ndarray) -> float:
+    _gy, gx = np.gradient(surface)
+    cols = surface.shape[1]
+    start = int(cols * 0.58)
+    end = max(int(cols * 0.76), start + 1)
+    shore_grad = float(np.mean(np.abs(gx[:, start:end])))
+    total_grad = float(np.mean(np.abs(gx))) + 1e-9
+    return float(np.clip(shore_grad / total_grad, 0.0, 5.0))
+
+
+def _radial_symmetry_index(surface: np.ndarray) -> float:
+    rows, cols = surface.shape
+    y, x = np.indices(surface.shape, dtype=float)
+    r = np.hypot((x / max(cols - 1, 1)) - 0.5, (y / max(rows - 1, 1)) - 0.5)
+    bins = np.linspace(0.0, 0.55, 9)
+    penalties: list[float] = []
+    for low, high in zip(bins[:-1], bins[1:], strict=False):
+        mask = (r >= low) & (r < high)
+        if np.count_nonzero(mask) < 4:
+            continue
+        values = surface[mask]
+        penalties.append(float(np.std(values) / (abs(float(np.mean(values))) + 1e-9)))
+    if not penalties:
+        return 0.0
+    return float(np.clip(1.0 / (1.0 + float(np.mean(penalties))), 0.0, 1.0))
+
+
+def _central_depression_index(surface: np.ndarray) -> float:
+    rows, cols = surface.shape
+    y, x = np.indices(surface.shape, dtype=float)
+    r = np.hypot((x / max(cols - 1, 1)) - 0.5, (y / max(rows - 1, 1)) - 0.5)
+    center = float(np.mean(surface[r <= 0.16]))
+    rim = float(np.mean(surface[(r >= 0.24) & (r <= 0.38)]))
+    relief = max(float(np.max(surface) - np.min(surface)), 1e-9)
+    return float(np.clip((rim - center) / relief, 0.0, 1.0))
+
+
 def compute_morphometric_metrics(
     landform_id: str,
     history: list[np.ndarray],
@@ -105,6 +186,14 @@ def compute_morphometric_metrics(
         "dune_transport_focus": _lower_half_fraction(aeolian),
         "volcanic_core_focus": _radial_concentration(volcanic, 0.18),
         "karst_sink_focus": _radial_concentration(karst + groundwater, 0.24),
+        "valley_depth_index": _valley_depth_index(final),
+        "u_floor_width_index": _u_floor_width_index(final),
+        "fan_lateral_spread_index": _weighted_lateral_spread(deposition, 0.32),
+        "delta_front_spread_index": _weighted_lateral_spread(deposition, 0.55),
+        "shoreline_gradient_index": _shoreline_gradient_index(final),
+        "dune_migration_index": _safe_ratio(float(np.sum(np.maximum(deposition, 0.0))), float(np.sum(np.maximum(erosion, 0.0)))),
+        "dome_symmetry_index": _radial_symmetry_index(final),
+        "closed_depression_index": _central_depression_index(final),
     }
 
     metrics["diagnosis"] = diagnose_metrics(landform_id, metrics)
@@ -157,3 +246,51 @@ def metric_cards(metrics: dict[str, float | str]) -> tuple[tuple[str, str, str],
         ("중심축 집중", f"{float(metrics.get('centerline_process_focus', 0.0)) * 100:.0f}%", "계곡·빙하 축 작용 비율"),
         ("활성 면적", f"{float(metrics.get('active_area_ratio', 0.0)) * 100:.0f}%", "강한 변화가 나타난 면적"),
     )
+
+
+def validation_cards(landform_id: str, metrics: dict[str, float | str]) -> tuple[tuple[str, str, str], ...]:
+    def pct(key: str) -> str:
+        return f"{float(metrics.get(key, 0.0)) * 100:.0f}%"
+
+    def ratio(key: str) -> str:
+        return f"{float(metrics.get(key, 0.0)):.2f}"
+
+    common = (
+        ("기복", f"{float(metrics.get('relief', 0.0)):.1f}", "최종 표면의 최고점-최저점 차이"),
+        ("활성 면적", pct("active_area_ratio"), "강한 변화가 실제로 일어난 영역 비율"),
+    )
+    per_landform: dict[str, tuple[tuple[str, str, str], ...]] = {
+        "v_valley": (
+            ("V자 절개도", pct("valley_depth_index"), "계곡 양쪽 사면 대비 중심부가 얼마나 깊게 깎였는지"),
+            ("중심 침식 집중", pct("centerline_process_focus"), "하천 작용이 계곡 축에 모인 정도"),
+        ),
+        "alluvial_fan": (
+            ("선상 확산도", pct("fan_lateral_spread_index"), "출구부 퇴적물이 좌우로 퍼진 정도"),
+            ("하류 퇴적 집중", pct("downstream_deposition_focus"), "말단부 퇴적 비율"),
+        ),
+        "delta": (
+            ("전면 확장도", pct("delta_front_spread_index"), "하구 전면 퇴적체가 좌우로 성장한 정도"),
+            ("퇴적/침식 비", ratio("deposition_erosion_ratio"), "1보다 크면 퇴적 우세"),
+        ),
+        "u_valley": (
+            ("U자 바닥 폭", pct("u_floor_width_index"), "낮고 넓은 계곡 바닥이 형성된 정도"),
+            ("빙하 축 집중", pct("centerline_process_focus"), "빙하 침식이 계곡 축에 모인 정도"),
+        ),
+        "coastal_cliff": (
+            ("해안 급경사 지수", ratio("shoreline_gradient_index"), "해안선 부근 경사가 전체보다 얼마나 큰지"),
+            ("파랑 집중", pct("shoreline_process_focus"), "파랑 침식이 해안선에 모인 정도"),
+        ),
+        "barchan": (
+            ("사구 이동성", ratio("dune_migration_index"), "풍하측 퇴적과 풍상측 침식의 균형"),
+            ("풍하 집중", pct("dune_transport_focus"), "바람 작용이 진행 방향으로 집중된 정도"),
+        ),
+        "lava_dome": (
+            ("돔 대칭성", pct("dome_symmetry_index"), "중앙 분출 지형이 방사상으로 균형적인 정도"),
+            ("분출 중심성", pct("volcanic_core_focus"), "성장이 중앙 분출구에 집중된 정도"),
+        ),
+        "karst_doline": (
+            ("폐쇄 와지 깊이", pct("closed_depression_index"), "주변부 대비 중앙부가 낮아진 정도"),
+            ("용식 집중", pct("karst_sink_focus"), "용식·지하수 작용이 중심부에 모인 정도"),
+        ),
+    }
+    return per_landform.get(landform_id, ()) + common
