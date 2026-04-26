@@ -7,6 +7,10 @@ Geo-Lab Lab page.
 지형 형성 과정을 직접 조절하며 변화 방향을 읽는 실험실 화면입니다.
 """
 import streamlit as st
+
+# Page config must be the first Streamlit command on the page.
+st.set_page_config(page_title="🧪 Lab", page_icon="🧪", layout="wide")
+
 import streamlit.components.v1 as components
 import numpy as np
 import sys
@@ -77,9 +81,6 @@ try:
     LEM_EXTENSIONS = True
 except ImportError:
     LEM_EXTENSIONS = False
-
-# ========== Page Config ==========
-st.set_page_config(page_title="🧪 Lab", page_icon="🧪", layout="wide")
 
 # ========== CSS ?? ==========
 def load_css():
