@@ -77,6 +77,33 @@ st.set_page_config(
 
 render_beta_sidebar("gif_gallery")
 
+st.markdown(
+    """
+    <style>
+      @media (max-width: 640px) {
+        [data-testid="stMetric"] {
+          padding: 0.65rem !important;
+        }
+
+        [data-testid="stVerticalBlock"] h3 {
+          font-size: 1.05rem !important;
+          margin-top: 0.7rem !important;
+        }
+
+        .gif-gallery-tag {
+          font-size: 0.72rem !important;
+        }
+
+        .stButton > button {
+          min-height: 2.7rem !important;
+          width: 100% !important;
+        }
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.markdown("## GIF 갤러리")
 st.caption("지형 형성 이미지 시퀀스를 가볍게 훑어보고, 필요한 지형만 GIF로 재생합니다.")
 
@@ -139,7 +166,7 @@ if query.strip():
 st.caption(f"{len(filtered_assets)}개 표시")
 st.info("기본 화면은 정지 썸네일입니다. 재생 버튼을 누른 카드만 GIF로 바뀌어 브라우저 부하를 줄입니다.")
 
-per_page = st.selectbox("페이지당", [12, 16, 24, 56], index=0)
+per_page = st.selectbox("페이지당", [4, 8, 12, 16, 24, 56], index=0)
 page_count = max((len(filtered_assets) + per_page - 1) // per_page, 1)
 page_number = st.number_input("페이지", min_value=1, max_value=page_count, value=1, step=1)
 start = (int(page_number) - 1) * per_page
