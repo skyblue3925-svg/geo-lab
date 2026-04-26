@@ -19,7 +19,7 @@ from app.services.terrain_physics_lab import (
     list_physics_lab_scenarios,
     run_physics_lab_simulation,
 )
-from app.services.morphometric_metrics import metric_cards, validation_cards
+from app.services.morphometric_metrics import metric_cards, process_field_cards, validation_cards
 
 
 def surface_figure(surface: np.ndarray, title: str) -> go.Figure:
@@ -186,6 +186,20 @@ with note_col:
         - 지표 진단: `{metrics.get('diagnosis', '계산 중')}`
         """
     )
+
+process_fields = result["process_history"][frame_index]
+with st.expander("작용장 상세", expanded=False):
+    st.caption(
+        "공통 엔진이 계산한 세부 물리장입니다. 값은 서로 다른 단위의 상대 지표이므로 같은 행 안에서 조건 비교용으로 읽습니다."
+    )
+    process_rows = [
+        {"작용장": label, "값": value, "해석": help_text}
+        for label, value, help_text in process_field_cards(process_fields)
+    ]
+    if process_rows:
+        st.dataframe(process_rows, hide_index=True)
+    else:
+        st.write("현재 프레임에서 강하게 활성화된 세부 작용장이 없습니다.")
 
 st.markdown("### 변화량 지도")
 st.caption("붉은 영역은 상대적 상승·퇴적, 푸른 영역은 상대적 하강·침식이 강한 곳입니다.")

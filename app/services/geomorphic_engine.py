@@ -228,7 +228,7 @@ def _fluvial_process(
     params: GeomorphicEngineParameters,
     masks: dict[str, np.ndarray],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    if params.fluvial <= 0.0 and params.sediment <= 0.0:
+    if params.fluvial <= 0.0:
         zero = np.zeros_like(z)
         return zero, zero, zero, zero, zero
     gy, gx = np.gradient(z)

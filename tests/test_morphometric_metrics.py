@@ -1,4 +1,4 @@
-from app.services.morphometric_metrics import metric_cards, validation_cards
+from app.services.morphometric_metrics import metric_cards, process_field_cards, validation_cards
 from app.services.terrain_physics_lab import run_physics_lab_simulation
 
 
@@ -51,3 +51,28 @@ def test_landform_specific_validation_metrics_are_present():
         for key in keys:
             assert key in metrics
             assert float(metrics[key]) >= 0.0
+
+
+def test_process_field_cards_expose_active_engine_fields_for_lab_ui():
+    expectations = {
+        "coastal_cliff": "파랑 에너지",
+        "barchan": "모래 이동량",
+        "lava_dome": "용암 흐름",
+        "karst_doline": "용식률",
+        "u_valley": "빙하 두께",
+    }
+
+    for landform_id, expected_label in expectations.items():
+        result = run_physics_lab_simulation(landform_id, 60, 55, 35, 35, 5_000, 32)
+        cards = process_field_cards(result["process_history"][-1])
+
+        assert any(card[0] == expected_label for card in cards)
+        assert all(float(card[1]) >= 0.0 for card in cards)
+
+
+def test_process_field_cards_do_not_show_fluvial_area_for_non_fluvial_presets():
+    for landform_id in ["barchan", "lava_dome", "karst_doline", "u_valley"]:
+        result = run_physics_lab_simulation(landform_id, 60, 55, 35, 35, 5_000, 32)
+        labels = [card[0] for card in process_field_cards(result["process_history"][-1])]
+
+        assert "집수면적" not in labels

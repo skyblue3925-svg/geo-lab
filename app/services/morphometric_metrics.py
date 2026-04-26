@@ -248,6 +248,42 @@ def metric_cards(metrics: dict[str, float | str]) -> tuple[tuple[str, str, str],
     )
 
 
+def process_field_cards(process_fields: dict[str, Any]) -> tuple[tuple[str, str, str], ...]:
+    field_specs = (
+        ("drainage_area", "집수면적", "DEM 경사로 누적한 물 흐름 집중도", "max"),
+        ("transport_capacity", "하천 운반능력", "하천이 퇴적물을 더 운반할 수 있는 정도", "sum"),
+        ("wave_energy", "파랑 에너지", "해수면 부근에 집중되는 파랑 작용", "sum"),
+        ("shoreline_retreat", "해안선 후퇴", "파랑 침식으로 깎인 해안선 후퇴량", "sum"),
+        ("wave_cut_platform", "파식대 평탄화", "해수면 근처에서 평탄화되는 파식대 작용", "sum"),
+        ("beach_deposition", "해빈 퇴적", "파랑 에너지 저하 구간의 퇴적", "sum"),
+        ("ice_thickness", "빙하 두께", "빙하가 축적된 두께장", "max"),
+        ("glacial_velocity", "빙하 속도", "두께와 경사로 계산한 상대 속도", "max"),
+        ("sand_flux", "모래 이동량", "바람에 의해 이동하는 모래 flux", "sum"),
+        ("stoss_erosion", "풍상면 침식", "바람을 맞는 사면에서 깎인 양", "sum"),
+        ("lee_deposition", "풍하면 퇴적", "바람 그늘 쪽에 쌓인 양", "sum"),
+        ("volcanic_construction", "화산체 성장", "분출구 중심의 내적 성장량", "sum"),
+        ("lava_flow", "용암 흐름", "점성과 확산에 따라 주변으로 흐른 용암", "sum"),
+        ("viscosity_resistance", "점성 저항", "용암 확산을 억제하는 상대 저항", "max"),
+        ("cooling_limited_spread", "냉각 제한 확산", "냉각과 경사에 의해 제한된 용암 확산", "sum"),
+        ("groundwater_flow", "지하수 흐름", "용식이 집중되는 지하수 흐름장", "sum"),
+        ("solution_rate", "용식률", "석회암 용식에 의한 표면 저하량", "sum"),
+        ("subsurface_drainage", "지하 배수", "지하 배수에 따른 침식·용식 작용", "sum"),
+        ("collapse_risk", "붕괴 가능성", "용식과 지하 배수가 겹친 폐쇄 와지 위험도", "max"),
+    )
+    cards: list[tuple[str, str, str]] = []
+    for key, label, help_text, reducer in field_specs:
+        value = process_fields.get(key)
+        if value is None:
+            continue
+        array = np.nan_to_num(np.asarray(value, dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+        magnitude = np.abs(array)
+        if float(np.max(magnitude)) <= 1e-12:
+            continue
+        score = float(np.max(magnitude) if reducer == "max" else np.sum(magnitude))
+        cards.append((label, f"{score:.2f}", help_text))
+    return tuple(cards)
+
+
 def validation_cards(landform_id: str, metrics: dict[str, float | str]) -> tuple[tuple[str, str, str], ...]:
     def pct(key: str) -> str:
         return f"{float(metrics.get(key, 0.0)) * 100:.0f}%"
