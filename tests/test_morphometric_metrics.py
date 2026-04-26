@@ -1,4 +1,10 @@
-from app.services.morphometric_metrics import metric_cards, process_field_cards, validation_cards
+from app.services.morphometric_metrics import (
+    metric_cards,
+    normalize_process_field,
+    process_field_cards,
+    process_field_options,
+    validation_cards,
+)
 from app.services.terrain_physics_lab import run_physics_lab_simulation
 
 
@@ -76,3 +82,17 @@ def test_process_field_cards_do_not_show_fluvial_area_for_non_fluvial_presets():
         labels = [card[0] for card in process_field_cards(result["process_history"][-1])]
 
         assert "집수면적" not in labels
+
+
+def test_process_field_options_and_normalized_overlay_support_lab_heatmap():
+    result = run_physics_lab_simulation("coastal_cliff", 60, 55, 35, 35, 5_000, 32)
+    fields = result["process_history"][-1]
+    options = process_field_options(fields)
+
+    assert ("wave_energy", "파랑 에너지") in options
+
+    overlay = normalize_process_field(fields, "wave_energy")
+    assert overlay.shape == result["history"][-1].shape
+    assert float(overlay.max()) <= 1.0
+    assert float(overlay.min()) >= 0.0
+    assert float(overlay.max()) > 0.0

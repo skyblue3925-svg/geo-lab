@@ -19,7 +19,13 @@ from app.services.terrain_physics_lab import (
     list_physics_lab_scenarios,
     run_physics_lab_simulation,
 )
-from app.services.morphometric_metrics import metric_cards, process_field_cards, validation_cards
+from app.services.morphometric_metrics import (
+    metric_cards,
+    normalize_process_field,
+    process_field_cards,
+    process_field_options,
+    validation_cards,
+)
 
 
 def surface_figure(surface: np.ndarray, title: str) -> go.Figure:
@@ -66,6 +72,28 @@ def heatmap_figure(change: np.ndarray) -> go.Figure:
     figure.update_layout(
         height=420,
         margin=dict(l=0, r=0, t=28, b=0),
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False, scaleanchor="x"),
+    )
+    return figure
+
+
+def process_heatmap_figure(field: np.ndarray, title: str) -> go.Figure:
+    figure = go.Figure(
+        data=[
+            go.Heatmap(
+                z=field,
+                colorscale="Viridis",
+                zmin=0,
+                zmax=1,
+                colorbar=dict(title="상대 강도"),
+            )
+        ]
+    )
+    figure.update_layout(
+        title=title,
+        height=420,
+        margin=dict(l=0, r=0, t=42, b=0),
         xaxis=dict(visible=False),
         yaxis=dict(visible=False, scaleanchor="x"),
     )
@@ -200,6 +228,18 @@ with st.expander("작용장 상세", expanded=False):
         st.dataframe(process_rows, hide_index=True)
     else:
         st.write("현재 프레임에서 강하게 활성화된 세부 작용장이 없습니다.")
+
+    options = process_field_options(process_fields)
+    if options:
+        labels = [label for _key, label in options]
+        selected_overlay_label = st.selectbox("지도에 표시할 작용장", labels, index=0)
+        selected_overlay_key = dict((label, key) for key, label in options)[selected_overlay_label]
+        overlay = normalize_process_field(process_fields, selected_overlay_key)
+        st.plotly_chart(
+            process_heatmap_figure(overlay, f"{selected_overlay_label} 분포"),
+            width="stretch",
+            config={"displayModeBar": False},
+        )
 
 st.markdown("### 변화량 지도")
 st.caption("붉은 영역은 상대적 상승·퇴적, 푸른 영역은 상대적 하강·침식이 강한 곳입니다.")
