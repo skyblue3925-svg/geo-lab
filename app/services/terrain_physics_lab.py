@@ -14,6 +14,10 @@ from app.utils.lab_model import (
     format_process_summary,
 )
 from app.services.river_morphology_kernel import RiverKernelParameters, run_river_morphology_model
+from app.services.geomorphic_process_kernels import (
+    ProcessKernelParameters,
+    run_process_morphology_model,
+)
 
 
 @dataclass(frozen=True)
@@ -143,6 +147,56 @@ def _run_river_kernel_scenario(
     }
 
 
+def _run_process_kernel_scenario(
+    scenario: PhysicsLabScenario,
+    *,
+    force: int,
+    secondary: int,
+    uplift: int,
+    diffusion: int,
+    total_time: int,
+    grid_size: int,
+) -> dict[str, Any]:
+    params = ProcessKernelParameters(
+        landform_id=scenario.landform_id,
+        grid_size=grid_size,
+        total_time_years=total_time,
+        force_scale=_map_range(force, 0.45, 2.35),
+        secondary_scale=_map_range(secondary, 0.45, 2.0),
+        uplift_rate=_map_range(uplift, -0.00008, 0.00038),
+        diffusion_d=_map_range(diffusion, 0.004, 0.052),
+        base_level=0.0,
+    )
+    raw = run_process_morphology_model(params)
+    history = [_normalize_surface(frame) for frame in raw["history"]]
+    stats_history = list(raw["stats_history"])
+    process_history = list(raw["process_history"])
+    stage_history = build_lab_stage_history(scenario.model_label, stats_history, process_history)
+    final_stage = describe_lab_process_stage(
+        scenario.model_label,
+        1.0,
+        stats_history[-1] if stats_history else None,
+        process_fields=process_history[-1] if process_history else None,
+    )
+    return {
+        "scenario": scenario,
+        "config": params,
+        "history": history,
+        "times": list(raw["times"]),
+        "stats_history": stats_history,
+        "process_history": process_history,
+        "stage_history": stage_history,
+        "final_stage": final_stage,
+        "change": _change_summary(history[0], history[-1]),
+        "dominant_process": format_process_summary(stats_history[-1] if stats_history else None),
+        "kernel": raw["kernel"],
+        "kernel_notes": (
+            "계열별 물리 작용장을 직접 계산하는 process kernel v1입니다. "
+            "각 프레임은 표면고도, 침식·퇴적·운반·구조 작용장을 함께 반환합니다."
+        ),
+    }
+
+
 def _apply_user_factors(
     lem: Any,
     scenario: PhysicsLabScenario,
@@ -194,6 +248,16 @@ def run_physics_lab_simulation(
     scenario = get_physics_lab_scenario(landform_id)
     if scenario.landform_id in {"v_valley", "alluvial_fan", "delta"}:
         return _run_river_kernel_scenario(
+            scenario,
+            force=force,
+            secondary=secondary,
+            uplift=uplift,
+            diffusion=diffusion,
+            total_time=total_time,
+            grid_size=grid_size,
+        )
+    if scenario.landform_id in {"u_valley", "coastal_cliff", "barchan", "lava_dome", "karst_doline"}:
+        return _run_process_kernel_scenario(
             scenario,
             force=force,
             secondary=secondary,
