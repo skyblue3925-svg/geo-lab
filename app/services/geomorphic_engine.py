@@ -31,11 +31,16 @@ class GeomorphicEngineParameters:
     wind_speed: float | None = None
     sand_supply: float | None = None
     eruption_rate: float | None = None
+    explosion_energy: float = 0.0
+    magma_water_contact: float = 0.0
+    pyroclastic_supply: float = 0.0
     viscosity: float | None = None
     lava_spread: float = 1.0
     cooling_rate: float = 1.0
     rock_solubility: float = 1.0
     water_supply: float | None = None
+    fracture_density: float = 1.0
+    seasonal_flooding: float = 0.0
 
 
 def _grid(grid_size: int) -> tuple[np.ndarray, np.ndarray]:
@@ -106,12 +111,22 @@ def _empty_process(z: np.ndarray) -> dict[str, np.ndarray]:
         "dune_migration": zero,
         "volcanic_construction": zero,
         "lava_flow": zero,
+        "explosion_energy": zero,
+        "ejecta_deposition": zero,
+        "crater_excavation": zero,
+        "pyroclastic_cone_growth": zero,
+        "magma_water_contact": zero,
         "viscosity_resistance": zero,
         "cooling_limited_spread": zero,
         "groundwater_flow": zero,
         "solution_rate": zero,
         "subsurface_drainage": zero,
         "collapse_risk": zero,
+        "fracture_density": zero,
+        "sinkhole_density": zero,
+        "ponor_drainage": zero,
+        "seasonal_flooding": zero,
+        "polje_floor_aggradation": zero,
         "ice_thickness": zero,
         "glacial_velocity": zero,
         "fluvial_erosion": zero,
@@ -149,9 +164,24 @@ def _initial_surface(preset_id: str, grid_size: int, base_level: float) -> np.nd
     elif preset_id == "lava_dome":
         r = np.hypot(x - 0.5, y - 0.5)
         surface = base_level + 105.0 * np.exp(-((r / 0.22) ** 2)) + 8.0 * (1.0 - y)
+    elif preset_id == "cinder_cone":
+        r = np.hypot(x - 0.5, y - 0.5)
+        cone = 82.0 * np.clip(1.0 - r / 0.36, 0.0, 1.0)
+        crater = 22.0 * np.exp(-((r / 0.085) ** 2))
+        surface = base_level + cone - crater + 4.0 * (1.0 - y)
+    elif preset_id == "maar":
+        r = np.hypot(x - 0.5, y - 0.5)
+        rim = 26.0 * np.exp(-((r - 0.23) / 0.055) ** 2)
+        crater = 34.0 * np.exp(-((r / 0.20) ** 2))
+        surface = base_level + 28.0 + rim - crater
     elif preset_id == "karst_doline":
         upland = 42.0 + 10.0 * np.sin(2.5 * np.pi * x) * np.sin(2.0 * np.pi * y)
         surface = upland - 24.0 * np.exp(-(((x - 0.5) / 0.18) ** 2 + ((y - 0.5) / 0.16) ** 2))
+    elif preset_id == "polje":
+        floor = 26.0 + 3.0 * np.sin(1.5 * np.pi * x)
+        rim = 30.0 * np.clip(np.hypot(x - 0.5, y - 0.5) - 0.28, 0.0, 1.0)
+        basin = 11.0 * np.exp(-(((x - 0.5) / 0.34) ** 4 + ((y - 0.52) / 0.18) ** 4))
+        surface = floor + rim - basin
     else:
         surface = downstream_slope + valley_sides - 18.0 * channel
 
@@ -212,9 +242,13 @@ def _process_masks(preset_id: str, grid_size: int) -> dict[str, np.ndarray]:
     lee = np.exp(-(((x - 0.5) / 0.22) ** 2 + ((y - 0.68) / 0.12) ** 2))
     stoss = np.exp(-(((x - 0.5) / 0.22) ** 2 + ((y - 0.35) / 0.16) ** 2))
     vent = np.exp(-((r / 0.12) ** 2))
+    crater = np.exp(-((r / 0.15) ** 2))
+    ejecta_ring = np.exp(-((r - 0.24) / 0.07) ** 2)
     lava_apron = np.exp(-((r / 0.34) ** 2)) * (1.0 - vent)
     sink = np.exp(-(((x - 0.5) / 0.21) ** 2 + ((y - 0.5) / 0.18) ** 2))
     groundwater = sink * np.exp(-((y - 0.56) / 0.28) ** 2)
+    polje_floor = np.exp(-(((x - 0.5) / 0.38) ** 4 + ((y - 0.52) / 0.20) ** 4))
+    ponor = polje_floor * np.exp(-(((x - 0.62) / 0.08) ** 2 + ((y - 0.56) / 0.10) ** 2))
 
     fluvial_deposition = centerline * lower
     if preset_id == "alluvial_fan":
@@ -235,10 +269,14 @@ def _process_masks(preset_id: str, grid_size: int) -> dict[str, np.ndarray]:
         "lee": np.clip(lee, 0.0, 1.0),
         "stoss": np.clip(stoss, 0.0, 1.0),
         "vent": np.clip(vent, 0.0, 1.0),
+        "crater": np.clip(crater, 0.0, 1.0),
+        "ejecta_ring": np.clip(ejecta_ring, 0.0, 1.0),
         "lava_apron": np.clip(lava_apron, 0.0, 1.0),
         "flank": np.clip(_normalize(r), 0.0, 1.0),
         "sink": np.clip(sink, 0.0, 1.0),
         "groundwater": np.clip(groundwater, 0.0, 1.0),
+        "polje_floor": np.clip(polje_floor, 0.0, 1.0),
+        "ponor": np.clip(ponor, 0.0, 1.0),
     }
 
 
@@ -406,11 +444,14 @@ def _volcanic_process(
     z: np.ndarray,
     params: GeomorphicEngineParameters,
     masks: dict[str, np.ndarray],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if params.volcanic <= 0.0:
         zero = np.zeros_like(z)
-        return zero, zero, zero, zero, zero
+        return zero, zero, zero, zero, zero, zero, zero, zero, zero, zero
     eruption_rate = params.volcanic if params.eruption_rate is None else max(float(params.eruption_rate), 0.0)
+    explosion_scale = max(float(params.explosion_energy), 0.0)
+    magma_water_scale = max(float(params.magma_water_contact), 0.0)
+    pyroclastic_supply = max(float(params.pyroclastic_supply), 0.0)
     default_viscosity = np.clip(1.0 - params.diffusion_d / 0.06, 0.05, 1.0)
     viscosity = np.clip(default_viscosity if params.viscosity is None else float(params.viscosity), 0.05, 1.0)
     lava_spread = max(float(params.lava_spread), 0.05)
@@ -427,27 +468,59 @@ def _volcanic_process(
         * masks["lava_apron"]
     )
     cooling_limited_spread = lava_flow * slope_drag * np.clip(1.15 - cooling_rate * masks["flank"], 0.05, 1.0)
+    explosion_energy = explosion_scale * (0.55 + 0.45 * magma_water_scale) * masks["crater"]
+    crater_excavation = params.dt_years * 0.020 * explosion_energy
+    ejecta_deposition = params.dt_years * 0.010 * (explosion_scale + pyroclastic_supply) * masks["ejecta_ring"]
+    pyroclastic_cone_growth = params.dt_years * 0.016 * pyroclastic_supply * masks["ejecta_ring"]
+    magma_water_contact = magma_water_scale * masks["crater"]
     flank_erosion = params.dt_years * 0.0022 * eruption_rate * masks["flank"]
-    return volcanic_construction, lava_flow, viscosity_resistance, cooling_limited_spread, flank_erosion
+    return (
+        volcanic_construction,
+        lava_flow,
+        viscosity_resistance,
+        cooling_limited_spread,
+        flank_erosion,
+        explosion_energy,
+        ejecta_deposition,
+        crater_excavation,
+        pyroclastic_cone_growth,
+        magma_water_contact,
+    )
 
 
 def _karst_process(
     z: np.ndarray,
     params: GeomorphicEngineParameters,
     masks: dict[str, np.ndarray],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if params.karst <= 0.0 and params.groundwater <= 0.0:
         zero = np.zeros_like(z)
-        return zero, zero, zero, zero, zero
+        return zero, zero, zero, zero, zero, zero, zero, zero, zero, zero
     gy, gx = np.gradient(z)
     water_supply = params.groundwater if params.water_supply is None else max(float(params.water_supply), 0.0)
     rock_solubility = max(float(params.rock_solubility), 0.0)
-    groundwater_flow = water_supply * masks["groundwater"] * (0.35 + 0.65 * _normalize(np.hypot(gx, gy)))
-    solution_rate = params.dt_years * 0.016 * params.karst * rock_solubility * (0.35 + 0.65 * water_supply) * masks["sink"]
+    fracture_density = max(float(params.fracture_density), 0.0) * masks["sink"] * (0.45 + 0.55 * _normalize(np.abs(gx) + np.abs(gy)))
+    groundwater_flow = water_supply * masks["groundwater"] * (0.35 + 0.65 * _normalize(np.hypot(gx, gy))) * (0.65 + 0.35 * fracture_density)
+    solution_rate = params.dt_years * 0.016 * params.karst * rock_solubility * (0.35 + 0.65 * water_supply) * masks["sink"] * (0.75 + 0.25 * fracture_density)
     subsurface_drainage = params.dt_years * 0.006 * groundwater_flow
+    ponor_drainage = params.dt_years * 0.009 * groundwater_flow * masks["ponor"]
     collapse_risk = _normalize(solution_rate + subsurface_drainage) * masks["sink"]
+    sinkhole_density = _normalize(collapse_risk + fracture_density) * masks["sink"]
+    seasonal_flooding = max(float(params.seasonal_flooding), 0.0) * masks["polje_floor"] * np.clip(1.0 - _normalize(z), 0.0, 1.0)
+    polje_floor_aggradation = params.dt_years * 0.0025 * params.sediment * seasonal_flooding
     sink_fill = params.dt_years * 0.002 * params.sediment * masks["sink"] * np.clip(_grid(z.shape[0])[1] - 0.55, 0.0, 1.0)
-    return solution_rate, subsurface_drainage, groundwater_flow, collapse_risk, sink_fill
+    return (
+        solution_rate,
+        subsurface_drainage,
+        groundwater_flow,
+        collapse_risk,
+        sink_fill,
+        fracture_density,
+        sinkhole_density,
+        ponor_drainage,
+        seasonal_flooding,
+        polje_floor_aggradation,
+    )
 
 
 def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np.ndarray]) -> tuple[np.ndarray, dict[str, np.ndarray], dict[str, float]]:
@@ -479,11 +552,34 @@ def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np
         shelter_factor,
         dune_migration,
     ) = _aeolian_process(z, params, masks)
-    volcanic, lava_apron, viscosity_resistance, cooling_limited_spread, flank_erosion = _volcanic_process(z, params, masks)
-    karst, groundwater, groundwater_flow, collapse_risk, sink_fill = _karst_process(z, params, masks)
+    (
+        volcanic,
+        lava_apron,
+        viscosity_resistance,
+        cooling_limited_spread,
+        flank_erosion,
+        explosion_energy,
+        ejecta_deposition,
+        crater_excavation,
+        pyroclastic_cone_growth,
+        magma_water_contact,
+    ) = _volcanic_process(z, params, masks)
+    (
+        karst,
+        groundwater,
+        groundwater_flow,
+        collapse_risk,
+        sink_fill,
+        fracture_density,
+        sinkhole_density,
+        ponor_drainage,
+        seasonal_flooding,
+        polje_floor_aggradation,
+    ) = _karst_process(z, params, masks)
 
     erosion = fluvial_erosion + glacial + marine + wave_cut_platform + storm_runup + dune_erosion + flank_erosion + karst + groundwater
-    deposition = fluvial_deposition + moraine + beach + np.maximum(coastal_sediment_budget, 0.0) + dune_deposition + lava_apron + sink_fill
+    erosion = erosion + crater_excavation + ponor_drainage
+    deposition = fluvial_deposition + moraine + beach + np.maximum(coastal_sediment_budget, 0.0) + dune_deposition + lava_apron + ejecta_deposition + pyroclastic_cone_growth + sink_fill + polje_floor_aggradation
     construction = volcanic
     new_z = z + tectonic + diffusion + construction - erosion + deposition
     new_z = _fixed_boundaries(new_z, params.base_level)
@@ -522,12 +618,22 @@ def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np
             "dune_migration": dune_migration,
             "volcanic_construction": volcanic,
             "lava_flow": lava_apron,
+            "explosion_energy": explosion_energy,
+            "ejecta_deposition": ejecta_deposition,
+            "crater_excavation": crater_excavation,
+            "pyroclastic_cone_growth": pyroclastic_cone_growth,
+            "magma_water_contact": magma_water_contact,
             "viscosity_resistance": viscosity_resistance,
             "cooling_limited_spread": cooling_limited_spread,
             "groundwater_flow": groundwater_flow,
             "solution_rate": karst,
             "subsurface_drainage": groundwater,
             "collapse_risk": collapse_risk,
+            "fracture_density": fracture_density,
+            "sinkhole_density": sinkhole_density,
+            "ponor_drainage": ponor_drainage,
+            "seasonal_flooding": seasonal_flooding,
+            "polje_floor_aggradation": polje_floor_aggradation,
             "ice_thickness": ice_thickness,
             "glacial_velocity": glacial_velocity,
             "fluvial_erosion": fluvial_erosion,
@@ -583,8 +689,13 @@ def _stats(z: np.ndarray, params: GeomorphicEngineParameters, fields: dict[str, 
         "total_dune_migration": float(np.sum(fields["dune_migration"])),
         "total_lava_flow": float(np.sum(fields["lava_flow"])),
         "total_volcanic_construction": float(np.sum(fields["volcanic_construction"])),
+        "total_crater_excavation": float(np.sum(fields["crater_excavation"])),
+        "total_ejecta_deposition": float(np.sum(fields["ejecta_deposition"])),
+        "total_pyroclastic_cone_growth": float(np.sum(fields["pyroclastic_cone_growth"])),
         "total_solution": float(np.sum(fields["solution_rate"])),
         "total_subsurface_drainage": float(np.sum(fields["subsurface_drainage"])),
+        "total_ponor_drainage": float(np.sum(fields["ponor_drainage"])),
+        "total_polje_floor_aggradation": float(np.sum(fields["polje_floor_aggradation"])),
         "total_transport_capacity": float(np.sum(fields["transport_capacity"])),
         "total_sediment_flux": float(np.sum(fields["transport"])),
         "total_weathering": 0.0,

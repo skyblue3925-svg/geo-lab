@@ -118,3 +118,54 @@ def test_karst_solution_responds_to_water_supply_and_solubility():
     assert _field_sum(strong, "groundwater_flow") > _field_sum(weak, "groundwater_flow")
     assert _field_sum(strong, "solution_rate") > _field_sum(weak, "solution_rate")
     assert _field_sum(strong, "collapse_risk") > 0.0
+
+
+def test_maar_and_cinder_cone_expose_explosive_volcanic_fields():
+    maar = _final_fields(
+        GeomorphicEngineParameters(
+            "maar",
+            grid_size=32,
+            total_time_years=5_000,
+            volcanic=1.1,
+            explosion_energy=1.5,
+            magma_water_contact=1.3,
+        )
+    )
+    cinder = _final_fields(
+        GeomorphicEngineParameters(
+            "cinder_cone",
+            grid_size=32,
+            total_time_years=5_000,
+            volcanic=1.1,
+            pyroclastic_supply=1.4,
+        )
+    )
+
+    assert _field_sum(maar, "explosion_energy") > 0.0
+    assert _field_sum(maar, "crater_excavation") > 0.0
+    assert _field_sum(maar, "magma_water_contact") > 0.0
+    assert _field_sum(cinder, "ejecta_deposition") > 0.0
+    assert _field_sum(cinder, "pyroclastic_cone_growth") > 0.0
+
+
+def test_polje_exposes_subsurface_drainage_and_floor_aggradation():
+    fields = _final_fields(
+        GeomorphicEngineParameters(
+            "polje",
+            grid_size=32,
+            total_time_years=5_000,
+            karst=1.2,
+            groundwater=1.1,
+            sediment=0.8,
+            water_supply=1.2,
+            rock_solubility=1.4,
+            fracture_density=1.5,
+            seasonal_flooding=1.3,
+        )
+    )
+
+    assert _field_sum(fields, "fracture_density") > 0.0
+    assert _field_sum(fields, "sinkhole_density") > 0.0
+    assert _field_sum(fields, "ponor_drainage") > 0.0
+    assert _field_sum(fields, "seasonal_flooding") > 0.0
+    assert _field_sum(fields, "polje_floor_aggradation") > 0.0

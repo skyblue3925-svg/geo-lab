@@ -550,6 +550,8 @@ def _scenario_engine_parameters(
         if scenario.landform_id in {"maar", "crater_lake", "caldera"}:
             process.update(groundwater=0.35 + support * 0.55, karst=0.15 + support * 0.25)
             diffusion_d *= 1.2
+            if scenario.landform_id == "maar":
+                process["sediment"] = 0.55 + support * 0.35
         if scenario.landform_id in {"cinder_cone", "stratovolcano"}:
             process["sediment"] = 0.65 + support * 0.45
             diffusion_d *= 0.75
@@ -583,11 +585,16 @@ def _scenario_engine_parameters(
         wind_speed=process["aeolian"] if process["aeolian"] > 0.0 else None,
         sand_supply=process["sediment"] if process["aeolian"] > 0.0 else None,
         eruption_rate=process["volcanic"] if process["volcanic"] > 0.0 else None,
+        explosion_energy=_map_range(force, 0.45, 1.8) if scenario.landform_id in {"maar", "caldera", "crater_lake"} else 0.0,
+        magma_water_contact=_map_range(secondary, 0.35, 1.6) if scenario.landform_id in {"maar", "crater_lake"} else 0.0,
+        pyroclastic_supply=_map_range(secondary, 0.35, 1.5) if scenario.landform_id in {"cinder_cone", "stratovolcano"} else 0.0,
         viscosity=np.clip(_map_range(100 - secondary, 0.12, 0.95), 0.05, 1.0) if process["volcanic"] > 0.0 else None,
         lava_spread=_map_range(secondary, 0.65, 1.85) if process["volcanic"] > 0.0 else 1.0,
         cooling_rate=_map_range(100 - secondary, 0.55, 1.55) if process["volcanic"] > 0.0 else 1.0,
         rock_solubility=0.65 + process["karst"] * 0.24 if process["karst"] > 0.0 else 1.0,
         water_supply=process["groundwater"] if process["groundwater"] > 0.0 else None,
+        fracture_density=_map_range(force, 0.55, 1.8) if process["karst"] > 0.0 else 1.0,
+        seasonal_flooding=_map_range(secondary, 0.25, 1.6) if scenario.landform_id in {"polje", "uvala"} else 0.0,
     )
 
 
@@ -605,9 +612,13 @@ def _engine_preset_id(landform_id: str) -> str:
         return "coastal_cliff"
     if landform_id == "barchan" or group == "arid":
         return "barchan"
-    if landform_id in {"lava_dome", "maar", "cinder_cone"} or group == "volcanic":
+    if landform_id in {"maar", "cinder_cone"}:
+        return landform_id
+    if landform_id in {"lava_dome"} or group == "volcanic":
         return "lava_dome"
-    if landform_id in {"karst_doline", "polje"} or group == "karst":
+    if landform_id in {"polje"}:
+        return "polje"
+    if landform_id in {"karst_doline"} or group == "karst":
         return "karst_doline"
     return landform_id
 

@@ -75,7 +75,10 @@ def test_lab_common_engine_exposes_process_force_fields():
             "dune_migration",
         ),
         "lava_dome": ("volcanic_construction", "lava_flow", "viscosity_resistance", "cooling_limited_spread"),
+        "maar": ("explosion_energy", "crater_excavation", "magma_water_contact", "ejecta_deposition"),
+        "cinder_cone": ("ejecta_deposition", "pyroclastic_cone_growth"),
         "karst_doline": ("groundwater_flow", "solution_rate", "subsurface_drainage", "collapse_risk"),
+        "polje": ("fracture_density", "sinkhole_density", "ponor_drainage", "seasonal_flooding", "polje_floor_aggradation"),
     }
 
     for landform_id, field_names in expected_fields.items():
