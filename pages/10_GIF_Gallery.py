@@ -69,25 +69,6 @@ def render_tag_row(tags: tuple[str, ...]) -> None:
     )
 
 
-def open_lab_with_asset(asset) -> None:
-    st.session_state["gallery_lab_preset"] = {
-        "user_mode": "학생 단순모드",
-        "scenario_category": "추가 지형",
-        "selected_landform_id": asset.landform_id,
-        "speed_mode": "균형",
-        "force_level": 60,
-        "auto_run": False,
-        "showcase_title": f"{asset.title} GIF 갤러리",
-    }
-    if hasattr(st, "switch_page"):
-        try:
-            st.switch_page("pages/3_🧪_Lab.py")
-            return
-        except Exception as exc:
-            st.warning(f"자동 이동이 막혔습니다. 왼쪽 메뉴에서 Lab을 열어 주세요. ({exc})")
-    st.success("Lab preset을 준비했습니다. 왼쪽 메뉴에서 Lab을 열면 같은 지형으로 시작합니다.")
-
-
 st.set_page_config(
     page_title="GIF 갤러리",
     page_icon="🎞️",
@@ -186,14 +167,9 @@ for index, asset in enumerate(visible_assets):
             thumbnail = load_gif_thumbnail(str(asset.gif_path), stat.st_mtime_ns, stat.st_size)
             image_stretch(st, thumbnail)
 
-        button_col1, button_col2 = st.columns(2)
-        with button_col1:
-            if st.button("재생" if not is_active else "정지", key=f"gif_gallery_play_{asset.landform_id}"):
-                if is_active:
-                    st.session_state.pop(active_key, None)
-                else:
-                    st.session_state[active_key] = asset.landform_id
-                st.rerun()
-        with button_col2:
-            if st.button("Lab 실험", key=f"gif_gallery_lab_{asset.landform_id}"):
-                open_lab_with_asset(asset)
+        if st.button("재생" if not is_active else "정지", key=f"gif_gallery_play_{asset.landform_id}"):
+            if is_active:
+                st.session_state.pop(active_key, None)
+            else:
+                st.session_state[active_key] = asset.landform_id
+            st.rerun()
