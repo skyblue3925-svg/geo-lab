@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -18,9 +19,14 @@ from app.services.geomorphic_process_kernels import (
     ProcessKernelParameters,
     run_process_morphology_model,
 )
+from app.services.animation_assets import KOREAN_TITLES, LANDFORM_GROUP_BY_ID, LANDFORM_GROUP_LABELS
 from app.services.geomorphic_engine import GeomorphicEngineParameters, run_geomorphic_engine
 from app.services.morphometric_metrics import compute_morphometric_metrics
-from app.services.terrain_lab_catalog import GROUP_LABELS_KO, list_additional_lab_scenarios
+from app.services.terrain_lab_catalog import (
+    GROUP_LABELS_KO,
+    list_additional_lab_scenarios,
+    process_factor_definitions_for_scenario,
+)
 
 
 @dataclass(frozen=True)
@@ -46,7 +52,7 @@ class PhysicsLabTheory:
     classroom_note: str
 
 
-SCENARIOS: tuple[PhysicsLabScenario, ...] = (
+BASE_SCENARIOS: tuple[PhysicsLabScenario, ...] = (
     PhysicsLabScenario("v_valley", "V자곡", "하천 지형", "V자곡", "하천 침식력", "강수량", 60, 45, 25, 45_000),
     PhysicsLabScenario("alluvial_fan", "선상지", "하천 지형", "선상지", "퇴적물 공급", "경사 완화", 55, 35, 40, 35_000),
     PhysicsLabScenario("delta", "삼각주", "하구·삼각주", "삼각주", "퇴적물 공급", "해수면 안정성", 50, 20, 35, 35_000),
@@ -55,6 +61,92 @@ SCENARIOS: tuple[PhysicsLabScenario, ...] = (
     PhysicsLabScenario("barchan", "바르한", "건조 지형", "바르한", "풍속", "모래 공급", 58, 10, 25, 30_000),
     PhysicsLabScenario("lava_dome", "용암돔", "화산 지형", "용암돔", "분출률", "점성/확산", 62, 35, 28, 28_000),
     PhysicsLabScenario("karst_doline", "돌리네", "카르스트 지형", "카르스트 돌리네", "용식 강도", "지하수 흐름", 52, 5, 22, 45_000),
+)
+
+
+def _scenario_from_catalog() -> tuple[PhysicsLabScenario, ...]:
+    existing_ids = {scenario.landform_id for scenario in BASE_SCENARIOS}
+    scenarios: list[PhysicsLabScenario] = []
+    for item in list_additional_lab_scenarios():
+        if item.landform_id in existing_ids:
+            continue
+        factor_defs = process_factor_definitions_for_scenario(item.landform_id)
+        primary = factor_defs[0].label_ko if factor_defs else "주 작용 강도"
+        secondary = factor_defs[1].label_ko if len(factor_defs) > 1 else "보조 조건"
+        if item.group == "river":
+            defaults = (58, 35, 34, 40_000)
+        elif item.group == "coastal":
+            defaults = (60, 24, 32, 42_000)
+        elif item.group == "glacial":
+            defaults = (63, 25, 24, 55_000)
+        elif item.group == "volcanic":
+            defaults = (62, 34, 28, 30_000)
+        elif item.group == "karst":
+            defaults = (56, 8, 24, 48_000)
+        elif item.group == "arid":
+            defaults = (58, 10, 25, 32_000)
+        else:
+            defaults = (55, 35, 35, 40_000)
+        scenarios.append(
+            PhysicsLabScenario(
+                item.landform_id,
+                item.title_ko,
+                GROUP_LABELS_KO.get(item.group, item.group),
+                item.title_ko,
+                primary,
+                secondary,
+                *defaults,
+            )
+        )
+    return tuple(scenarios)
+
+
+def _generic_factor_labels(group: str) -> tuple[str, str, tuple[int, int, int, int]]:
+    if group == "river":
+        return "하천 침식·운반", "퇴적물 공급", (58, 35, 34, 40_000)
+    if group == "delta":
+        return "하천 퇴적 공급", "해수면·파랑 조건", (56, 25, 34, 38_000)
+    if group == "coastal":
+        return "파랑·연안류 에너지", "퇴적물/해수면 조건", (60, 24, 32, 42_000)
+    if group == "glacial":
+        return "빙하 침식·운반", "빙하 두께/융빙수", (63, 25, 24, 55_000)
+    if group == "volcanic":
+        return "분출·화산체 성장", "점성/함몰 조건", (62, 34, 28, 30_000)
+    if group == "karst":
+        return "용식 강도", "지하수 흐름", (56, 8, 24, 48_000)
+    if group == "arid":
+        return "바람·건조 침식", "퇴적물 공급", (58, 10, 25, 32_000)
+    return "주 작용 강도", "보조 조건", (55, 35, 35, 40_000)
+
+
+def _scenario_from_animation_catalog(existing_ids: set[str]) -> tuple[PhysicsLabScenario, ...]:
+    scenarios: list[PhysicsLabScenario] = []
+    for landform_id, title in sorted(KOREAN_TITLES.items(), key=lambda item: item[1]):
+        if landform_id in existing_ids:
+            continue
+        group = LANDFORM_GROUP_BY_ID.get(landform_id, "river")
+        primary, secondary, defaults = _generic_factor_labels(group)
+        scenarios.append(
+            PhysicsLabScenario(
+                landform_id,
+                title,
+                LANDFORM_GROUP_LABELS.get(group, group),
+                title,
+                primary,
+                secondary,
+                *defaults,
+            )
+        )
+    return tuple(scenarios)
+
+
+CATALOG_SCENARIOS = _scenario_from_catalog()
+SCENARIOS: tuple[PhysicsLabScenario, ...] = (
+    BASE_SCENARIOS
+    + CATALOG_SCENARIOS
+    + _scenario_from_animation_catalog(
+        {scenario.landform_id for scenario in BASE_SCENARIOS + CATALOG_SCENARIOS}
+    )
 )
 
 
@@ -170,12 +262,32 @@ THEORY_NOTES: dict[str, PhysicsLabTheory] = {
 }
 
 
+FAMILY_THEORY_NOTES: dict[str, PhysicsLabTheory] = {
+    "river": THEORY_NOTES["alluvial_fan"],
+    "river_delta": THEORY_NOTES["delta"],
+    "coastal": THEORY_NOTES["coastal_cliff"],
+    "coastal_marine": THEORY_NOTES["coastal_cliff"],
+    "glacial": THEORY_NOTES["u_valley"],
+    "volcanic": THEORY_NOTES["lava_dome"],
+    "karst": THEORY_NOTES["karst_doline"],
+    "arid": THEORY_NOTES["barchan"],
+}
+
+
 def list_physics_lab_scenarios() -> tuple[PhysicsLabScenario, ...]:
     return SCENARIOS
 
 
 def get_physics_lab_theory(landform_id: str) -> PhysicsLabTheory:
-    return THEORY_NOTES.get(landform_id, THEORY_NOTES["v_valley"])
+    if landform_id in THEORY_NOTES:
+        return THEORY_NOTES[landform_id]
+    catalog = next((scenario for scenario in list_additional_lab_scenarios() if scenario.landform_id == landform_id), None)
+    if catalog is not None:
+        return FAMILY_THEORY_NOTES.get(catalog.simulation_family, FAMILY_THEORY_NOTES.get(catalog.group, THEORY_NOTES["v_valley"]))
+    group = LANDFORM_GROUP_BY_ID.get(landform_id)
+    if group is not None:
+        return FAMILY_THEORY_NOTES.get(group, THEORY_NOTES["v_valley"])
+    return THEORY_NOTES["v_valley"]
 
 
 def active_physics_lab_rows() -> tuple[dict[str, str], ...]:
@@ -195,17 +307,21 @@ def active_physics_lab_rows() -> tuple[dict[str, str], ...]:
 def planned_physics_lab_rows() -> tuple[dict[str, str], ...]:
     active_ids = {scenario.landform_id for scenario in SCENARIOS}
     rows = []
-    for scenario in list_additional_lab_scenarios():
-        if scenario.landform_id in active_ids:
+    image_sequence_root = Path(__file__).resolve().parents[2] / "assets" / "cinematic" / "image_sequence"
+    if not image_sequence_root.exists():
+        return ()
+    for path in sorted(item for item in image_sequence_root.iterdir() if item.is_dir()):
+        landform_id = path.name
+        if landform_id.startswith("_") or landform_id in active_ids:
             continue
         rows.append(
             {
                 "상태": "프리셋 예정",
-                "지형": scenario.title_ko,
-                "분류": GROUP_LABELS_KO.get(scenario.group, scenario.group),
-                "주 작용": scenario.simulation_family,
-                "보조 조건": ", ".join(scenario.process_factors[:2]),
-                "모델 계열": "공통 엔진 연결 예정",
+                "지형": KOREAN_TITLES.get(landform_id, landform_id.replace("_", " ")),
+                "분류": "분류 매핑 예정",
+                "주 작용": "계열 판정 필요",
+                "보조 조건": "초기조건/검증지표 설계 필요",
+                "모델 계열": "공통 엔진 프리셋 예정",
             }
         )
     return tuple(rows)
@@ -385,32 +501,69 @@ def _scenario_engine_parameters(
         "groundwater": 0.0,
     }
     base_level = 0.0
+    engine_preset_id = _engine_preset_id(scenario.landform_id)
+
+    group = LANDFORM_GROUP_BY_ID.get(scenario.landform_id, "")
 
     if scenario.landform_id == "v_valley":
         process.update(fluvial=primary, sediment=0.35 + support * 0.35)
-    elif scenario.landform_id == "alluvial_fan":
+    elif scenario.landform_id in {"alluvial_fan", "oxbow_lake", "floodplain_natural_levee", "river_terrace"} or group == "river":
         process.update(fluvial=0.55 + primary * 0.55, sediment=0.85 + primary * 0.75 + support * 0.45)
         uplift_rate *= 0.45
-    elif scenario.landform_id == "delta":
-        process.update(fluvial=0.45 + primary * 0.45, sediment=1.1 + primary * 0.9 + support * 0.45, marine=0.02)
+        if scenario.landform_id in {"river_terrace", "waterfall"}:
+            uplift_rate = max(uplift_rate, 0.00008 + primary * 0.00004)
+            process["sediment"] *= 0.6
+        if scenario.landform_id in {"oxbow_lake", "free_meander"}:
+            process["sediment"] *= 0.9
+            diffusion_d *= 1.15
+    elif scenario.landform_id == "delta" or group == "delta":
+        process.update(fluvial=0.45 + primary * 0.45, sediment=1.1 + primary * 0.9 + support * 0.45, marine=0.02 + support * 0.08)
         uplift_rate *= 0.3
         base_level = _map_range(secondary, -2.0, 8.0)
-    elif scenario.landform_id == "u_valley":
+        if scenario.landform_id in {"estuary", "ria_coast"}:
+            process["marine"] = 0.45 + primary * 0.35
+            process["sediment"] *= 0.65
+    elif scenario.landform_id in {"u_valley", "moraine", "drumlin", "esker", "kettle_lake", "outwash_plain", "thermokarst"} or group == "glacial":
         process.update(glacial=primary, sediment=0.45 + support * 0.4)
-    elif scenario.landform_id == "coastal_cliff":
+        if scenario.landform_id in {"esker", "outwash_plain"}:
+            process.update(fluvial=0.35 + support * 0.45, sediment=0.85 + support * 0.75)
+        if scenario.landform_id in {"kettle_lake", "thermokarst"}:
+            process.update(karst=0.15 + support * 0.25, groundwater=0.25 + support * 0.45)
+    elif scenario.landform_id in {"coastal_cliff", "sea_cave_stack", "wave_cut_platform", "barrier_island", "tidal_flat", "marine_terrace"} or group == "coastal":
         process.update(marine=primary, sediment=0.35 + support * 0.35)
-    elif scenario.landform_id == "barchan":
+        if scenario.landform_id in {"barrier_island", "tidal_flat", "spit_lagoon", "tombolo", "coastal_dune"}:
+            process["sediment"] = 0.85 + support * 0.8
+            process["marine"] = 0.35 + primary * 0.45
+        if scenario.landform_id == "marine_terrace":
+            uplift_rate = max(uplift_rate, 0.0001 + primary * 0.00003)
+        base_level = _map_range(secondary, -4.0, 6.0)
+    elif scenario.landform_id == "barchan" or group == "arid":
         process.update(aeolian=primary, sediment=0.55 + support * 0.7)
+        if scenario.landform_id in {"pediment", "wadi", "playa"}:
+            process.update(fluvial=0.12 + support * 0.25)
+        if scenario.landform_id in {"mesa_butte", "pedestal_rock"}:
+            diffusion_d *= 0.65
         uplift_rate *= 0.1
-    elif scenario.landform_id == "lava_dome":
+    elif scenario.landform_id in {"lava_dome", "maar", "cinder_cone"} or group == "volcanic":
         process.update(volcanic=primary, sediment=0.35 + support * 0.2)
         diffusion_d = _map_range(secondary, 0.006, 0.06)
-    elif scenario.landform_id == "karst_doline":
+        if scenario.landform_id in {"maar", "crater_lake", "caldera"}:
+            process.update(groundwater=0.35 + support * 0.55, karst=0.15 + support * 0.25)
+            diffusion_d *= 1.2
+        if scenario.landform_id in {"cinder_cone", "stratovolcano"}:
+            process["sediment"] = 0.65 + support * 0.45
+            diffusion_d *= 0.75
+        if scenario.landform_id in {"shield_volcano", "lava_plateau"}:
+            diffusion_d *= 1.45
+    elif scenario.landform_id in {"karst_doline", "polje"} or group == "karst":
         process.update(karst=primary, groundwater=0.45 + support, sediment=0.25 + support * 0.2)
         uplift_rate *= 0.2
+        if scenario.landform_id in {"polje", "uvala"}:
+            process["sediment"] = 0.35 + support * 0.45
+            diffusion_d *= 1.4
 
     return GeomorphicEngineParameters(
-        preset_id=scenario.landform_id,
+        preset_id=engine_preset_id,
         grid_size=grid_size,
         total_time_years=total_time,
         fluvial=process["fluvial"],
@@ -425,6 +578,27 @@ def _scenario_engine_parameters(
         diffusion_d=diffusion_d,
         base_level=base_level,
     )
+
+
+def _engine_preset_id(landform_id: str) -> str:
+    group = LANDFORM_GROUP_BY_ID.get(landform_id, "")
+    if landform_id == "v_valley":
+        return "v_valley"
+    if landform_id == "delta" or group == "delta":
+        return "delta"
+    if landform_id in {"alluvial_fan", "oxbow_lake", "floodplain_natural_levee", "river_terrace"} or group == "river":
+        return "alluvial_fan"
+    if landform_id in {"u_valley", "moraine", "drumlin", "esker", "kettle_lake", "outwash_plain", "thermokarst"} or group == "glacial":
+        return "u_valley"
+    if landform_id in {"coastal_cliff", "sea_cave_stack", "wave_cut_platform", "barrier_island", "tidal_flat", "marine_terrace"} or group == "coastal":
+        return "coastal_cliff"
+    if landform_id == "barchan" or group == "arid":
+        return "barchan"
+    if landform_id in {"lava_dome", "maar", "cinder_cone"} or group == "volcanic":
+        return "lava_dome"
+    if landform_id in {"karst_doline", "polje"} or group == "karst":
+        return "karst_doline"
+    return landform_id
 
 
 def _run_common_engine_scenario(
@@ -526,16 +700,7 @@ def run_physics_lab_simulation(
     grid_size: int,
 ) -> dict[str, Any]:
     scenario = get_physics_lab_scenario(landform_id)
-    if scenario.landform_id in {
-        "v_valley",
-        "alluvial_fan",
-        "delta",
-        "u_valley",
-        "coastal_cliff",
-        "barchan",
-        "lava_dome",
-        "karst_doline",
-    }:
+    if scenario.landform_id in {item.landform_id for item in SCENARIOS}:
         return _run_common_engine_scenario(
             scenario,
             force=force,

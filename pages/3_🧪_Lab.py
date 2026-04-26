@@ -145,7 +145,7 @@ scenario_titles = [f"{scenario.title} · {scenario.group}" for scenario in scena
 scenario_by_title = dict(zip(scenario_titles, scenarios, strict=False))
 
 st.markdown("### 지형 프리셋")
-st.caption("현재 실험 가능한 대표 프리셋은 8개입니다. 나머지 지형은 같은 공통 물리엔진에 프리셋으로 확장하는 단계입니다.")
+st.caption(f"현재 실험 가능한 프리셋은 {len(scenarios)}개입니다. 38개 기본 지형과 추가 보강 지형을 공통 물리엔진 계열로 연결했습니다.")
 selected_label = st.selectbox("실험 지형 선택", scenario_titles, index=0, key="lab_main_scenario")
 selected_id = scenario_by_title[selected_label].landform_id
 scenario = get_physics_lab_scenario(selected_id)
