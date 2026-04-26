@@ -124,6 +124,7 @@ top_cols[2].metric("최종 기복", f"{summary['relief']:.1f}")
 top_cols[3].metric("활성 영역", f"{summary['active_fraction'] * 100:.0f}%")
 
 st.info(stage_label(result))
+st.caption(f"모델 커널: {result.get('kernel', 'unknown')} · {result.get('kernel_notes', '')}")
 
 view_col, note_col = st.columns([1.35, 0.85])
 with view_col:

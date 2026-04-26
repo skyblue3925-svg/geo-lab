@@ -13,6 +13,7 @@ from app.utils.lab_model import (
     describe_lab_process_stage,
     format_process_summary,
 )
+from app.services.river_morphology_kernel import RiverKernelParameters, run_river_morphology_model
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,75 @@ def _change_summary(initial: np.ndarray, final: np.ndarray) -> dict[str, float]:
     }
 
 
+def _run_river_kernel_scenario(
+    scenario: PhysicsLabScenario,
+    *,
+    force: int,
+    secondary: int,
+    uplift: int,
+    diffusion: int,
+    total_time: int,
+    grid_size: int,
+) -> dict[str, Any]:
+    force_scale = _map_range(force, 0.55, 2.2)
+    secondary_scale = _map_range(secondary, 0.55, 1.9)
+    deposition_scale = 1.0
+    water_scale = secondary_scale
+    sediment_scale = 1.0
+    base_level = 0.0
+
+    if scenario.landform_id == "alluvial_fan":
+        sediment_scale = force_scale
+        deposition_scale = _map_range(secondary, 0.75, 1.9)
+        water_scale = _map_range(100 - secondary, 0.75, 1.35)
+    elif scenario.landform_id == "delta":
+        sediment_scale = force_scale
+        deposition_scale = _map_range(secondary, 0.7, 1.8)
+        water_scale = _map_range(force, 0.75, 1.45)
+        base_level = _map_range(secondary, -2.0, 8.0)
+
+    params = RiverKernelParameters(
+        landform_id=scenario.landform_id,
+        grid_size=grid_size,
+        total_time_years=total_time,
+        erodibility_k=_map_range(force, 0.000035, 0.00042),
+        diffusion_d=_map_range(diffusion, 0.006, 0.052),
+        uplift_rate=_map_range(uplift, -0.00008, 0.00042),
+        water_discharge_scale=water_scale,
+        sediment_supply_scale=sediment_scale,
+        deposition_rate=0.36 * deposition_scale,
+        base_level=base_level,
+    )
+    raw = run_river_morphology_model(params)
+    history = [_normalize_surface(frame) for frame in raw["history"]]
+    stats_history = list(raw["stats_history"])
+    process_history = list(raw["process_history"])
+    stage_history = build_lab_stage_history(scenario.model_label, stats_history, process_history)
+    final_stage = describe_lab_process_stage(
+        scenario.model_label,
+        1.0,
+        stats_history[-1] if stats_history else None,
+        process_fields=process_history[-1] if process_history else None,
+    )
+    return {
+        "scenario": scenario,
+        "config": params,
+        "history": history,
+        "times": list(raw["times"]),
+        "stats_history": stats_history,
+        "process_history": process_history,
+        "stage_history": stage_history,
+        "final_stage": final_stage,
+        "change": _change_summary(history[0], history[-1]),
+        "dominant_process": format_process_summary(stats_history[-1] if stats_history else None),
+        "kernel": raw["kernel"],
+        "kernel_notes": (
+            "Stream Power Law(E=K A^m S^n), 사면 확산, 퇴적물 운반/퇴적, "
+            "기저면 조건을 결합한 하천 지형 커널 v1입니다."
+        ),
+    }
+
+
 def _apply_user_factors(
     lem: Any,
     scenario: PhysicsLabScenario,
@@ -122,6 +192,17 @@ def run_physics_lab_simulation(
     grid_size: int,
 ) -> dict[str, Any]:
     scenario = get_physics_lab_scenario(landform_id)
+    if scenario.landform_id in {"v_valley", "alluvial_fan", "delta"}:
+        return _run_river_kernel_scenario(
+            scenario,
+            force=force,
+            secondary=secondary,
+            uplift=uplift,
+            diffusion=diffusion,
+            total_time=total_time,
+            grid_size=grid_size,
+        )
+
     lem = create_lab_simple_lem(
         grid_size=grid_size,
         K=_map_range(force, 0.000015, 0.00055),
@@ -158,4 +239,6 @@ def run_physics_lab_simulation(
         "final_stage": final_stage,
         "change": _change_summary(history[0], history[-1]),
         "dominant_process": format_process_summary(lem.stats_history[-1] if lem.stats_history else None),
+        "kernel": "simple_lem",
+        "kernel_notes": "기존 SimpleLEM 기반 실험 경로입니다. 계열별 전용 커널로 순차 교체할 예정입니다.",
     }
