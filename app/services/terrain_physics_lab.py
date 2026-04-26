@@ -608,16 +608,22 @@ def _engine_preset_id(landform_id: str) -> str:
         return "alluvial_fan"
     if landform_id in {"u_valley", "moraine", "drumlin", "esker", "kettle_lake", "outwash_plain", "thermokarst"} or group == "glacial":
         return "u_valley"
-    if landform_id in {"coastal_cliff", "sea_cave_stack", "wave_cut_platform", "barrier_island", "tidal_flat", "marine_terrace"} or group == "coastal":
+    if landform_id in {"wave_cut_platform", "spit_lagoon", "tombolo", "marine_terrace"}:
+        return landform_id
+    if landform_id in {"coastal_cliff", "sea_cave_stack", "barrier_island", "tidal_flat"} or group == "coastal":
         return "coastal_cliff"
     if landform_id == "barchan" or group == "arid":
         return "barchan"
     if landform_id in {"maar", "cinder_cone"}:
         return landform_id
+    if landform_id in {"stratovolcano", "shield_volcano", "lava_plateau"}:
+        return landform_id
     if landform_id in {"lava_dome"} or group == "volcanic":
         return "lava_dome"
     if landform_id in {"polje"}:
         return "polje"
+    if landform_id in {"tower_karst", "karren", "uvala"}:
+        return landform_id
     if landform_id in {"karst_doline"} or group == "karst":
         return "karst_doline"
     return landform_id

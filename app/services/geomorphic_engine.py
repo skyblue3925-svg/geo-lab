@@ -156,6 +156,26 @@ def _initial_surface(preset_id: str, grid_size: int, base_level: float) -> np.nd
         land = 72.0 * (1.0 - x) + 10.0 * np.sin(2.0 * np.pi * y)
         sea = base_level + 2.0 * (x > 0.68)
         surface = np.where(x > 0.68, sea, land)
+    elif preset_id == "wave_cut_platform":
+        cliff = 64.0 * (1.0 - x)
+        platform = base_level + 5.0 + 4.0 * np.clip(0.72 - x, 0.0, 0.18)
+        sea = base_level + 1.5
+        surface = np.where(x < 0.58, cliff + 10.0, np.where(x < 0.78, platform, sea))
+    elif preset_id == "spit_lagoon":
+        mainland = 28.0 * (1.0 - x)
+        lagoon = base_level + 1.0 + 1.5 * np.sin(2.0 * np.pi * y)
+        spit = 12.0 * np.exp(-((y - 0.62 - 0.18 * np.sin(np.pi * x)) / 0.035) ** 2) * np.clip((x - 0.38) / 0.52, 0.0, 1.0)
+        surface = np.where(x < 0.34, mainland + 8.0, lagoon) + spit
+    elif preset_id == "tombolo":
+        island = 34.0 * np.exp(-(((x - 0.76) / 0.10) ** 2 + ((y - 0.50) / 0.13) ** 2))
+        mainland = 34.0 * np.clip(0.25 - x, 0.0, 0.25)
+        bar = 11.0 * np.exp(-((y - 0.50) / 0.035) ** 2) * np.exp(-((x - 0.50) / 0.28) ** 2)
+        surface = base_level + 1.5 + mainland + island + bar
+    elif preset_id == "marine_terrace":
+        stair = 9.0 * np.floor(np.clip((0.72 - x) / 0.14, 0.0, 5.0))
+        cliff = 36.0 * np.clip(0.68 - x, 0.0, 0.68)
+        wave_bench = base_level + 6.0 * np.exp(-((x - 0.70) / 0.10) ** 2)
+        surface = base_level + cliff + stair + wave_bench
     elif preset_id == "barchan":
         horn_left = np.exp(-(((x - 0.35) / 0.11) ** 2 + ((y - 0.62) / 0.23) ** 2))
         horn_right = np.exp(-(((x - 0.65) / 0.11) ** 2 + ((y - 0.62) / 0.23) ** 2))
@@ -164,6 +184,21 @@ def _initial_surface(preset_id: str, grid_size: int, base_level: float) -> np.nd
     elif preset_id == "lava_dome":
         r = np.hypot(x - 0.5, y - 0.5)
         surface = base_level + 105.0 * np.exp(-((r / 0.22) ** 2)) + 8.0 * (1.0 - y)
+    elif preset_id == "stratovolcano":
+        r = np.hypot(x - 0.5, y - 0.5)
+        cone = 118.0 * np.clip(1.0 - r / 0.42, 0.0, 1.0) ** 1.35
+        crater = 20.0 * np.exp(-((r / 0.075) ** 2))
+        ridges = 4.0 * np.sin(10.0 * np.arctan2(y - 0.5, x - 0.5)) * np.clip(1.0 - r / 0.45, 0.0, 1.0)
+        surface = base_level + cone + ridges - crater
+    elif preset_id == "shield_volcano":
+        r = np.hypot(x - 0.5, y - 0.5)
+        shield = 78.0 * np.exp(-((r / 0.46) ** 2))
+        summit = 12.0 * np.exp(-((r / 0.10) ** 2))
+        surface = base_level + shield + summit
+    elif preset_id == "lava_plateau":
+        flows = 34.0 + 8.0 * np.sin(3.0 * np.pi * y) + 5.0 * np.sin(5.0 * np.pi * x)
+        scarps = 10.0 * np.floor(np.clip((1.0 - y) * 4.0, 0.0, 4.0))
+        surface = base_level + flows + scarps
     elif preset_id == "cinder_cone":
         r = np.hypot(x - 0.5, y - 0.5)
         cone = 82.0 * np.clip(1.0 - r / 0.36, 0.0, 1.0)
@@ -177,6 +212,23 @@ def _initial_surface(preset_id: str, grid_size: int, base_level: float) -> np.nd
     elif preset_id == "karst_doline":
         upland = 42.0 + 10.0 * np.sin(2.5 * np.pi * x) * np.sin(2.0 * np.pi * y)
         surface = upland - 24.0 * np.exp(-(((x - 0.5) / 0.18) ** 2 + ((y - 0.5) / 0.16) ** 2))
+    elif preset_id == "tower_karst":
+        base = 24.0 + 5.0 * np.sin(2.0 * np.pi * y)
+        towers = np.zeros_like(x)
+        for cx, cy, amp, width in ((0.35, 0.38, 42.0, 0.075), (0.58, 0.48, 55.0, 0.085), (0.46, 0.67, 38.0, 0.070)):
+            towers += amp * np.exp(-(((x - cx) / width) ** 2 + ((y - cy) / width) ** 2))
+        surface = base + towers
+    elif preset_id == "karren":
+        grooves = 9.0 * np.sin(18.0 * np.pi * x + 2.0 * np.sin(4.0 * np.pi * y))
+        slope = 42.0 + 18.0 * (1.0 - y)
+        surface = slope + grooves
+    elif preset_id == "uvala":
+        upland = 43.0 + 6.0 * np.sin(2.0 * np.pi * x)
+        depressions = (
+            16.0 * np.exp(-(((x - 0.38) / 0.16) ** 2 + ((y - 0.48) / 0.13) ** 2))
+            + 18.0 * np.exp(-(((x - 0.58) / 0.17) ** 2 + ((y - 0.56) / 0.16) ** 2))
+        )
+        surface = upland - depressions
     elif preset_id == "polje":
         floor = 26.0 + 3.0 * np.sin(1.5 * np.pi * x)
         rim = 30.0 * np.clip(np.hypot(x - 0.5, y - 0.5) - 0.28, 0.0, 1.0)
@@ -238,6 +290,21 @@ def _process_masks(preset_id: str, grid_size: int) -> dict[str, np.ndarray]:
     glacial = np.exp(-((x - 0.5) / 0.16) ** 4) * (0.35 + 0.65 * (1.0 - y))
     shore = np.exp(-((x - 0.66) / 0.045) ** 2)
     platform = np.exp(-((x - 0.74) / 0.12) ** 2) * np.clip(x - 0.68, 0.0, 1.0)
+    if preset_id == "wave_cut_platform":
+        shore = np.exp(-((x - 0.60) / 0.038) ** 2)
+        platform = np.exp(-((x - 0.70) / 0.17) ** 2) * np.clip(x - 0.58, 0.0, 1.0)
+    elif preset_id == "spit_lagoon":
+        shore = np.exp(-((y - 0.62 - 0.18 * np.sin(np.pi * x)) / 0.045) ** 2)
+        platform = shore * np.clip((x - 0.34) / 0.58, 0.0, 1.0)
+    elif preset_id == "tombolo":
+        shore = np.maximum(
+            np.exp(-((y - 0.50) / 0.052) ** 2) * np.exp(-((x - 0.50) / 0.34) ** 2),
+            np.exp(-(((x - 0.76) / 0.13) ** 2 + ((y - 0.50) / 0.16) ** 2)),
+        )
+        platform = np.exp(-((y - 0.50) / 0.06) ** 2) * np.exp(-((x - 0.52) / 0.30) ** 2)
+    elif preset_id == "marine_terrace":
+        shore = np.exp(-((x - 0.68) / 0.045) ** 2)
+        platform = np.exp(-((x - 0.66) / 0.18) ** 2)
     aeolian_path = np.exp(-((x - 0.5) / 0.26) ** 2) * (0.35 + y)
     lee = np.exp(-(((x - 0.5) / 0.22) ** 2 + ((y - 0.68) / 0.12) ** 2))
     stoss = np.exp(-(((x - 0.5) / 0.22) ** 2 + ((y - 0.35) / 0.16) ** 2))
@@ -245,10 +312,42 @@ def _process_masks(preset_id: str, grid_size: int) -> dict[str, np.ndarray]:
     crater = np.exp(-((r / 0.15) ** 2))
     ejecta_ring = np.exp(-((r - 0.24) / 0.07) ** 2)
     lava_apron = np.exp(-((r / 0.34) ** 2)) * (1.0 - vent)
+    if preset_id == "stratovolcano":
+        vent = np.exp(-((r / 0.075) ** 2))
+        crater = np.exp(-((r / 0.10) ** 2))
+        ejecta_ring = np.exp(-((r - 0.20) / 0.06) ** 2)
+        lava_apron = np.exp(-((r / 0.28) ** 2)) * (1.0 - vent)
+    elif preset_id == "shield_volcano":
+        vent = np.exp(-((r / 0.10) ** 2))
+        crater = np.exp(-((r / 0.13) ** 2))
+        ejecta_ring = np.exp(-((r - 0.32) / 0.12) ** 2)
+        lava_apron = np.exp(-((r / 0.50) ** 2)) * (1.0 - vent)
+    elif preset_id == "lava_plateau":
+        vent = 0.45 * np.exp(-((x - 0.36) / 0.08) ** 2) + 0.35 * np.exp(-((x - 0.63) / 0.10) ** 2)
+        crater = 0.25 * vent
+        ejecta_ring = np.exp(-((y - 0.48) / 0.22) ** 2)
+        lava_apron = np.clip(0.65 + 0.35 * np.sin(3.0 * np.pi * y), 0.0, 1.0)
     sink = np.exp(-(((x - 0.5) / 0.21) ** 2 + ((y - 0.5) / 0.18) ** 2))
     groundwater = sink * np.exp(-((y - 0.56) / 0.28) ** 2)
     polje_floor = np.exp(-(((x - 0.5) / 0.38) ** 4 + ((y - 0.52) / 0.20) ** 4))
     ponor = polje_floor * np.exp(-(((x - 0.62) / 0.08) ** 2 + ((y - 0.56) / 0.10) ** 2))
+    if preset_id == "tower_karst":
+        tower_centers = (
+            np.exp(-(((x - 0.35) / 0.10) ** 2 + ((y - 0.38) / 0.10) ** 2))
+            + np.exp(-(((x - 0.58) / 0.12) ** 2 + ((y - 0.48) / 0.12) ** 2))
+            + np.exp(-(((x - 0.46) / 0.10) ** 2 + ((y - 0.67) / 0.10) ** 2))
+        )
+        sink = np.clip(1.0 - _normalize(tower_centers), 0.0, 1.0) * 0.65
+        groundwater = np.clip(sink * (0.55 + 0.45 * y), 0.0, 1.0)
+    elif preset_id == "karren":
+        sink = np.clip(0.5 + 0.5 * np.sin(18.0 * np.pi * x + 2.0 * np.sin(4.0 * np.pi * y)), 0.0, 1.0)
+        groundwater = sink * np.clip(1.0 - y, 0.25, 1.0)
+    elif preset_id == "uvala":
+        sink = np.maximum(
+            np.exp(-(((x - 0.38) / 0.18) ** 2 + ((y - 0.48) / 0.15) ** 2)),
+            np.exp(-(((x - 0.58) / 0.19) ** 2 + ((y - 0.56) / 0.18) ** 2)),
+        )
+        groundwater = sink * np.exp(-((y - 0.56) / 0.30) ** 2)
 
     fluvial_deposition = centerline * lower
     if preset_id == "alluvial_fan":
