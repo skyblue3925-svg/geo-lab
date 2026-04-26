@@ -189,13 +189,19 @@ STUDENT_RECOMMENDED_LANDFORMS = (
 ANIMATION_QUALITY_REVIEW_NOTES = {}
 
 ANIMATION_REINFORCED_LANDFORMS = {
+    "cinder_cone": "분석구 형성과정 보강 완료",
     "floodplain_natural_levee": "범람원과 자연제방 형성과정 보강 완료",
+    "kettle_lake": "케틀호 형성과정 보강 완료",
     "lava_dome": "용암돔 성장과 붕괴 흔적 보강 완료",
     "maar": "마르 분화구 형성과 담수화 보강 완료",
+    "marine_terrace": "해안단구 형성과정 보강 완료",
     "wave_cut_platform": "파식대와 해식애 후퇴 표현 보강 완료",
     "sea_cave_stack": "해식동·아치·시스택 연결 보강 완료",
     "moraine": "빙하 말단 퇴적 능선 표현 보강 완료",
+    "outwash_plain": "빙수평원 형성과정 보강 완료",
     "polje": "폴리에 분지와 계절 침수 표현 보강 완료",
+    "thermokarst": "열카르스트 침하와 호소 형성 보강 완료",
+    "tidal_flat": "갯벌 퇴적과 조류로 형성 보강 완료",
 }
 
 LANDFORM_TEACHING_TAGS = {
