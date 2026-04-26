@@ -28,11 +28,27 @@ Thumbs.db
 
 # Local outputs
 output/playwright/
+output/terrain-gif-collection/
+
+# Local deployment/build mirrors
+.deploy/
+
+# Local agent/runtime config
+.codex/
+.tools/
+
+# Local temporary files
+.tmp-*
+tmp-snapshot.md
 
 # Binary assets (too large for Cloud)
 assets/reference/
 assets/frames/
 assets/cinematic/*.gif
+assets/cinematic/storyboard_smooth/
+assets/cinematic/storyboard_cinematic/
+assets/cinematic/image_sequence/**/prompts/
+assets/cinematic/image_sequence/**/run_ai_inbetween.ps1
 *.png
 !assets/cinematic/image_sequence/**/filmstrip/*.png
 *.jpg
@@ -53,4 +69,6 @@ apps/school-neighborhood-gis/scripts/sgis-local-env.ps1
 # Koppen app raw source datasets
 apps/koppen-climate-lab/data/worldclim/raw/
 apps/koppen-climate-lab/data/koppen-official/
+apps/koppen-climate-lab/data/beck-v2/
+apps/koppen-climate-lab/data/etopo/raw/
 
