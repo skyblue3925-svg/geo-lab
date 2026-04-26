@@ -762,10 +762,10 @@
       "fps": 7,
       "filmstrip_cols": 5,
       "filmstrip_rows": 6,
-      "mode": "filmstrip_import",
+      "mode": "procedural_filmstrip_import",
       "status": "ready",
-      "source_filmstrip": "assets/cinematic/image_sequence/tidal_flat/filmstrip/tidal_flat_filmstrip.png",
-      "description": "생성된 필름스트립을 프레임으로 분할해 만든 이미지 기반 형성과정 애니메이션입니다."
+      "source_filmstrip": "assets/cinematic/image_sequence/tidal_flat/filmstrip/tidal_flat_procedural_filmstrip.png",
+      "description": "API 없이 로컬 절차적 지형 렌더러로 만든 이미지 기반 형성과정 애니메이션입니다."
     },
     {
       "id": "marine_terrace_image_sequence",
@@ -777,10 +777,10 @@
       "fps": 7,
       "filmstrip_cols": 5,
       "filmstrip_rows": 6,
-      "mode": "filmstrip_import",
+      "mode": "procedural_filmstrip_import",
       "status": "ready",
-      "source_filmstrip": "assets/cinematic/image_sequence/marine_terrace/filmstrip/marine_terrace_filmstrip.png",
-      "description": "생성된 필름스트립을 프레임으로 분할해 만든 이미지 기반 형성과정 애니메이션입니다."
+      "source_filmstrip": "assets/cinematic/image_sequence/marine_terrace/filmstrip/marine_terrace_procedural_filmstrip.png",
+      "description": "API 없이 로컬 절차적 지형 렌더러로 만든 이미지 기반 형성과정 애니메이션입니다."
     },
     {
       "id": "kettle_lake_image_sequence",
@@ -792,10 +792,10 @@
       "fps": 7,
       "filmstrip_cols": 5,
       "filmstrip_rows": 6,
-      "mode": "filmstrip_import",
+      "mode": "procedural_filmstrip_import",
       "status": "ready",
-      "source_filmstrip": "assets/cinematic/image_sequence/kettle_lake/filmstrip/kettle_lake_filmstrip.png",
-      "description": "생성된 필름스트립을 프레임으로 분할해 만든 이미지 기반 형성과정 애니메이션입니다."
+      "source_filmstrip": "assets/cinematic/image_sequence/kettle_lake/filmstrip/kettle_lake_procedural_filmstrip.png",
+      "description": "API 없이 로컬 절차적 지형 렌더러로 만든 이미지 기반 형성과정 애니메이션입니다."
     },
     {
       "id": "outwash_plain_image_sequence",
@@ -807,10 +807,10 @@
       "fps": 7,
       "filmstrip_cols": 5,
       "filmstrip_rows": 6,
-      "mode": "filmstrip_import",
+      "mode": "procedural_filmstrip_import",
       "status": "ready",
-      "source_filmstrip": "assets/cinematic/image_sequence/outwash_plain/filmstrip/outwash_plain_filmstrip.png",
-      "description": "생성된 필름스트립을 프레임으로 분할해 만든 이미지 기반 형성과정 애니메이션입니다."
+      "source_filmstrip": "assets/cinematic/image_sequence/outwash_plain/filmstrip/outwash_plain_procedural_filmstrip.png",
+      "description": "API 없이 로컬 절차적 지형 렌더러로 만든 이미지 기반 형성과정 애니메이션입니다."
     },
     {
       "id": "thermokarst_image_sequence",
@@ -822,10 +822,10 @@
       "fps": 7,
       "filmstrip_cols": 5,
       "filmstrip_rows": 6,
-      "mode": "filmstrip_import",
+      "mode": "procedural_filmstrip_import",
       "status": "ready",
-      "source_filmstrip": "assets/cinematic/image_sequence/thermokarst/filmstrip/thermokarst_filmstrip.png",
-      "description": "생성된 필름스트립을 프레임으로 분할해 만든 이미지 기반 형성과정 애니메이션입니다."
+      "source_filmstrip": "assets/cinematic/image_sequence/thermokarst/filmstrip/thermokarst_procedural_filmstrip.png",
+      "description": "API 없이 로컬 절차적 지형 렌더러로 만든 이미지 기반 형성과정 애니메이션입니다."
     },
     {
       "id": "cinder_cone_image_sequence",
@@ -837,10 +837,10 @@
       "fps": 7,
       "filmstrip_cols": 5,
       "filmstrip_rows": 6,
-      "mode": "filmstrip_import",
+      "mode": "procedural_filmstrip_import",
       "status": "ready",
-      "source_filmstrip": "assets/cinematic/image_sequence/cinder_cone/filmstrip/cinder_cone_filmstrip.png",
-      "description": "생성된 필름스트립을 프레임으로 분할해 만든 이미지 기반 형성과정 애니메이션입니다."
+      "source_filmstrip": "assets/cinematic/image_sequence/cinder_cone/filmstrip/cinder_cone_procedural_filmstrip.png",
+      "description": "API 없이 로컬 절차적 지형 렌더러로 만든 이미지 기반 형성과정 애니메이션입니다."
     }
   ]
 }

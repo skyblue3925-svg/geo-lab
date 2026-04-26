@@ -47,21 +47,6 @@ COASTAL_LANDFORMS = {"barrier_island", "marine_terrace", "sea_cave_stack", "tida
 GLACIAL_LANDFORMS = {"drumlin", "esker", "kettle_lake", "moraine", "outwash_plain", "thermokarst"}
 VOLCANIC_LANDFORMS = {"cinder_cone", "lava_dome", "maar"}
 KARST_LANDFORMS = {"polje"}
-HIGH_DETAIL_AERIAL_LANDFORMS = {
-    "cinder_cone",
-    "floodplain_natural_levee",
-    "kettle_lake",
-    "lava_dome",
-    "maar",
-    "marine_terrace",
-    "moraine",
-    "outwash_plain",
-    "polje",
-    "sea_cave_stack",
-    "thermokarst",
-    "tidal_flat",
-    "wave_cut_platform",
-}
 
 
 def load_specs() -> list[dict[str, object]]:
@@ -139,199 +124,7 @@ def hillshade(height: np.ndarray) -> np.ndarray:
     return np.clip(shade, 0.58, 1.18)
 
 
-def _aerial_noise(size: int, seed: int) -> np.ndarray:
-    rng = np.random.default_rng(seed)
-    field = np.zeros((size, size), dtype=float)
-    for scale, weight in [(8, 0.42), (18, 0.30), (44, 0.18), (96, 0.10)]:
-        small = rng.normal(0.0, 1.0, (scale, scale))
-        image = Image.fromarray(np.uint8(np.clip((small - small.min()) / max(np.ptp(small), 1e-6) * 255, 0, 255)), mode="L")
-        field += (np.asarray(image.resize((size, size), Image.Resampling.BICUBIC), dtype=float) / 255.0) * weight
-    return np.clip(field, 0.0, 1.0)
-
-
-def _blend(base: np.ndarray, color: tuple[int, int, int], mask: np.ndarray, alpha: float) -> np.ndarray:
-    mask = np.broadcast_to(mask, base.shape[:2])
-    if not np.any(mask):
-        return base
-    out = base.copy()
-    out[mask] = out[mask] * (1.0 - alpha) + np.array(color, dtype=float) * alpha
-    return out
-
-
-def _draw_polyline_mask(mask: np.ndarray, points: list[tuple[float, float]], width: int) -> np.ndarray:
-    image = Image.new("L", (mask.shape[1], mask.shape[0]), 0)
-    draw = ImageDraw.Draw(image)
-    draw.line(points, fill=255, width=max(1, width), joint="curve")
-    return mask | (np.asarray(image) > 0)
-
-
-def _base_aerial_canvas(size: int, seed: int, palette: tuple[tuple[int, int, int], tuple[int, int, int], tuple[int, int, int]]) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    y = np.linspace(0.0, 1.0, size)[:, None]
-    x = np.linspace(0.0, 1.0, size)[None, :]
-    noise = _aerial_noise(size, seed)
-    broad = _aerial_noise(size, seed + 97)
-    height = np.clip(0.38 + 0.32 * broad + 0.12 * noise, 0.0, 1.0)
-    low, mid, high = [np.array(color, dtype=float) for color in palette]
-    lower = np.clip(height[..., None] / 0.55, 0.0, 1.0)
-    upper = np.clip((height[..., None] - 0.55) / 0.45, 0.0, 1.0)
-    rgb = (low * (1.0 - lower) + mid * lower) * (1.0 - upper) + high * upper
-    return x, y, height, rgb
-
-
-def render_high_detail_aerial(landform_id: str, *, progress: float, size: int) -> Image.Image | None:
-    if landform_id not in HIGH_DETAIL_AERIAL_LANDFORMS:
-        return None
-
-    p = float(np.clip(progress, 0.0, 1.0))
-    seed = sum(ord(ch) for ch in landform_id) + round(p * 1000)
-    palettes = {
-        "volcanic": ((55, 50, 46), (111, 83, 62), (176, 151, 119)),
-        "glacial": ((111, 126, 116), (166, 162, 134), (232, 238, 235)),
-        "coastal": ((113, 103, 78), (170, 151, 104), (194, 186, 152)),
-        "karst": ((81, 120, 85), (146, 154, 112), (203, 194, 151)),
-        "river": ((76, 121, 75), (146, 145, 93), (184, 168, 112)),
-    }
-    family = "river"
-    if landform_id in VOLCANIC_LANDFORMS:
-        family = "volcanic"
-    elif landform_id in GLACIAL_LANDFORMS:
-        family = "glacial"
-    elif landform_id in COASTAL_LANDFORMS:
-        family = "coastal"
-    elif landform_id in KARST_LANDFORMS:
-        family = "karst"
-    x, y, height, rgb = _base_aerial_canvas(size, seed, palettes[family])
-    water = np.zeros((size, size), dtype=bool)
-    sediment = np.zeros_like(water)
-    shadow = np.zeros_like(water)
-
-    if landform_id == "floodplain_natural_levee":
-        center = 0.48 + 0.08 * np.sin(y * 8.4 + 0.8)
-        river = np.abs(x - center) < (0.030 + 0.008 * p)
-        levee = (np.abs(x - center) < (0.070 + 0.026 * p)) & ~river
-        backswamp = (np.abs(x - center) > 0.16) & (height < np.quantile(height, 0.54 + 0.12 * p))
-        water |= river | (backswamp & (0.24 < p) & (p < 0.62))
-        sediment |= levee | (((x - center) > 0.075) & ((x - center) < 0.17) & (y > 0.48) & (p > 0.38))
-        height += levee * (0.04 + 0.08 * p)
-    elif landform_id == "kettle_lake":
-        ice = y < (0.34 - 0.12 * p)
-        rgb = _blend(rgb, (230, 237, 235), ice, 0.72 * (1.0 - 0.35 * p))
-        for idx, (cx, cy, rx, ry) in enumerate([(0.34, 0.58, 0.09, 0.06), (0.61, 0.63, 0.13, 0.08), (0.53, 0.43, 0.07, 0.05), (0.76, 0.52, 0.08, 0.055)]):
-            active = np.clip((p - 0.16 - idx * 0.08) / 0.55, 0.0, 1.0)
-            basin = ((x - cx) ** 2 / (rx * (0.55 + active)) ** 2) + ((y - cy) ** 2 / (ry * (0.55 + active)) ** 2) < 1
-            height -= basin * 0.18 * active
-            water |= basin & (active > 0.28)
-    elif landform_id == "lava_dome":
-        r = np.sqrt((x - 0.52) ** 2 + ((y - 0.52) * 1.18) ** 2)
-        dome = np.clip(1.0 - r / (0.08 + 0.28 * p), 0.0, 1.0)
-        height += dome ** 1.7 * (0.18 + 0.50 * p)
-        shadow |= (dome > 0.15) & (x > 0.52) & (y > 0.48)
-        rgb = _blend(rgb, (174, 126, 86), dome > 0.08, 0.55)
-    elif landform_id == "maar":
-        r = np.sqrt((x - 0.50) ** 2 + ((y - 0.51) * 1.05) ** 2)
-        radius = 0.10 + 0.22 * p
-        crater = r < radius
-        rim = (r >= radius) & (r < radius + 0.035 + 0.02 * p)
-        height -= crater * (0.25 + 0.20 * p)
-        height += rim * (0.11 + 0.05 * p)
-        shadow |= crater
-        water |= crater & (p > 0.63)
-    elif landform_id == "marine_terrace":
-        coast = 0.66 + 0.06 * np.sin(x * 7.0)
-        water |= y > coast
-        for level in range(4):
-            band = (y > coast - 0.12 * (level + 1) - 0.025 * p) & (y < coast - 0.12 * level - 0.018 * p)
-            height += band * (0.035 * (level + 1))
-            sediment |= band & (level % 2 == 0)
-    elif landform_id == "moraine":
-        ice_front = 0.34 + 0.20 * p
-        ice = y < ice_front - 0.05 * np.sin(x * 6.0)
-        rgb = _blend(rgb, (229, 237, 235), ice, 0.70)
-        for idx in range(5):
-            ridge_y = ice_front + 0.055 + idx * 0.085 + 0.018 * np.sin(x * (7 + idx))
-            ridge = np.abs(y - ridge_y) < (0.010 + 0.010 * p)
-            height += ridge * (0.09 + 0.02 * idx)
-            sediment |= ridge
-    elif landform_id == "outwash_plain":
-        ice = y < (0.24 + 0.02 * np.sin(x * 7.0))
-        rgb = _blend(rgb, (226, 235, 232), ice, 0.75)
-        fan = (y > 0.25) & (np.abs(x - 0.52) < (y - 0.22) * (0.18 + 0.62 * p))
-        sediment |= fan
-        for branch in range(7):
-            cx = 0.50 + (branch - 3) * 0.025 * p
-            pts = [(size * (cx + np.sin(t * 8 + branch) * 0.025 * t), size * (0.24 + t * 0.68)) for t in np.linspace(0, 1, 36)]
-            water = _draw_polyline_mask(water, pts, round(size * (0.010 + 0.006 * p)))
-    elif landform_id == "polje":
-        basin = ((x - 0.51) ** 2 / (0.18 + 0.18 * p) ** 2) + ((y - 0.56) ** 2 / (0.12 + 0.12 * p) ** 2) < 1
-        height -= basin * (0.10 + 0.20 * p)
-        sediment |= basin
-        for cx, cy in [(0.34, 0.42), (0.62, 0.40), (0.40, 0.68), (0.70, 0.63)]:
-            doline = ((x - cx) ** 2 + (y - cy) ** 2) < (0.035 + 0.05 * p) ** 2
-            height -= doline * 0.12
-        water |= basin & (p > 0.72)
-    elif landform_id == "sea_cave_stack":
-        water |= x < (0.28 + 0.18 * p + 0.035 * np.sin(y * 9.0))
-        headland = (x > 0.32) & (x < 0.72) & (y > 0.25) & (y < 0.75)
-        cave = ((x - (0.30 + 0.24 * p)) ** 2 / 0.050**2 + (y - 0.50) ** 2 / 0.13**2) < 1
-        arch = ((x - 0.62) ** 2 / 0.090**2 + (y - 0.50) ** 2 / 0.16**2) < 1
-        water |= cave & (p > 0.22)
-        water |= arch & (p > 0.50)
-        stack = ((x - 0.78) ** 2 / 0.055**2 + (y - 0.50) ** 2 / 0.12**2) < 1
-        height += headland * 0.18
-        height += stack * 0.25 * np.clip((p - 0.68) / 0.25, 0, 1)
-    elif landform_id == "thermokarst":
-        for idx, (cx, cy, rx, ry) in enumerate([(0.32, 0.50, 0.11, 0.07), (0.62, 0.43, 0.13, 0.08), (0.48, 0.72, 0.16, 0.10), (0.78, 0.68, 0.10, 0.06)]):
-            active = np.clip((p - idx * 0.11) / 0.65, 0.0, 1.0)
-            thaw = ((x - cx) ** 2 / (rx * active + 1e-4) ** 2) + ((y - cy) ** 2 / (ry * active + 1e-4) ** 2) < 1
-            height -= thaw * 0.18 * active
-            water |= thaw & (active > 0.25)
-    elif landform_id == "tidal_flat":
-        shoreline = 0.30 + 0.24 * p + 0.03 * np.sin(x * 7.0)
-        water |= y < shoreline
-        sediment |= y >= shoreline - 0.03
-        for branch in range(12):
-            offset = 0.08 + branch * 0.075
-            pts = [(size * (offset + 0.035 * np.sin(t * 9 + branch)), size * (shoreline.mean() + 0.04 + t * 0.58)) for t in np.linspace(0, 1, 30)]
-            water = _draw_polyline_mask(water, pts, round(size * 0.007))
-    elif landform_id == "wave_cut_platform":
-        cliff = 0.44 + 0.15 * p + 0.025 * np.sin(y * 9.0)
-        water |= x < cliff - 0.08
-        platform = (x >= cliff - 0.10) & (x < cliff + 0.08 + 0.12 * p)
-        height += (x >= cliff + 0.08) * 0.22
-        height -= platform * 0.10
-        sediment |= platform
-    elif landform_id == "cinder_cone":
-        r = np.sqrt((x - 0.52) ** 2 + ((y - 0.54) * 1.06) ** 2)
-        cone = np.clip(1.0 - r / (0.08 + 0.30 * p), 0.0, 1.0)
-        crater = r < (0.025 + 0.050 * p)
-        height += cone * (0.18 + 0.45 * p)
-        height -= crater * 0.26
-        rgb = _blend(rgb, (92, 63, 46), cone > 0.05, 0.60)
-        shadow |= crater
-
-    rgb = _blend(rgb, (190, 166, 112), sediment, 0.46)
-    rgb = _blend(rgb, (44, 106, 137), water, 0.78)
-    rgb = _blend(rgb, (38, 33, 30), shadow, 0.30)
-    shaded = np.clip(rgb * hillshade(height)[..., None], 0, 255)
-    image = Image.fromarray(np.uint8(shaded), mode="RGB")
-    image = _finish_scene(image)
-
-    draw = ImageDraw.Draw(image, "RGBA")
-    if landform_id == "lava_dome":
-        cx = size * 0.52
-        cy = size * 0.52
-        for idx in range(9):
-            angle = idx * np.pi * 2 / 9
-            length = size * (0.05 + 0.22 * p)
-            draw.line((cx, cy, cx + np.cos(angle) * length, cy + np.sin(angle) * length), fill=(36, 31, 27, 110), width=max(1, size // 130))
-    return image
-
-
 def render_frame(landform_id: str, height: np.ndarray, *, progress: float, size: int) -> Image.Image:
-    high_detail = render_high_detail_aerial(landform_id, progress=progress, size=size)
-    if high_detail is not None:
-        return high_detail
-
     if landform_id == "lava_dome":
         return render_lava_dome_oblique(progress=progress, size=size)
     if landform_id == "tidal_flat":
@@ -360,7 +153,11 @@ def render_frame(landform_id: str, height: np.ndarray, *, progress: float, size:
         shaded[mask] = shaded[mask] * 0.28 + water * 0.72
 
     image = Image.fromarray(np.uint8(shaded), mode="RGB").resize((size, size), Image.Resampling.BICUBIC)
-    return _finish_scene(image)
+    image = image.filter(ImageFilter.UnsharpMask(radius=1.1, percent=70, threshold=2))
+
+    draw = ImageDraw.Draw(image, "RGBA")
+    draw.rectangle((0, 0, size - 1, size - 1), outline=(0, 0, 0, 36), width=1)
+    return image
 
 
 def _vertical_gradient(size: int, top: tuple[int, int, int], bottom: tuple[int, int, int]) -> Image.Image:
@@ -374,22 +171,7 @@ def _vertical_gradient(size: int, top: tuple[int, int, int], bottom: tuple[int, 
 
 
 def _finish_scene(image: Image.Image) -> Image.Image:
-    image = image.convert("RGB")
-    arr = np.asarray(image, dtype=float)
-    h, w = arr.shape[:2]
-    yy = np.linspace(0.0, 1.0, h)[:, None]
-    xx = np.linspace(0.0, 1.0, w)[None, :]
-    grain = np.asarray(Image.effect_noise((w, h), 14), dtype=float)
-    broad = np.asarray(
-        Image.effect_noise((max(1, w // 3), max(1, h // 3)), 20).resize((w, h), Image.Resampling.BICUBIC),
-        dtype=float,
-    )
-    fiber = np.sin((xx * 23.0) + (yy * 11.0)) * 5.0
-    vignette = 0.92 + 0.10 * (1.0 - np.clip(((xx - 0.50) ** 2 + (yy - 0.50) ** 2) / 0.58, 0.0, 1.0))
-    texture = ((grain - 128.0) * 0.12) + ((broad - 128.0) * 0.08) + (fiber * 0.22)
-    arr = np.clip((arr + texture[..., None]) * vignette[..., None], 0, 255)
-    image = Image.fromarray(np.uint8(arr), mode="RGB")
-    image = image.filter(ImageFilter.UnsharpMask(radius=1.15, percent=95, threshold=2))
+    image = image.filter(ImageFilter.UnsharpMask(radius=1.1, percent=80, threshold=2))
     draw = ImageDraw.Draw(image, "RGBA")
     draw.rectangle((0, 0, image.width - 1, image.height - 1), outline=(0, 0, 0, 36), width=1)
     return image
@@ -772,7 +554,10 @@ def render_lava_dome_oblique(*, progress: float, size: int) -> Image.Image:
             fill=(56, 47, 42, int(95 * scar)),
         )
 
-    return _finish_scene(image)
+    image = image.filter(ImageFilter.UnsharpMask(radius=1.2, percent=80, threshold=2))
+    draw = ImageDraw.Draw(image, "RGBA")
+    draw.rectangle((0, 0, size - 1, size - 1), outline=(0, 0, 0, 36), width=1)
+    return image
 
 
 def build_filmstrip(landform_id: str, *, frame_count: int, cols: int, rows: int, cell_size: int, gutter: int) -> Path:
