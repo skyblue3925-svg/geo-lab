@@ -217,6 +217,36 @@ def process_heatmap_figure(field: np.ndarray, title: str) -> go.Figure:
     return figure
 
 
+MAIN_OVERLAY_KEYS = {
+    "drainage_area",
+    "transport_capacity",
+    "wave_energy",
+    "shoreline_retreat",
+    "wave_cut_platform",
+    "sand_flux",
+    "stoss_erosion",
+    "lee_deposition",
+    "ice_thickness",
+    "glacial_velocity",
+    "volcanic_construction",
+    "lava_flow",
+    "explosion_energy",
+    "crater_excavation",
+    "pyroclastic_cone_growth",
+    "groundwater_flow",
+    "solution_rate",
+    "collapse_risk",
+    "seasonal_flooding",
+    "polje_floor_aggradation",
+}
+
+
+def main_overlay_options(process_fields: dict) -> tuple[tuple[str, str], ...]:
+    options = process_field_options(process_fields)
+    filtered = tuple((key, label) for key, label in options if key in MAIN_OVERLAY_KEYS)
+    return filtered or options[:12]
+
+
 def stage_label(result: dict) -> str:
     final_stage = result.get("final_stage") or {}
     stage_name = final_stage.get("stage_name") or final_stage.get("title") or "형성과정 진행"
@@ -353,7 +383,8 @@ with view_col:
 
     frame_index = st.slider("시간 단계", 0, len(history) - 1, key="lab_frame_index")
     frame_process_fields = result["process_history"][frame_index]
-    surface_options = process_field_options(frame_process_fields)
+    compact_overlay = st.checkbox("핵심 작용장만 보기", value=True)
+    surface_options = main_overlay_options(frame_process_fields) if compact_overlay else process_field_options(frame_process_fields)
     surface_overlay = None
     surface_overlay_label = None
     surface_overlay_key = None
