@@ -15,7 +15,7 @@ THUMBS = COLLECTION / "thumbnails"
 
 GROUPS = {
     "river": ("하천 지형", {"alluvial_fan", "braided_river", "floodplain_natural_levee", "free_meander", "oxbow_lake", "river_terrace", "v_valley", "waterfall"}),
-    "delta": ("하구·삼각주", {"arcuate_delta", "bird_foot_delta", "cuspate_delta", "delta", "estuary"}),
+    "delta": ("하구ㆍ삼각주", {"arcuate_delta", "bird_foot_delta", "cuspate_delta", "delta", "estuary"}),
     "glacial": ("빙하 지형", {"arete", "cirque", "drumlin", "esker", "fjord", "horn", "kettle_lake", "moraine", "outwash_plain", "thermokarst", "u_valley"}),
     "volcanic": ("화산 지형", {"caldera", "cinder_cone", "crater_lake", "lava_dome", "lava_plateau", "maar", "shield_volcano", "stratovolcano"}),
     "karst": ("카르스트 지형", {"karren", "karst_doline", "polje", "tower_karst", "uvala"}),
@@ -26,9 +26,9 @@ GROUPS = {
 
 KO_TITLES = {
     "alluvial_fan": "선상지",
-    "arcuate_delta": "호상 삼각주",
+    "arcuate_delta": "원호상 삼각주",
     "arete": "아레트",
-    "barrier_island": "사주섬",
+    "barrier_island": "장벽섬",
     "barchan": "바르한",
     "bird_foot_delta": "조족상 삼각주",
     "braided_river": "망상 하천",
@@ -42,7 +42,7 @@ KO_TITLES = {
     "delta": "삼각주",
     "drumlin": "드럼린",
     "esker": "에스커",
-    "estuary": "에스추어리",
+    "estuary": "하구",
     "fjord": "피오르",
     "floodplain_natural_levee": "범람원과 자연제방",
     "free_meander": "자유 곡류천",
@@ -68,13 +68,13 @@ KO_TITLES = {
     "sea_cave_stack": "해식동과 시스택",
     "shield_volcano": "순상화산",
     "spit_lagoon": "사주와 석호",
-    "star_dune": "성상사구",
+    "star_dune": "성사구",
     "stratovolcano": "성층화산",
     "thermokarst": "열카르스트",
     "tidal_flat": "갯벌",
     "tombolo": "육계사주",
     "tower_karst": "탑 카르스트",
-    "transverse_dune": "횡사구",
+    "transverse_dune": "횡단사구",
     "u_valley": "U자곡",
     "uvala": "우발라",
     "v_valley": "V자곡",
@@ -194,7 +194,7 @@ def render_gallery(rows: list[dict[str, str]]) -> str:
 <body>
   <header>
     <h1>지형 GIF 갤러리</h1>
-    <p class="sub">기본은 움직이는 GIF입니다. 화면이 무거우면 전체 정지를 누르고, 필요한 지형만 다시 재생하세요.</p>
+    <p class="sub">고등학생 설명용 지형 형성 GIF입니다. 화면이 무거우면 전체 정지를 누르고 필요한 지형만 다시 재생하세요.</p>
     <p class="creator">제작자: 한백고등학교 김한솔</p>
     <div class="toolbar">
       <div class="filters" aria-label="지형 분류 필터">{filter_buttons}</div>
