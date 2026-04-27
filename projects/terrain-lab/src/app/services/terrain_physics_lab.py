@@ -492,6 +492,66 @@ def _change_summary(initial: np.ndarray, final: np.ndarray) -> dict[str, float]:
     }
 
 
+def validate_lab_result_contract(result: dict[str, Any]) -> tuple[str, ...]:
+    """Return issue codes for Lab simulation contract violations."""
+    issues: list[str] = []
+    required_keys = ("history", "times", "process_history", "stats_history", "kernel")
+    for key in required_keys:
+        if key not in result:
+            issues.append(f"missing:{key}")
+    if "config" not in result and "parameters" not in result:
+        issues.append("missing:config_or_parameters")
+
+    history = result.get("history")
+    times = result.get("times")
+    process_history = result.get("process_history")
+    stats_history = result.get("stats_history")
+
+    if not isinstance(history, list) or not history:
+        issues.append("history:empty")
+        return tuple(issues)
+    if not isinstance(times, list) or len(times) != len(history):
+        issues.append("times:length_mismatch")
+    if not isinstance(process_history, list) or len(process_history) != len(history):
+        issues.append("process_history:length_mismatch")
+    if not isinstance(stats_history, list) or len(stats_history) != len(history):
+        issues.append("stats_history:length_mismatch")
+
+    frame_shape: tuple[int, ...] | None = None
+    for idx, frame in enumerate(history):
+        array = np.asarray(frame, dtype=float)
+        if array.ndim != 2:
+            issues.append(f"history:{idx}:not_2d")
+            continue
+        if frame_shape is None:
+            frame_shape = array.shape
+        elif array.shape != frame_shape:
+            issues.append(f"history:{idx}:shape_mismatch")
+        if not bool(np.isfinite(array).all()):
+            issues.append(f"history:{idx}:nonfinite")
+
+    if isinstance(times, list):
+        numeric_times = np.asarray(times, dtype=float)
+        if not bool(np.isfinite(numeric_times).all()):
+            issues.append("times:nonfinite")
+        elif numeric_times.size > 1 and bool(np.any(np.diff(numeric_times) < 0.0)):
+            issues.append("times:not_monotonic")
+
+    if frame_shape is not None and isinstance(process_history, list) and process_history:
+        final_fields = process_history[-1]
+        if not isinstance(final_fields, dict):
+            issues.append("process_history:final_not_dict")
+        else:
+            for key, value in final_fields.items():
+                array = np.asarray(value, dtype=float)
+                if array.shape != frame_shape:
+                    issues.append(f"process_field:{key}:shape_mismatch")
+                if not bool(np.isfinite(array).all()):
+                    issues.append(f"process_field:{key}:nonfinite")
+
+    return tuple(issues)
+
+
 def _run_river_kernel_scenario(
     scenario: PhysicsLabScenario,
     *,

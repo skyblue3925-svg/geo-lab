@@ -7,6 +7,7 @@ from app.services.terrain_physics_lab import (
     list_physics_lab_scenarios,
     planned_physics_lab_rows,
     run_physics_lab_simulation,
+    validate_lab_result_contract,
 )
 
 
@@ -91,6 +92,12 @@ def test_lab_common_engine_exposes_process_force_fields():
         for field_name in field_names:
             assert field_name in process_fields
             assert float(abs(process_fields[field_name]).sum()) > 0.0
+
+
+def test_lab_result_contract_validator_accepts_common_engine_runs():
+    result = run_physics_lab_simulation("coastal_cliff", 65, 60, 35, 35, 5_000, 32)
+
+    assert validate_lab_result_contract(result) == ()
 
 
 def test_force_module_registry_covers_core_internal_and_external_processes():
