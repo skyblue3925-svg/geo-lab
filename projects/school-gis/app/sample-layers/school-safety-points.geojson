@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "정문 횡단보도 시야 가림",
+        "note": "출근 시간대 차량 대기가 길어 학생 시야가 가려지는 구간"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [126.9755, 37.5673]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "후문 보행로 폭 협소",
+        "note": "보도 폭이 좁아 학생이 몰릴 때 혼잡도가 높음"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [126.9796, 37.5651]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "버스정류장 앞 보행 집중",
+        "note": "버스 승하차와 횡단 수요가 겹치는 지점"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [126.9811, 37.5682]
+      }
+    }
+  ]
+}

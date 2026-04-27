@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test:koppen": "node tests/koppen-climate-model.test.mjs && node tests/koppen-exam-spots.test.mjs",
+    "test:gis:syntax": "node --check projects/school-gis/app/app.js && node --check projects/school-gis/app/sgis-adapter.js && node --check projects/school-gis/app/store.js",
     "test:e2e": "playwright test --config=playwright.config.js --project=chromium"
   },
   "devDependencies": {

@@ -1,0 +1,4 @@
+tmp-*.png
+tmp-server-*
+tmp-debug/
+scripts/sgis-local-env.ps1

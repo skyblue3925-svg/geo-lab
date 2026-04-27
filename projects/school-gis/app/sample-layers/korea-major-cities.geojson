@@ -1,0 +1,49 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "서울",
+        "note": "광역시도 중심점 샘플"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [126.978, 37.5665]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "부산",
+        "note": "광역시도 중심점 샘플"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [129.0756, 35.1796]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "대전",
+        "note": "광역시도 중심점 샘플"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [127.3845, 36.3504]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "title": "광주",
+        "note": "광역시도 중심점 샘플"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [126.8526, 35.1595]
+      }
+    }
+  ]
+}
