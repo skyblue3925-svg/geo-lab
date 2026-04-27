@@ -3,6 +3,7 @@ Geo-Lab AI v4.0: 다중 이론 모델 + 사실적 렌더링
 각 지형에 대해 여러 이론을 선택하고 비교할 수 있음
 """
 import streamlit as st
+from app.services.streamlit_compat import image_stretch
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm, colors
@@ -28,11 +29,13 @@ except ImportError:
     STPYVISTA_AVAILABLE = False
 
 # Plotly (인터랙티브 3D)
-import plotly.graph_objects as go
+from app.utils.plotly_compat import go, plotly_error_message
+if go is None:
+    st.error(plotly_error_message())
+    st.stop()
 
 # 통합 물리 엔진 임포트 (Phase 5)
 from engine.grid import WorldGrid
-from engine.fluids import HydroKernel
 from engine.fluids import HydroKernel
 from engine.erosion_process import ErosionProcess
 from engine.script_engine import ScriptExecutor
@@ -3406,9 +3409,9 @@ def main():
                     )
                     plot_container.plotly_chart(plotly_fig, use_container_width=True, key="v_plot_shared")
                 else:
-                    st.image("assets/reference/v_valley_satellite_1765437288622.png",
+                    image_stretch(st, "assets/reference/v_valley_satellite_1765437288622.png",
                              caption="V자곡 - Google Earth 스타일 (AI 생성)",
-                             use_column_width=True)
+                             use_container_width=True)
         
         # 곡류
         with river_sub[1]:
@@ -3487,9 +3490,9 @@ def main():
                     )
                     st.plotly_chart(fig, use_container_width=True, key="m_plot")
                 else:
-                    st.image("assets/reference/meander_satellite_1765437309640.png",
+                    image_stretch(st, "assets/reference/meander_satellite_1765437309640.png",
                              caption="곡류 하천 - Google Earth 스타일 (AI 생성)",
-                             use_column_width=True)
+                             use_container_width=True)
         
         # 삼각주
         with river_sub[2]:
@@ -3586,9 +3589,9 @@ def main():
                     )
                     plot_container.plotly_chart(plotly_fig, use_container_width=True, key="d_plot_shared")
                 else:
-                    st.image("assets/reference/delta_satellite_1765437326499.png",
+                    image_stretch(st, "assets/reference/delta_satellite_1765437326499.png",
                              caption="조족상 삼각주 - Google Earth 스타일 (AI 생성)",
-                             use_column_width=True)
+                             use_container_width=True)
         
         # 선상지
         with river_sub[3]:
@@ -3812,7 +3815,7 @@ def main():
                     plotly_fig = render_terrain_plotly(result['elevation'], f"{result['type']} | 깊이: {result['depth']:.0f}m | {em_time:,}년", add_water=True, water_level=result['elevation'].min()+2, water_depth_grid=result.get('water_depth'))
                     plot_container.plotly_chart(plotly_fig, use_container_width=True, key="em_plot_shared")
                 else:
-                    st.image("assets/reference/entrenched_meander_ref_1765496053723.png", caption="감입 곡류 (Entrenched Meander) - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/entrenched_meander_ref_1765496053723.png", caption="감입 곡류 (Entrenched Meander) - AI 생성", use_container_width=True)
         
         # 망상하천
         with river_sub[7]:
@@ -3847,7 +3850,7 @@ def main():
                     fig = render_terrain_plotly(result['elevation'], f"망상하천 ({bs_time}년)", add_water=True, water_level=result['elevation'].min()+0.5, texture_path="assets/reference/braided_river_texture.png", water_depth_grid=result.get('water_depth'))
                     plot_container.plotly_chart(fig, use_container_width=True, key="bs_plot_shared")
                 else:
-                    st.image("assets/reference/braided_river_1765410638302.png", caption="망상 하천 (AI 생성)", use_column_width=True)
+                    image_stretch(st, "assets/reference/braided_river_1765410638302.png", caption="망상 하천 (AI 생성)", use_container_width=True)
 
         # 폭포
         with river_sub[8]:
@@ -3880,7 +3883,7 @@ def main():
                     fig = render_terrain_plotly(result['elevation'], f"폭포 ({wf_time}년)", add_water=True, water_level=90, water_depth_grid=result.get('water_depth'))
                     plot_container.plotly_chart(fig, use_container_width=True, key="wf_plot_shared")
                 else:
-                    st.image("assets/reference/waterfall_gorge_formation_1765410495876.png", caption="폭포 및 협곡 (AI 생성)", use_column_width=True)
+                    image_stretch(st, "assets/reference/waterfall_gorge_formation_1765410495876.png", caption="폭포 및 협곡 (AI 생성)", use_container_width=True)
 
         # 범람원 상세
         with river_sub[9]:
@@ -3913,7 +3916,7 @@ def main():
                     fig = render_terrain_plotly(result['elevation'], f"범람원 상세 ({lv_time}년)", add_water=True, water_level=42, water_depth_grid=result.get('water_depth'))
                     plot_container.plotly_chart(fig, use_container_width=True, key="lv_plot_shared")
                 else:
-                    st.image("assets/reference/floodplain_landforms_1765436731483.png", caption="범람원 - 자연제방과 배후습지 (AI 생성)", use_column_width=True)
+                    image_stretch(st, "assets/reference/floodplain_landforms_1765436731483.png", caption="범람원 - 자연제방과 배후습지 (AI 생성)", use_container_width=True)
     
     # ===== 해안 지형 =====
     with tab_coast:
@@ -4052,9 +4055,9 @@ def main():
                 plot_container.plotly_chart(plotly_fig, use_container_width=True, key="co_plot_shared")
             else:
                 if theory_key == "cliff_retreat":
-                    st.image("assets/reference/sea_stack_arch_ref_1765495979396.png", caption="시스택 & 해식아치 - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/sea_stack_arch_ref_1765495979396.png", caption="시스택 & 해식아치 - AI 생성", use_container_width=True)
                 elif theory_key in ["tombolo", "spit"]:
-                    st.image("assets/reference/tombolo_sandbar_ref_1765495999194.png", caption="육계도 & 사취 - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/tombolo_sandbar_ref_1765495999194.png", caption="육계도 & 사취 - AI 생성", use_container_width=True)
                 else:
                     st.info("이 지형에 대한 참고 사진이 아직 없습니다.")
     
@@ -4100,7 +4103,7 @@ def main():
                     f = render_terrain_plotly(result['elevation'], f"돌리네 | {ka_time:,}년", add_water=False)
                     plot_container.plotly_chart(f, use_container_width=True, key="ka_plot_shared")
                 else:
-                    st.image("assets/reference/doline_sinkhole_1765436375545.png", caption="돌리네 (AI 생성)", use_column_width=True)
+                    image_stretch(st, "assets/reference/doline_sinkhole_1765436375545.png", caption="돌리네 (AI 생성)", use_container_width=True)
 
         # 탑 카르스트
         with ka_subs[1]:
@@ -4136,7 +4139,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"탑 카르스트 | {tk_time:,}년", add_water=False, texture_path="assets/reference/tower_karst_texture.png")
                      plot_container.plotly_chart(f, use_container_width=True, key="tk_plot_shared")
                 else:
-                    st.image("assets/reference/tower_karst_ref.png", caption="탑 카르스트 (Guilin) - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/tower_karst_ref.png", caption="탑 카르스트 (Guilin) - AI 생성", use_container_width=True)
 
         # 석회동굴
         with ka_subs[2]:
@@ -4172,7 +4175,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"석회동굴 | {cv_time:,}년", add_water=False)
                      plot_container.plotly_chart(f, use_container_width=True, key="cv_plot_shared")
                 else:
-                    st.image("assets/reference/cave_ref.png", caption="석회동굴 내부 - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/cave_ref.png", caption="석회동굴 내부 - AI 생성", use_container_width=True)
     
     # ===== 화산 =====
     with tab_volcano:
@@ -4214,9 +4217,9 @@ def main():
                 else:
                     # 화산 유형에 따라 다른 이미지
                     if "shield" in VOLCANIC_THEORIES[vo_theory]['key']:
-                        st.image("assets/reference/shield_vs_stratovolcano_1765436448576.png", caption="순상 화산 (AI 생성)", use_column_width=True)
+                        image_stretch(st, "assets/reference/shield_vs_stratovolcano_1765436448576.png", caption="순상 화산 (AI 생성)", use_container_width=True)
                     else:
-                        st.image("assets/reference/caldera_formation_1765436466778.png", caption="칼데라 (AI 생성)", use_column_width=True)
+                        image_stretch(st, "assets/reference/caldera_formation_1765436466778.png", caption="칼데라 (AI 생성)", use_container_width=True)
 
         # 용암 대지
         with vo_subs[1]:
@@ -4252,7 +4255,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"용암대지 | {lp_time:,}년", add_water=False)
                      plot_container.plotly_chart(f, use_container_width=True, key="lp_plot_shared")
                 else:
-                    st.image("assets/reference/lava_plateau_ref.png", caption="용암대지 (Iceland) - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/lava_plateau_ref.png", caption="용암대지 (Iceland) - AI 생성", use_container_width=True)
 
         # 주상절리
         with vo_subs[2]:
@@ -4288,7 +4291,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"주상절리 | {cj_time:,}년", add_water=True, water_level=80)
                      plot_container.plotly_chart(f, use_container_width=True, key="cj_plot_shared")
                 else:
-                    st.image("assets/reference/columnar_ref.png", caption="주상절리 (Basalt Columns) - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/columnar_ref.png", caption="주상절리 (Basalt Columns) - AI 생성", use_container_width=True)
     
     # ===== 빙하 =====
     with tab_glacial:
@@ -4329,7 +4332,7 @@ def main():
                 if "3D" in v_mode:
                     plot_container.plotly_chart(f, use_container_width=True, key="gl_plot_shared")
                 else:
-                    st.image("assets/reference/fjord_valley_ref_1765495963491.png", caption="피오르 (Fjord) - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/fjord_valley_ref_1765495963491.png", caption="피오르 (Fjord) - AI 생성", use_container_width=True)
 
         # 권곡
         with gl_subs[1]:
@@ -4365,7 +4368,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"권곡 | {cq_time:,}년", add_water=False, texture_path="assets/reference/cirque_texture.png")
                      plot_container.plotly_chart(f, use_container_width=True, key="cq_plot_shared")
                 else:
-                    st.image("assets/reference/cirque_ref.png", caption="권곡 (Glacial Cirque) - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/cirque_ref.png", caption="권곡 (Glacial Cirque) - AI 생성", use_container_width=True)
 
         # 모레인
         with gl_subs[2]:
@@ -4401,7 +4404,7 @@ def main():
                      f = render_terrain_plotly(result['elevation'], f"모레인 | {mo_time:,}년", add_water=False)
                      plot_container.plotly_chart(f, use_container_width=True, key="mo_plot_shared")
                 else:
-                    st.image("assets/reference/moraine_ref.png", caption="모레인 (Moraine) - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/moraine_ref.png", caption="모레인 (Moraine) - AI 생성", use_container_width=True)
     
     # ===== 건조 =====
     with tab_arid:
@@ -4473,9 +4476,9 @@ def main():
                 # 이론 키에 따라 이미지 분기
                 tk = ARID_THEORIES[ar_theory]['key']
                 if tk == "barchan":
-                    st.image("assets/reference/barchan_dune_ref_1765496023768.png", caption="바르한 사구 - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/barchan_dune_ref_1765496023768.png", caption="바르한 사구 - AI 생성", use_container_width=True)
                 elif tk == "mesa":
-                    st.image("assets/reference/mesa_butte_ref_1765496038880.png", caption="메사 & 뷰트 - AI 생성", use_column_width=True)
+                    image_stretch(st, "assets/reference/mesa_butte_ref_1765496038880.png", caption="메사 & 뷰트 - AI 생성", use_container_width=True)
                 else:
                     st.info("준비 중입니다.")
     
@@ -4627,7 +4630,7 @@ for i in range(steps):
                 st.session_state['script_grid'] = WorldGrid(100, 100, 10.0)
                 st.experimental_rerun()
             else:
-                 st.image("assets/reference/peneplain_erosion_cycle_1765436750353.png", caption="평야 - 준평원화 과정 (AI 생성)", use_column_width=True)
+                 image_stretch(st, "assets/reference/peneplain_erosion_cycle_1765436750353.png", caption="평야 - 준평원화 과정 (AI 생성)", use_container_width=True)
     
     # ===== Project Genesis (Unified Engine) =====
     with tab_genesis:
@@ -4773,3 +4776,123 @@ for i in range(steps):
 
 if __name__ == "__main__":
     main()
+
+@st.cache_data(ttl=3600)
+def simulate_v_valley(theory: str, time_years: int, params: dict, grid_size: int = 80):
+    """Deterministic V-valley model used by tests and the lab UI."""
+    rows, cols = grid_size, grid_size
+    center = cols // 2
+
+    y = np.arange(rows, dtype=float)[:, None]
+    x = np.arange(cols, dtype=float)
+    base = 250.0 - (y / max(rows - 1, 1)) * 60.0
+
+    rock_hardness = float(params.get("rock_hardness", 0.5))
+    width_cells = max(6.0, grid_size * (0.18 + (1.0 - rock_hardness) * 0.16))
+    depth = 150.0 * (1.0 - np.exp(-time_years / 50000.0))
+
+    dist = np.abs(x - center)
+    incision_profile = np.clip(1.0 - dist / width_cells, 0.0, None)
+    longitudinal_factor = 0.85 + 0.15 * np.sin(np.linspace(0.0, np.pi, rows, dtype=float))[:, None]
+    elevation = base - longitudinal_factor * depth * incision_profile[None, :]
+
+    rng = np.random.default_rng(42)
+    elevation += rng.normal(0.0, 0.8, size=(rows, cols))
+
+    water_depth = np.zeros_like(elevation)
+    river_half_width = max(1, int(width_cells * 0.12))
+    left = max(0, center - river_half_width)
+    right = min(cols, center + river_half_width + 1)
+    water_depth[:, left:right] = 2.0
+
+    return {
+        "elevation": elevation,
+        "depth": depth,
+        "x": np.linspace(0.0, 1000.0, cols),
+        "water_depth": water_depth,
+    }
+
+
+@st.cache_data(ttl=3600)
+def simulate_river_terrace(time_years: int, params: dict, grid_size: int = 100):
+    """Analytical terrace model with a guaranteed incised channel."""
+    rows, cols = grid_size, grid_size
+    center = cols // 2
+
+    y = np.arange(rows, dtype=float)[:, None]
+    x = np.arange(cols, dtype=float)
+    dist = np.abs(x - center)
+
+    elevation = np.repeat(150.0 - (y / max(rows - 1, 1)) * 20.0, cols, axis=1)
+    floodplain_limit = max(10.0, grid_size * 0.18)
+    elevation[:, dist < floodplain_limit] -= 18.0
+    elevation += np.clip(dist - floodplain_limit, 0.0, None)[None, :] * 1.1
+
+    uplift_rate = float(params.get("uplift", 0.5))
+    n_terraces = int(params.get("n_terraces", 3))
+    years_per_cycle = 20000.0
+    progress = min(float(n_terraces), time_years / years_per_cycle)
+    completed = int(progress)
+    fraction = progress - completed
+    terrace_heights = []
+
+    for cycle in range(min(completed, n_terraces)):
+        width = max(4.0, grid_size * (0.16 - cycle * 0.025))
+        incision = 8.0 + uplift_rate * 4.0
+        elevation[:, dist < width] -= incision
+        terrace_heights.append(float(elevation[rows // 2, center]))
+
+    if completed < n_terraces and fraction > 0.0:
+        width = max(4.0, grid_size * (0.16 - completed * 0.025))
+        incision = (8.0 + uplift_rate * 4.0) * fraction
+        elevation[:, dist < width] -= incision
+
+    water_depth = np.zeros_like(elevation)
+    water_depth[:, max(0, center - 3):min(cols, center + 4)] = 4.0
+
+    return {
+        "elevation": elevation,
+        "n_terraces": n_terraces,
+        "heights": terrace_heights,
+        "water_depth": water_depth,
+    }
+
+
+@st.cache_data(ttl=3600)
+def simulate_moraine(time_years: int, params: dict, grid_size: int = 100):
+    """Analytical moraine model with terminal and lateral ridges."""
+    rows, cols = grid_size, grid_size
+    center = cols // 2
+
+    yy, xx = np.indices((rows, cols), dtype=float)
+    dist = np.abs(xx - center)
+    valley_width = max(8.0, grid_size * 0.18)
+
+    base = 210.0 - (yy / max(rows - 1, 1)) * 110.0
+    valley = 85.0 * np.clip(1.0 - (dist / valley_width) ** 2, 0.0, None)
+    elevation = base - valley
+
+    debris_supply = float(params.get("debris_supply", 0.5))
+    retreat_progress = min(1.0, time_years / 20000.0)
+    terminus_row = rows * (0.78 - retreat_progress * 0.45)
+
+    arc_row = terminus_row - ((dist / max(valley_width, 1.0)) ** 2) * rows * 0.08
+    ridge_sigma = max(1.5, rows * 0.025)
+    ridge = np.exp(-((yy - arc_row) ** 2) / (2.0 * ridge_sigma ** 2))
+    elevation += ridge * (35.0 + 55.0 * debris_supply)
+
+    lateral_offset = max(3.0, valley_width * 0.85)
+    lateral_sigma_x = max(1.5, cols * 0.02)
+    lateral_sigma_y = max(3.0, rows * 0.16)
+    lateral_center_y = terminus_row + rows * 0.12
+    for direction in (-1.0, 1.0):
+        ridge_x = center + direction * lateral_offset
+        lateral = np.exp(-((xx - ridge_x) ** 2) / (2.0 * lateral_sigma_x ** 2))
+        lateral *= np.exp(-((yy - lateral_center_y) ** 2) / (2.0 * lateral_sigma_y ** 2))
+        elevation += lateral * (18.0 + 22.0 * debris_supply)
+
+    return {
+        "elevation": elevation,
+        "type": "모레인 (Moraine)",
+    }
+

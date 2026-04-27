@@ -1,4 +1,4 @@
-"""
+﻿"""
 지형 분석 엔진 (Terrain Analysis Engine)
 
 대학 연구용 지형 분석 도구 모음
@@ -184,7 +184,10 @@ def calculate_hypsometric_curve(
     relative_elevations = np.array(relative_elevations)
     
     # Hypsometric Integral (곡선 아래 면적)
-    hi = np.trapz(relative_elevations, relative_areas)
+    trapezoid = getattr(np, "trapezoid", None)
+    if trapezoid is None:
+        trapezoid = np.trapz
+    hi = trapezoid(relative_elevations, relative_areas)
     hi = abs(hi)  # 적분 방향에 따라 부호 정규화
     
     # 침식 단계 판단
@@ -330,19 +333,57 @@ def compare_elevations(
         zoom_factors = (elev1.shape[0] / elev2.shape[0],
                        elev1.shape[1] / elev2.shape[1])
         elev2 = zoom(elev2, zoom_factors, order=1)
-    
-    diff = elev1 - elev2
-    
+
+    valid = np.isfinite(elev1) & np.isfinite(elev2)
+    diff = np.where(valid, elev1 - elev2, np.nan)
+    valid_count = int(np.count_nonzero(valid))
+    total_count = int(diff.size)
+    valid_ratio = valid_count / total_count if total_count else 0.0
+
+    current_valid = elev1[valid]
+    reference_valid = elev2[valid]
+    current_range = float(np.nanmax(current_valid) - np.nanmin(current_valid)) if valid_count else 0.0
+    reference_range = float(np.nanmax(reference_valid) - np.nanmin(reference_valid)) if valid_count else 0.0
+    bias = float(np.nanmean(diff)) if valid_count else 0.0
+    rmse = float(np.sqrt(np.nanmean(diff ** 2))) if valid_count else 0.0
+    mae = float(np.nanmean(np.abs(diff))) if valid_count else 0.0
+    normalized_rmse = rmse / reference_range if reference_range > 0 else 0.0
+    correlation = _safe_correlation(elev1[valid], elev2[valid]) if valid_count >= 2 else 0.0
+
     return {
         'difference_grid': diff,
         'statistics': {
-            'mean_diff': float(np.nanmean(diff)),
-            'std_diff': float(np.nanstd(diff)),
-            'rmse': float(np.sqrt(np.nanmean(diff**2))),
-            'mae': float(np.nanmean(np.abs(diff))),
-            'max_diff': float(np.nanmax(diff)),
-            'min_diff': float(np.nanmin(diff)),
-            'correlation': float(np.corrcoef(elev1.flatten(), elev2.flatten())[0, 1])
+            'mean_diff': bias,
+            'bias': bias,
+            'std_diff': float(np.nanstd(diff)) if valid_count else 0.0,
+            'rmse': rmse,
+            'mae': mae,
+            'normalized_rmse': normalized_rmse,
+            'max_diff': float(np.nanmax(diff)) if valid_count else 0.0,
+            'min_diff': float(np.nanmin(diff)) if valid_count else 0.0,
+            'current_range': current_range,
+            'reference_range': reference_range,
+            'valid_count': valid_count,
+            'valid_ratio': valid_ratio,
+            'correlation': correlation,
         },
         'labels': (label1, label2)
     }
+
+
+def _safe_correlation(current: np.ndarray, reference: np.ndarray) -> float:
+    current_flat = np.asarray(current, dtype=float).ravel()
+    reference_flat = np.asarray(reference, dtype=float).ravel()
+
+    if current_flat.size < 2 or reference_flat.size < 2:
+        return 0.0
+    if np.allclose(current_flat, current_flat[0]) or np.allclose(reference_flat, reference_flat[0]):
+        return 0.0
+
+    corr = np.corrcoef(current_flat, reference_flat)[0, 1]
+    if np.isnan(corr):
+        return 0.0
+    return float(corr)
+
+
+

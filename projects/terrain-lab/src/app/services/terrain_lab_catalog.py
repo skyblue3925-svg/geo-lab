@@ -13,7 +13,14 @@ from functools import lru_cache
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+def _find_repo_root(start: Path) -> Path:
+    for candidate in (start, *start.parents):
+        if (candidate / "docs" / "TERRAIN_ADDITIONAL_IMAGE_SEQUENCE_SPECS.json").exists():
+            return candidate
+    return start.parents[2]
+
+
+PROJECT_ROOT = _find_repo_root(Path(__file__).resolve())
 ADDITIONAL_SPEC_PATH = PROJECT_ROOT / "docs" / "TERRAIN_ADDITIONAL_IMAGE_SEQUENCE_SPECS.json"
 
 

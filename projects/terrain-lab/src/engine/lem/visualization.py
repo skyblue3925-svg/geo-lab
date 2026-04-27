@@ -5,8 +5,7 @@
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from app.utils.plotly_compat import go, make_subplots
 
 @dataclass
 class SimulationStats:
@@ -61,6 +60,10 @@ class LEMVisualizer:
         history.erosion_rates.append(float(np.mean(erosion)))
     
     def create_realtime_graph(self, scenario: str = 'a') -> go.Figure:
+        if go is None or make_subplots is None:
+            from app.utils.plotly_compat import plotly_error_message
+            raise RuntimeError(plotly_error_message())
+
         """
         실시간 통계 그래프 생성
         

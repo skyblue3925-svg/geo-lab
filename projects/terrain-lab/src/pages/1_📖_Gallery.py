@@ -1,4 +1,4 @@
-﻿"""
+"""
 Geo-Lab Gallery page.
 Stable, minimal gallery for 3D landform exploration and animation.
 """
@@ -34,6 +34,7 @@ from app.services.animation_assets import (
     load_generated_storyboard_texture,
     resolve_cinematic_media_path,
 )
+from app.services.streamlit_compat import image_stretch
 from app.utils.gallery_showcase import (
     ADVANCED_MODE,
     CATALOG_MODE,
@@ -79,10 +80,7 @@ def resolve_page_path(fragment: str) -> str | None:
 
 
 def show_image_stretch(image) -> None:
-    if "use_container_width" in inspect.signature(st.image).parameters:
-        st.image(image, use_container_width=True)
-    else:
-        st.image(image, use_column_width=True)
+    image_stretch(st, image)
 
 
 def load_uploaded_texture(uploaded_file):
@@ -926,3 +924,4 @@ with main_tab1:
                             st.warning("이 지형은 아직 Lab 모범사례와 연결되지 않았습니다.")
                 else:
                     st.caption("대표 지형부터 Lab 수업 흐름과 연결합니다.")
+

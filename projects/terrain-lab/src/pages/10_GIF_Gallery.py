@@ -1,0 +1,202 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+from PIL import Image
+import streamlit as st
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.beta_navigation import render_beta_sidebar
+from app.services.animation_assets import (
+    animation_quality_note_for_landform,
+    animation_reinforced_note_for_landform,
+    is_student_recommended_landform,
+    list_image_sequence_gif_assets,
+    ordered_landform_group_labels,
+    teaching_tags_for_landform,
+)
+from app.services.streamlit_compat import image_stretch
+
+
+def format_size(size_bytes: int) -> str:
+    return f"{size_bytes / 1024 / 1024:.1f} MB"
+
+
+@st.cache_data(show_spinner=False)
+def load_gif_thumbnail(path_text: str, mtime_ns: int, size: int) -> Image.Image:
+    """Load only the first frame so the gallery does not autoplay every GIF."""
+
+    del mtime_ns, size
+    with Image.open(path_text) as image:
+        image.seek(0)
+        return image.convert("RGB").copy()
+
+
+def render_tag_row(tags: tuple[str, ...]) -> None:
+    if not tags:
+        return
+    tag_html = "".join(
+        f"<span class='gif-gallery-tag'>{tag}</span>"
+        for tag in tags[:4]
+    )
+    st.markdown(
+        f"""
+        <div class="gif-gallery-tag-row">{tag_html}</div>
+        <style>
+          .gif-gallery-tag-row {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin: 0.25rem 0 0.45rem 0;
+          }}
+          .gif-gallery-tag {{
+            border: 1px solid #d4d4d4;
+            border-radius: 4px;
+            padding: 0.1rem 0.35rem;
+            color: #404040;
+            background: #fafafa;
+            font-size: 0.78rem;
+            line-height: 1.4;
+            white-space: nowrap;
+          }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+st.set_page_config(
+    page_title="GIF 갤러리",
+    page_icon="🎞️",
+    layout="wide",
+)
+
+render_beta_sidebar("gif_gallery")
+
+st.markdown(
+    """
+    <style>
+      @media (max-width: 640px) {
+        [data-testid="stMetric"] {
+          padding: 0.65rem !important;
+        }
+
+        [data-testid="stVerticalBlock"] h3 {
+          font-size: 1.05rem !important;
+          margin-top: 0.7rem !important;
+        }
+
+        .gif-gallery-tag {
+          font-size: 0.72rem !important;
+        }
+
+        .stButton > button {
+          min-height: 2.7rem !important;
+          width: 100% !important;
+        }
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown("## GIF 갤러리")
+st.caption("지형 형성 이미지 시퀀스를 가볍게 훑어보고, 필요한 지형만 GIF로 재생합니다.")
+
+gif_assets = list_image_sequence_gif_assets()
+if not gif_assets:
+    st.warning("아직 생성된 GIF가 없습니다. scripts/build_image_sequence_gifs.py를 먼저 실행하세요.")
+    st.stop()
+
+metric_cols = st.columns(3)
+metric_cols[0].metric("GIF", len(gif_assets))
+metric_cols[1].metric("전체 용량", format_size(sum(asset.size_bytes for asset in gif_assets)))
+metric_cols[2].metric("평균 프레임", round(sum(asset.frame_count for asset in gif_assets) / len(gif_assets)))
+
+available_categories = {asset.category for asset in gif_assets}
+ordered_categories = [
+    category
+    for category in ordered_landform_group_labels()
+    if category in available_categories
+]
+extra_categories = sorted(available_categories - set(ordered_categories))
+categories = ["전체"] + ordered_categories + extra_categories
+
+filter_col1, filter_col2, filter_col3 = st.columns([1.0, 1.1, 1.2])
+with filter_col1:
+    category = st.selectbox("분류", categories)
+with filter_col2:
+    view_filter = st.selectbox(
+        "보기",
+        ["전체", "학생 설명용 추천", "품질 점검 필요", "보강 완료"],
+    )
+with filter_col3:
+    query = st.text_input("검색", placeholder="지형 이름 또는 id")
+
+filtered_assets = gif_assets
+if category != "전체":
+    filtered_assets = [asset for asset in filtered_assets if asset.category == category]
+if view_filter == "학생 설명용 추천":
+    filtered_assets = [
+        asset for asset in filtered_assets
+        if is_student_recommended_landform(asset.landform_id)
+    ]
+elif view_filter == "품질 점검 필요":
+    filtered_assets = [
+        asset for asset in filtered_assets
+        if animation_quality_note_for_landform(asset.landform_id)
+    ]
+elif view_filter == "보강 완료":
+    filtered_assets = [
+        asset for asset in filtered_assets
+        if animation_reinforced_note_for_landform(asset.landform_id)
+    ]
+if query.strip():
+    needle = query.strip().lower()
+    filtered_assets = [
+        asset
+        for asset in filtered_assets
+        if needle in asset.landform_id.lower() or needle in asset.title.lower()
+    ]
+
+st.caption(f"{len(filtered_assets)}개 표시")
+st.info("기본 화면은 정지 썸네일입니다. 재생 버튼을 누른 카드만 GIF로 바뀌어 브라우저 부하를 줄입니다.")
+
+per_page = st.selectbox("페이지당", [4, 8, 12, 16, 24, 56], index=0)
+page_count = max((len(filtered_assets) + per_page - 1) // per_page, 1)
+page_number = st.number_input("페이지", min_value=1, max_value=page_count, value=1, step=1)
+start = (int(page_number) - 1) * per_page
+visible_assets = filtered_assets[start : start + per_page]
+
+active_key = "gif_gallery_active_landform_id"
+columns = st.columns(3)
+for index, asset in enumerate(visible_assets):
+    with columns[index % 3]:
+        st.markdown(f"### {asset.title}")
+        st.caption(f"{asset.landform_id} · {asset.frame_count} frames · {format_size(asset.size_bytes)}")
+        render_tag_row(teaching_tags_for_landform(asset.landform_id))
+        quality_note = animation_quality_note_for_landform(asset.landform_id)
+        if quality_note:
+            st.warning(quality_note)
+        reinforced_note = animation_reinforced_note_for_landform(asset.landform_id)
+        if reinforced_note:
+            st.success(reinforced_note)
+
+        is_active = st.session_state.get(active_key) == asset.landform_id
+        if is_active:
+            image_stretch(st, str(asset.gif_path))
+        else:
+            stat = asset.gif_path.stat()
+            thumbnail = load_gif_thumbnail(str(asset.gif_path), stat.st_mtime_ns, stat.st_size)
+            image_stretch(st, thumbnail)
+
+        if st.button("재생" if not is_active else "정지", key=f"gif_gallery_play_{asset.landform_id}"):
+            if is_active:
+                st.session_state.pop(active_key, None)
+            else:
+                st.session_state[active_key] = asset.landform_id
+            st.rerun()
