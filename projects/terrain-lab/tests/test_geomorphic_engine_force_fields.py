@@ -169,3 +169,78 @@ def test_polje_exposes_subsurface_drainage_and_floor_aggradation():
     assert _field_sum(fields, "ponor_drainage") > 0.0
     assert _field_sum(fields, "seasonal_flooding") > 0.0
     assert _field_sum(fields, "polje_floor_aggradation") > 0.0
+
+
+def test_marine_wave_energy_scale_increases_shoreline_retreat():
+    weak = _final_fields(
+        GeomorphicEngineParameters(
+            "coastal_cliff",
+            grid_size=32,
+            total_time_years=5_000,
+            marine=1.0,
+            sediment=0.6,
+            wave_energy_scale=0.5,
+            sea_level=0.0,
+        )
+    )
+    strong = _final_fields(
+        GeomorphicEngineParameters(
+            "coastal_cliff",
+            grid_size=32,
+            total_time_years=5_000,
+            marine=1.0,
+            sediment=0.6,
+            wave_energy_scale=1.8,
+            sea_level=0.0,
+        )
+    )
+
+    assert _field_sum(strong, "wave_energy") > _field_sum(weak, "wave_energy")
+    assert _field_sum(strong, "shoreline_retreat") > _field_sum(weak, "shoreline_retreat")
+
+
+def test_glacial_forcing_isolated_from_non_glacial_runs():
+    inactive = _final_fields(GeomorphicEngineParameters("u_valley", grid_size=32, total_time_years=5_000))
+    active = _final_fields(
+        GeomorphicEngineParameters(
+            "u_valley",
+            grid_size=32,
+            total_time_years=5_000,
+            glacial=1.4,
+            sediment=0.5,
+        )
+    )
+
+    assert _field_sum(inactive, "ice_thickness") == 0.0
+    assert _field_sum(inactive, "glacial_velocity") == 0.0
+    assert _field_sum(active, "ice_thickness") > 0.0
+    assert _field_sum(active, "glacial_velocity") > 0.0
+
+
+def test_unrelated_force_fields_remain_inactive_for_single_process_runs():
+    coastal = _final_fields(
+        GeomorphicEngineParameters(
+            "coastal_cliff",
+            grid_size=32,
+            total_time_years=5_000,
+            marine=1.0,
+            sediment=0.6,
+            sea_level=0.0,
+        )
+    )
+    dune = _final_fields(
+        GeomorphicEngineParameters(
+            "barchan",
+            grid_size=32,
+            total_time_years=5_000,
+            aeolian=1.0,
+            sediment=0.6,
+            wind_speed=1.0,
+            sand_supply=0.8,
+        )
+    )
+
+    assert _field_sum(coastal, "sand_flux") == 0.0
+    assert _field_sum(coastal, "volcanic_construction") == 0.0
+    assert _field_sum(dune, "wave_energy") == 0.0
+    assert _field_sum(dune, "solution_rate") == 0.0

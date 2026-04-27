@@ -271,6 +271,18 @@ st.markdown(
     """
 )
 
+lab_mode = st.radio(
+    "Lab 모드",
+    ("학생용", "교사용", "연구자용"),
+    horizontal=True,
+    captions=(
+        "핵심 조작과 결과 해석만 봅니다.",
+        "작용 모듈, 검증 지표, 수업 질문을 함께 봅니다.",
+        "DEM 역산 모델로 확장할 구조를 점검합니다.",
+    ),
+    key="lab_mode",
+)
+
 scenarios = list_physics_lab_scenarios()
 scenario_titles = [f"{scenario.title} · {scenario.group}" for scenario in scenarios]
 scenario_by_title = dict(zip(scenario_titles, scenarios, strict=False))
@@ -334,11 +346,18 @@ st.caption(f"모델 커널: {result.get('kernel', 'unknown')} · {result.get('ke
 if metrics.get("diagnosis"):
     st.success(str(metrics["diagnosis"]))
 
+if lab_mode == "학생용":
+    st.caption("학생용 모드에서는 지형 선택, 조건 조절, 형성과정 관찰, 쉬운 진단 문장을 우선합니다.")
+elif lab_mode == "교사용":
+    st.caption("교사용 모드에서는 한 조건만 바꿔 비교 실험을 설계하고, 작용 모듈과 검증 지표를 수업 질문으로 연결합니다.")
+else:
+    st.caption("연구자용 모드에서는 관측 DEM을 초기조건·검증 대상으로 연결하기 위한 물리 모듈과 출력 필드를 점검합니다.")
+
 metric_cols = st.columns(4)
 for col, (label, value, help_text) in zip(metric_cols, metric_cards(metrics), strict=False):
     col.metric(label, value, help=help_text)
 
-with st.expander("모델 검증 지표", expanded=True):
+with st.expander("모델 검증 지표", expanded=lab_mode != "학생용"):
     st.caption(
         "이 지표는 결과가 해당 지형의 전형적 형성 방향과 맞는지 빠르게 점검하기 위한 v1 진단값입니다. "
         "실측 DEM 보정값은 아니며, 수업·프로토타입 단계의 비교 기준으로 사용합니다."
@@ -352,7 +371,7 @@ with st.expander("모델 검증 지표", expanded=True):
     else:
         st.write("이 지형의 전용 검증 지표는 아직 준비 중입니다.")
 
-with st.expander("현재 적용 중인 물리식과 이론", expanded=False):
+with st.expander("현재 적용 중인 물리식과 이론", expanded=lab_mode == "교사용"):
     st.markdown(f"**모델 계열:** {theory.model_family}")
     st.caption(theory.classroom_note)
     equation_rows = [
@@ -365,7 +384,7 @@ with st.expander("현재 적용 중인 물리식과 이론", expanded=False):
         st.write(f"- {assumption}")
     st.info("이 식들은 연구용 수치모델로 확장할 때 검증 가능한 작용장과 파라미터로 분리해 나갈 기준입니다.")
 
-with st.expander("공통 물리엔진 작용 모듈", expanded=True):
+with st.expander("공통 물리엔진 작용 모듈", expanded=lab_mode != "학생용"):
     st.caption(
         "지형별로 별도 코드를 계속 늘리는 방식이 아니라, 아래 내적·외적 작용 모듈을 조합하고 "
         "지형은 초기 지형과 프리셋으로 다룹니다."
@@ -374,6 +393,30 @@ with st.expander("공통 물리엔진 작용 모듈", expanded=True):
     active_fields = sorted(result["process_history"][-1].keys())
     st.caption("현재 계산 결과에 포함된 주요 출력 필드")
     st.code(", ".join(active_fields[:80]), language="text")
+
+if lab_mode == "교사용":
+    with st.expander("수업 비교 실험 설계", expanded=True):
+        st.markdown(
+            f"""
+            - **비교 질문**: `{scenario.primary_factor}`만 높이면 {scenario.title}의 변화량 지도에서 어느 영역이 먼저 달라지는가?
+            - **통제 조건**: `{scenario.secondary_factor}`, 융기/침강, 사면 확산, 모의 시간은 그대로 둡니다.
+            - **관찰 기준**: 우세 작용, 최종 기복, 활성 영역 비율, 변화량 지도를 비교합니다.
+            - **학생 질문**: 같은 지형이라도 에너지와 퇴적 조건이 달라지면 형성과정 설명이 어떻게 달라지는가?
+            """
+        )
+
+if lab_mode == "연구자용":
+    with st.expander("DEM 기반 연구자용 확장 설계", expanded=True):
+        st.markdown(
+            """
+            1. 드론/DEM을 업로드하고 해상도, 결측, 좌표계를 정리합니다.
+            2. 경사, 곡률, 배수망, 기복, 해안선/빙하/카르스트 후보 영역을 계산합니다.
+            3. 현재 표면과 가장 가까운 초기 프리셋 및 작용 모듈 조합을 추정합니다.
+            4. 파라미터를 조절해 forward simulation을 돌리고 관측 DEM과 모델 DEM의 차이를 지도화합니다.
+            5. 차이가 작아지는 파라미터 범위를 형성과정 시나리오와 민감도로 보고합니다.
+            """
+        )
+        st.warning("현재 화면은 연구자용 DEM 업로드까지 구현된 상태가 아니라, 공통 물리모듈과 출력 필드를 검증하는 전 단계입니다.")
 
 view_col, note_col = st.columns([1.35, 0.85])
 with view_col:

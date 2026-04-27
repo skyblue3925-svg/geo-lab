@@ -48,6 +48,7 @@ aliases:
 | [[Daily Brief Latest]] | synthesis | `knowledge/wiki/syntheses/Daily Brief Latest.md` | 최신 일일 브리프 포인터 note |
 | [[Multi-Vault Wiki Pattern]] | synthesis | `knowledge/wiki/syntheses/Multi-Vault Wiki Pattern.md` | 다른 repo로 이식할 공용 운영 패턴 |
 | [[Geo-Lab Lab Physical Model Series]] | synthesis | `knowledge/wiki/syntheses/Geo-Lab Lab Physical Model Series.md` | Lab 물리모델 시리즈의 공통 작용 모듈 구조와 다음 구현 단위 |
+| [[HyperFrames Terrain Video Assessment]] | synthesis | `knowledge/wiki/syntheses/HyperFrames Terrain Video Assessment.md` | HyperFrames 기반 지형 설명 영상 생성 가능성 평가 |
 
 ## Entities
 
