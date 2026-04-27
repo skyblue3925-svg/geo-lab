@@ -2,7 +2,9 @@ import numpy as np
 
 from app.services.dem_research import (
     analyze_dem_surface,
+    compare_observed_modeled_dem,
     dem_research_cards,
+    estimate_process_mix_from_dem,
     load_csv_dem,
     normalize_dem_layer,
     process_hints_from_dem,
@@ -79,3 +81,36 @@ def test_normalize_dem_layer_rejects_unknown_layer():
         assert "Unknown DEM layer" in str(exc)
     else:
         raise AssertionError("normalize_dem_layer should reject unknown keys")
+
+
+def test_compare_observed_modeled_dem_reports_error_fields():
+    observed = np.array([[10.0, 9.0], [7.0, 5.0]])
+    modeled = np.array([[9.0, 9.0], [8.0, 4.0]])
+
+    comparison = compare_observed_modeled_dem(observed, modeled, target_size=16)
+
+    assert comparison["difference"].shape == (16, 16)
+    assert comparison["absolute_difference"].shape == (16, 16)
+    assert comparison["summary"]["rmse"] > 0.0
+    assert comparison["summary"]["mae"] > 0.0
+    assert 0.0 <= comparison["summary"]["fit_score"] <= 1.0
+
+
+def test_estimate_process_mix_from_dem_returns_ranked_processes():
+    dem = np.array(
+        [
+            [20.0, 18.0, 15.0, 12.0],
+            [19.0, 16.0, 12.0, 8.0],
+            [16.0, 12.0, 7.0, 4.0],
+            [12.0, 8.0, 4.0, 1.0],
+        ]
+    )
+    analysis = analyze_dem_surface(dem)
+
+    estimate = estimate_process_mix_from_dem(analysis)
+
+    assert estimate["ranked_processes"]
+    assert estimate["scores"]["fluvial"] >= 0.0
+    assert estimate["scores"]["hillslope"] >= 0.0
+    assert estimate["recommended_preset"]
+    assert estimate["interpretation"]

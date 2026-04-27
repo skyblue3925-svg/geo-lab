@@ -175,3 +175,94 @@ def process_hints_from_dem(
     if not hints:
         hints.append("현재 DEM은 변화가 완만합니다. 기복이 작은 평탄면, 퇴적면, 저에너지 환경 후보로 먼저 해석하세요.")
     return tuple(hints)
+
+
+def compare_observed_modeled_dem(
+    observed_dem: np.ndarray,
+    modeled_dem: np.ndarray,
+    *,
+    target_size: int = 64,
+) -> dict[str, np.ndarray | dict[str, float]]:
+    observed = resample_dem(observed_dem, target_size)
+    modeled = resample_dem(modeled_dem, target_size)
+    observed_norm = _normalize(observed)
+    modeled_norm = _normalize(modeled)
+    difference = modeled_norm - observed_norm
+    absolute_difference = np.abs(difference)
+    rmse = float(np.sqrt(np.mean(np.square(difference))))
+    mae = float(np.mean(absolute_difference))
+    return {
+        "observed": observed_norm,
+        "modeled": modeled_norm,
+        "difference": difference,
+        "absolute_difference": absolute_difference,
+        "summary": {
+            "rmse": rmse,
+            "mae": mae,
+            "fit_score": float(np.clip(1.0 - rmse, 0.0, 1.0)),
+            "max_error": float(np.max(absolute_difference)),
+        },
+    }
+
+
+def estimate_process_mix_from_dem(
+    analysis: dict[str, np.ndarray | dict[str, float]],
+) -> dict[str, object]:
+    summary = analysis["summary"]
+    slope = analysis["slope"]
+    curvature = analysis["curvature"]
+    drainage = analysis["drainage_area"]
+    assert isinstance(summary, dict)
+    assert isinstance(slope, np.ndarray)
+    assert isinstance(curvature, np.ndarray)
+    assert isinstance(drainage, np.ndarray)
+
+    relief = max(float(summary["relief"]), 1e-9)
+    mean_slope = float(summary["mean_slope"])
+    drainage_peak = float(summary["max_drainage_area"])
+    curvature_spread = float(np.percentile(curvature, 95) - np.percentile(curvature, 5))
+    slope_contrast = float(np.percentile(slope, 90) - np.percentile(slope, 10))
+
+    scores = {
+        "fluvial": float(np.clip(drainage_peak * (0.45 + mean_slope / (relief + 1e-9)), 0.0, 1.0)),
+        "hillslope": float(np.clip(slope_contrast / (relief + 1e-9) * 4.0, 0.0, 1.0)),
+        "glacial": float(np.clip((slope_contrast / (relief + 1e-9)) * 1.8, 0.0, 1.0)),
+        "karst": float(np.clip(curvature_spread / (relief + 1e-9) * 1.2, 0.0, 1.0)),
+        "volcanic": float(np.clip(_radial_relief_signal(np.asarray(slope, dtype=float)), 0.0, 1.0)),
+        "coastal": 0.0,
+        "aeolian": 0.0,
+    }
+    ranked = tuple(
+        process
+        for process, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        if score > 0.0
+    )
+    top = ranked[0] if ranked else "hillslope"
+    preset_by_process = {
+        "fluvial": "v_valley",
+        "hillslope": "v_valley",
+        "glacial": "u_valley",
+        "karst": "karst_doline",
+        "volcanic": "lava_dome",
+        "coastal": "coastal_cliff",
+        "aeolian": "barchan",
+    }
+    return {
+        "scores": scores,
+        "ranked_processes": ranked,
+        "recommended_preset": preset_by_process.get(top, "v_valley"),
+        "interpretation": f"DEM의 경사, 곡률, 배수 집중을 기준으로 {top} 작용을 우선 후보로 추정했습니다.",
+    }
+
+
+def _radial_relief_signal(field: np.ndarray) -> float:
+    rows, cols = field.shape
+    y, x = np.indices(field.shape, dtype=float)
+    r = np.hypot((x / max(cols - 1, 1)) - 0.5, (y / max(rows - 1, 1)) - 0.5)
+    center_mask = r <= 0.18
+    outer_mask = r >= 0.36
+    if not np.any(center_mask) or not np.any(outer_mask):
+        return 0.0
+    center = float(np.mean(field[center_mask]))
+    outer = float(np.mean(field[outer_mask]))
+    return abs(center - outer) / (abs(center) + abs(outer) + 1e-9)
