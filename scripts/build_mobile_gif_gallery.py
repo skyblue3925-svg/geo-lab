@@ -162,6 +162,7 @@ def render_gallery(rows: list[dict[str, str]]) -> str:
     h1 {{ margin: 0 0 6px; font-size: clamp(1.35rem, 6vw, 2rem); letter-spacing: 0; }}
     .sub {{ margin: 0; color: var(--muted); font-size: .94rem; line-height: 1.45; }}
     .toolbar {{ display: grid; gap: 10px; margin-top: 12px; }}
+    .creator {{ margin: 8px 0 0; color: var(--muted); font-size: .9rem; font-weight: 700; }}
     .filters {{ display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }}
     .filters::-webkit-scrollbar {{ display: none; }}
     .filter, .control {{ flex: 0 0 auto; min-height: 40px; border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 0 13px; font-size: .94rem; color: var(--ink); }}
@@ -194,6 +195,7 @@ def render_gallery(rows: list[dict[str, str]]) -> str:
   <header>
     <h1>지형 GIF 갤러리</h1>
     <p class="sub">기본은 움직이는 GIF입니다. 화면이 무거우면 전체 정지를 누르고, 필요한 지형만 다시 재생하세요.</p>
+    <p class="creator">제작자: 한백고등학교 김한솔</p>
     <div class="toolbar">
       <div class="filters" aria-label="지형 분류 필터">{filter_buttons}</div>
       <div class="search-row">
