@@ -42,8 +42,21 @@
                 <button type="button" data-overlay="temperature">기온</button>
                 <button type="button" data-overlay="precipitation">강수</button>
               </div>
+              <div id="experimentLeverStrip" class="experiment-lever-strip"></div>
             </div>
           </div>
+
+          <label class="map-month-control">
+            <span class="map-month-head">
+              <span class="eyebrow">Month Lever</span>
+              <strong id="mapMonthValue" data-month-value></strong>
+            </span>
+            <div class="map-month-track">
+              <span>1월</span>
+              <input id="mapMonthRange" data-month-range type="range" min="1" max="12" step="1" />
+              <span>12월</span>
+            </div>
+          </label>
 
           <div class="map-stage">
             <div class="map-frame">
@@ -91,6 +104,14 @@
             <div id="selectionContext" class="context-banner"></div>
           </section>
 
+          <section class="compare-controls">
+            <div id="compareStatus" class="compare-status"></div>
+            <div class="compare-actions">
+              <button id="setCompareAnchorButton" type="button" class="compare-button">현재 지점을 비교 기준으로 저장</button>
+              <button id="clearCompareButton" type="button" class="compare-button compare-button-secondary" hidden>비교 해제</button>
+            </div>
+          </section>
+
           <section class="probe-main">
             <div class="probe-column">
               <div class="subsection-head">
@@ -110,6 +131,8 @@
               <div id="monthlyFactors" class="factor-grid"></div>
             </div>
           </section>
+
+          <section id="compareSection" class="compare-section" hidden></section>
 
           <section class="probe-reasoning">
             <div class="subsection-head">
@@ -145,9 +168,9 @@
                 <label class="control-block" data-knob="월">
                   <span class="control-row">
                     <span class="control-label">월</span>
-                    <strong id="monthValue"></strong>
+                    <strong id="monthValue" data-month-value></strong>
                   </span>
-                  <input id="monthRange" type="range" min="1" max="12" step="1" />
+                  <input id="monthRange" data-month-range type="range" min="1" max="12" step="1" />
                 </label>
 
                 <label class="control-block" data-knob="자전축 기울기">

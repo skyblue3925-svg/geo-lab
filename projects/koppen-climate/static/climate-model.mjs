@@ -2,6 +2,7 @@
 const MONTH_MID_DAYS = [15, 45, 74, 105, 135, 166, 196, 227, 258, 288, 319, 349];
 
 import { REAL_CLIMATE_GRID, REAL_CLIMATE_GRID_META } from "./data/real-climate-data.mjs";
+import { REAL_ELEVATION_GRID, REAL_ELEVATION_GRID_META } from "./data/real-elevation-data.mjs";
 
 export const CLIMATE_DATA_MODE = "observed";
 export const ACTIVE_CLIMATE_DATASET = Object.freeze({
@@ -12,19 +13,30 @@ export const ACTIVE_CLIMATE_DATASET = Object.freeze({
 export const MONTH_LABELS = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 const OBSERVED_LAT_STEP = Number(REAL_CLIMATE_GRID_META.latStepDegrees ?? 5);
 const OBSERVED_LON_STEP = Number(REAL_CLIMATE_GRID_META.lonStepDegrees ?? 5);
+const OBSERVED_ELEVATION_LAT_STEP = Number(REAL_ELEVATION_GRID_META.latStepDegrees ?? 0.5);
+const OBSERVED_ELEVATION_LON_STEP = Number(REAL_ELEVATION_GRID_META.lonStepDegrees ?? 0.5);
+const OBSERVED_ELEVATION_LAT_COUNT = Math.round(180 / OBSERVED_ELEVATION_LAT_STEP) + 1;
+const OBSERVED_ELEVATION_LON_COUNT = Math.round(360 / OBSERVED_ELEVATION_LON_STEP);
 export const LATITUDES = Array.from({ length: Math.round(180 / OBSERVED_LAT_STEP) + 1 }, (_, index) => -90 + index * OBSERVED_LAT_STEP);
 export const LONGITUDES = Array.from({ length: Math.round(360 / OBSERVED_LON_STEP) }, (_, index) => -180 + index * OBSERVED_LON_STEP);
 
 export const KOPPEN_COLORS = {
   Ocean: "#21495c",
+  AH: "#9b8c54",
+  CH: "#6e7d87",
   Af: "#1f6f43",
   Am: "#2d9257",
   Aw: "#7aa63f",
   As: "#b2b44f",
+  BW: "#d0824f",
+  BS: "#c89a4d",
   BWh: "#d75a2a",
   BWk: "#d9a487",
   BSh: "#cc862f",
   BSk: "#c8ac67",
+  Cf: "#66ae63",
+  Cs: "#ccae4b",
+  Cw: "#7ebc64",
   Csa: "#d9bb3f",
   Csb: "#bfa552",
   Csc: "#989562",
@@ -34,6 +46,8 @@ export const KOPPEN_COLORS = {
   Cwa: "#8fc95d",
   Cwb: "#6ea96b",
   Cwc: "#547f67",
+  Df: "#56aac6",
+  Dw: "#709de0",
   Dsa: "#8b72bc",
   Dsb: "#745da8",
   Dsc: "#5e4b92",
@@ -52,14 +66,21 @@ export const KOPPEN_COLORS = {
 
 const KOPPEN_META = {
   Ocean: { group: "해양", label: "해양 셀", summary: "쾨펜 기후구분은 원칙적으로 육상 기후 구분이라 해양 셀은 참고값만 보여줍니다." },
+  AH: { group: "고산", label: "고산 기후, 저위도형", summary: "저위도 고지대라 같은 위도 저지대보다 뚜렷하게 서늘한 고산형입니다." },
+  CH: { group: "고산", label: "고산 기후, 중위도형", summary: "중위도 고지대라 같은 위도 저지대보다 서늘한 고산형입니다." },
   Af: { group: "열대", label: "열대우림", summary: "매달 덥고 충분히 습합니다." },
   Am: { group: "열대", label: "열대몬순", summary: "연중 덥지만 짧은 약건기와 강한 우기가 있습니다." },
   Aw: { group: "열대", label: "사바나, 겨울 건기", summary: "항상 덥지만 겨울이 뚜렷한 건기입니다." },
   As: { group: "열대", label: "사바나, 여름 건기", summary: "항상 덥지만 여름이 상대적으로 건조합니다." },
+  BW: { group: "건조", label: "사막", summary: "평가원식 기후그래프에서는 BW로 묶어 읽는 사막형입니다." },
+  BS: { group: "건조", label: "스텝", summary: "평가원식 기후그래프에서는 BS로 묶어 읽는 반건조 초원형입니다." },
   BWh: { group: "건조", label: "고온 사막", summary: "증발 요구량이 강수보다 훨씬 큽니다." },
   BWk: { group: "건조", label: "냉량 사막", summary: "건조하지만 연평균 기온은 낮은 편입니다." },
   BSh: { group: "건조", label: "고온 스텝", summary: "사막 직전 수준으로 건조합니다." },
   BSk: { group: "건조", label: "냉량 스텝", summary: "건조하면서 겨울이 춥습니다." },
+  Cf: { group: "온대", label: "연중 습윤 온대", summary: "평가원식 기후그래프에서는 Cf로 묶어 읽는 사계절 습윤 온대형입니다." },
+  Cs: { group: "온대", label: "여름 건기 온대", summary: "평가원식 기후그래프에서는 Cs로 묶어 읽는 지중해성 계열입니다." },
+  Cw: { group: "온대", label: "겨울 건기 온대", summary: "평가원식 기후그래프에서는 Cw로 묶어 읽는 겨울 건기 온대형입니다." },
   Csa: { group: "온대", label: "지중해성, 더운 여름", summary: "여름 건기와 더운 여름이 결합합니다." },
   Csb: { group: "온대", label: "지중해성, 온난한 여름", summary: "여름 건기지만 여름 최고온은 더 낮습니다." },
   Csc: { group: "온대", label: "지중해성, 서늘한 여름", summary: "여름 건기와 짧은 서늘한 여름이 나타납니다." },
@@ -69,6 +90,8 @@ const KOPPEN_META = {
   Cwa: { group: "온대", label: "겨울 건기 온대, 더운 여름", summary: "몬순 영향으로 겨울 건기가 뚜렷합니다." },
   Cwb: { group: "온대", label: "겨울 건기 온대, 온난한 여름", summary: "겨울 건기와 고지/내륙성의 온화한 여름이 결합합니다." },
   Cwc: { group: "온대", label: "겨울 건기 온대, 서늘한 여름", summary: "겨울 건기가 있지만 여름은 짧고 서늘합니다." },
+  Df: { group: "냉대", label: "연중 습윤 냉대", summary: "평가원식 기후그래프에서는 Df로 묶어 읽는 냉대 습윤형입니다." },
+  Dw: { group: "냉대", label: "겨울 건기 냉대", summary: "평가원식 기후그래프에서는 Dw로 묶어 읽는 겨울 건기 냉대형입니다." },
   Dsa: { group: "냉대", label: "여름 건기 냉대, 더운 여름", summary: "냉대 기후이면서 여름 건기가 나타나고 여름은 덥습니다." },
   Dsb: { group: "냉대", label: "여름 건기 냉대, 온난한 여름", summary: "냉대 기후이면서 여름 건기가 나타나고 여름은 온난합니다." },
   Dsc: { group: "냉대", label: "여름 건기 냉대, 짧은 여름", summary: "냉대 기후이면서 여름 건기와 짧은 여름이 결합합니다." },
@@ -193,6 +216,10 @@ const OBSERVED_BASE_SCENARIO = Object.freeze({
 });
 
 let observedWorldCache = null;
+let syntheticWorldCache = {
+  key: null,
+  world: null,
+};
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -549,7 +576,7 @@ export function classifyKoppen(temperatures, precipitations, latitude, landness 
     };
   }
 
-  const mainCode = coldest >= 0 ? "C" : "D";
+  const mainCode = coldest > -3 ? "C" : "D";
   let seasonalCode = "f";
   if (driestSummer < 40 && driestSummer < wettestWinter / 3) {
     seasonalCode = "s";
@@ -609,15 +636,38 @@ function buildReasonList(profile, months, classification, scenario) {
   return reasons.slice(0, 6);
 }
 
+function resolveClimateMode(rawScenario = {}) {
+  return rawScenario.climateMode === "experimental" ? "experimental" : "observed";
+}
+
+function getScenarioCacheKey(scenario) {
+  return [
+    scenario.presetId,
+    scenario.month,
+    scenario.tilt.toFixed(1),
+    scenario.landScale.toFixed(2),
+    scenario.mountainHeight,
+    scenario.currentBias.toFixed(2),
+    scenario.monsoonStrength.toFixed(2),
+    scenario.mountainLon.toFixed(1),
+    scenario.mountainLat.toFixed(1),
+    scenario.mountainBand.toFixed(1),
+    scenario.mountainWidth.toFixed(1),
+    scenario.climateMode ?? "observed",
+  ].join("|");
+}
+
 function getObservedScenario(rawScenario = {}) {
+  const presetId = rawScenario.presetId ?? OBSERVED_BASE_SCENARIO.presetId;
   return createScenario({
-    presetId: OBSERVED_BASE_SCENARIO.presetId,
+    climateMode: "observed",
+    presetId,
     month: rawScenario.month ?? 7,
-    tilt: OBSERVED_BASE_SCENARIO.tilt,
-    landScale: OBSERVED_BASE_SCENARIO.landScale,
-    mountainHeight: OBSERVED_BASE_SCENARIO.mountainHeight,
-    currentBias: OBSERVED_BASE_SCENARIO.currentBias,
-    monsoonStrength: OBSERVED_BASE_SCENARIO.monsoonStrength,
+    tilt: rawScenario.tilt ?? OBSERVED_BASE_SCENARIO.tilt,
+    landScale: rawScenario.landScale ?? OBSERVED_BASE_SCENARIO.landScale,
+    mountainHeight: rawScenario.mountainHeight ?? OBSERVED_BASE_SCENARIO.mountainHeight,
+    currentBias: rawScenario.currentBias ?? OBSERVED_BASE_SCENARIO.currentBias,
+    monsoonStrength: rawScenario.monsoonStrength ?? OBSERVED_BASE_SCENARIO.monsoonStrength,
   });
 }
 
@@ -644,6 +694,24 @@ function getObservedLongitudeIndex(longitude) {
 
 function getObservedCellIndex(latitude, longitude) {
   return getObservedLatitudeIndex(latitude) * LONGITUDES.length + getObservedLongitudeIndex(longitude);
+}
+
+function getObservedElevationLatitudeIndex(latitude) {
+  const safeLat = clamp(Number(latitude), -90, 90);
+  return clamp(Math.round((safeLat + 90) / OBSERVED_ELEVATION_LAT_STEP), 0, OBSERVED_ELEVATION_LAT_COUNT - 1);
+}
+
+function getObservedElevationLongitudeIndex(longitude) {
+  const safeLon = normalizeObservedLongitude(longitude);
+  return clamp(Math.round((safeLon + 180) / OBSERVED_ELEVATION_LON_STEP), 0, OBSERVED_ELEVATION_LON_COUNT - 1);
+}
+
+function getObservedElevationCellIndex(latitude, longitude) {
+  return getObservedElevationLatitudeIndex(latitude) * OBSERVED_ELEVATION_LON_COUNT + getObservedElevationLongitudeIndex(longitude);
+}
+
+function getObservedElevation(latitude, longitude) {
+  return REAL_ELEVATION_GRID.elevation[getObservedElevationCellIndex(latitude, longitude)] ?? 0;
 }
 
 function getObservedLandness(latitude, longitude) {
@@ -686,9 +754,10 @@ function buildObservedSiteProfile(latitude, longitude) {
   const oceanFetch = getObservedOceanFetch(latitude, longitude, wind.flow);
   const coastalness = clamp(landness * (oceanFetch * 0.9 + (1 - landDensity) * 0.35), 0, 1);
   const interiorness = clamp(landness * (landDensity * 1.12 - coastalness * 0.58), 0, 1);
+  const elevation = getObservedElevation(latitude, longitude);
   const mountain = {
-    elevation: 0,
-    mountainSignal: 0,
+    elevation,
+    mountainSignal: clamp(elevation / 2200, 0, 1),
     windwardLift: 0,
     leewardShadow: 0,
     foehnPotential: 0,
@@ -705,7 +774,37 @@ function buildObservedSiteProfile(latitude, longitude) {
     wind,
     currentZone: gaussian(Math.abs(latitude) - 30, 16),
     mountain,
-    elevation: 0,
+    elevation,
+  };
+}
+
+function buildExperimentalSiteProfile(latitude, longitude, scenario) {
+  const observedProfile = buildObservedSiteProfile(latitude, longitude);
+  const landScaleDelta = scenario.landScale - 1;
+  const landness = observedProfile.landness;
+  const landDensity = clamp(observedProfile.landDensity + landness * landScaleDelta * 0.24, 0, 1);
+  const oceanFetch = clamp(observedProfile.oceanFetch - landness * landScaleDelta * 0.28, 0, 1);
+  const coastalness = clamp(landness * (oceanFetch * 0.9 + (1 - landDensity) * 0.35), 0, 1);
+  const interiorness = clamp(
+    landness * (landDensity * (1.12 + landScaleDelta * 0.16) - coastalness * 0.58),
+    0,
+    1,
+  );
+  const leverMountain = getMountainProfile(latitude, longitude, observedProfile.wind.flow, scenario);
+  const elevation = clamp(observedProfile.elevation + leverMountain.elevation, 0, 9000);
+
+  return {
+    ...observedProfile,
+    landDensity,
+    oceanFetch,
+    coastalness,
+    interiorness,
+    mountain: {
+      ...leverMountain,
+      elevation,
+      mountainSignal: clamp(Math.max(observedProfile.mountain.mountainSignal, leverMountain.mountainSignal), 0, 1),
+    },
+    elevation,
   };
 }
 
@@ -727,8 +826,38 @@ function buildObservedMonths(profile, scenario, temperatures, precipitations) {
   });
 }
 
+function getHighlandAssist(profile, classification, annual) {
+  const elevation = Math.round(profile.elevation ?? 0);
+  if (classification.code === "Ocean" || elevation < 1200) {
+    return null;
+  }
+
+  const absLat = Math.abs(profile.latitude);
+  const label = absLat < 35 ? "AH" : absLat < 55 ? "CH" : null;
+  if (!label) {
+    return null;
+  }
+
+  const strength = elevation >= 3200 ? "강함" : elevation >= 2200 ? "보통" : "약함";
+  const note = label === "AH"
+    ? `저위도 고지대라 같은 위도 저지대보다 서늘한 고산 열대·아열대형으로 읽습니다.`
+    : `중위도 고지대라 같은 위도 저지대보다 서늘한 고산 온대형으로 읽습니다.`;
+
+  return {
+    label,
+    elevation,
+    strength,
+    note,
+    annualMeanTemp: annual.meanTemp,
+  };
+}
+
 function computeObservedLocationSeries(latitude, longitude, rawScenario) {
   const scenario = getObservedScenario(rawScenario);
+  return computeObservedLocationSeriesWithScenario(latitude, longitude, scenario);
+}
+
+function computeObservedLocationSeriesWithScenario(latitude, longitude, scenario) {
   const cellIndex = getObservedCellIndex(latitude, longitude);
   const profile = buildObservedSiteProfile(latitude, longitude);
   const { temperatures, precipitations } = getObservedMonthlySeries(cellIndex);
@@ -742,6 +871,7 @@ function computeObservedLocationSeries(latitude, longitude, rawScenario) {
     driestMonth: Math.min(...precipitations),
     wettestMonth: Math.max(...precipitations),
   };
+  const highlandAssist = getHighlandAssist(profile, classification, annual);
 
   return {
     cellIndex,
@@ -751,6 +881,7 @@ function computeObservedLocationSeries(latitude, longitude, rawScenario) {
     precipitations,
     classification,
     annual,
+    highlandAssist,
     selectedMonth: months[scenario.month - 1],
     reasons: classification.code === "Ocean"
       ? [
@@ -775,7 +906,9 @@ function getObservedWorldCache() {
 
   for (let cellIndex = 0; cellIndex < cellCount; cellIndex += 1) {
     const latitude = LATITUDES[Math.floor(cellIndex / LONGITUDES.length)];
+    const longitude = LONGITUDES[cellIndex % LONGITUDES.length];
     const landValue = landness[cellIndex];
+    elevation[cellIndex] = getObservedElevation(latitude, longitude);
 
     if (landValue < 0.42) {
       koppenCodes[cellIndex] = "Ocean";
@@ -800,9 +933,8 @@ function getObservedWorldCache() {
   return observedWorldCache;
 }
 
-function computeLocationSeries(latitude, longitude, rawScenario) {
-  const scenario = createScenario(rawScenario);
-  const profile = buildSiteProfile(latitude, longitude, scenario);
+function computeLocationSeriesWithScenario(latitude, longitude, scenario) {
+  const profile = buildExperimentalSiteProfile(latitude, longitude, scenario);
   const months = Array.from({ length: 12 }, (_, index) => analyzeMonthFromProfile(profile, index + 1, scenario));
   const temperatures = months.map((month) => month.temperature);
   const precipitations = months.map((month) => month.precipitation);
@@ -815,6 +947,7 @@ function computeLocationSeries(latitude, longitude, rawScenario) {
     driestMonth: Math.min(...precipitations),
     wettestMonth: Math.max(...precipitations),
   };
+  const highlandAssist = getHighlandAssist(profile, classification, annual);
 
   return {
     profile,
@@ -823,9 +956,15 @@ function computeLocationSeries(latitude, longitude, rawScenario) {
     precipitations,
     classification,
     annual,
+    highlandAssist,
     selectedMonth: months[scenario.month - 1],
     reasons: buildReasonList(profile, months, classification, scenario),
   };
+}
+
+function computeLocationSeries(latitude, longitude, rawScenario) {
+  const scenario = createScenario(rawScenario);
+  return computeLocationSeriesWithScenario(latitude, longitude, scenario);
 }
 
 export function createScenario(options = {}) {
@@ -833,6 +972,7 @@ export function createScenario(options = {}) {
   const landScale = clamp(Number(options.landScale ?? preset.landScale), 0.45, 1.6);
 
   return {
+    climateMode: options.climateMode === "experimental" ? "experimental" : "observed",
     presetId: preset.id,
     presetName: preset.name,
     description: preset.description,
@@ -857,7 +997,10 @@ export function createScenario(options = {}) {
 export function analyzeLocation(latitude, longitude, scenario) {
   const safeLat = clamp(Number(latitude), -90, 90);
   const safeLon = wrappedLongitude(Number(longitude));
-  const series = computeObservedLocationSeries(safeLat, safeLon, scenario);
+  const climateMode = resolveClimateMode(scenario);
+  const series = climateMode === "experimental"
+    ? computeLocationSeries(safeLat, safeLon, { ...scenario, climateMode })
+    : computeObservedLocationSeries(safeLat, safeLon, scenario);
 
   return {
     latitude: safeLat,
@@ -866,7 +1009,85 @@ export function analyzeLocation(latitude, longitude, scenario) {
   };
 }
 
+function buildSyntheticWorld(rawScenario) {
+  const scenario = createScenario({ ...rawScenario, climateMode: "experimental" });
+  const cacheKey = getScenarioCacheKey(scenario);
+  if (syntheticWorldCache.key === cacheKey && syntheticWorldCache.world) {
+    return syntheticWorldCache.world;
+  }
+
+  const cellCount = LATITUDES.length * LONGITUDES.length;
+  const monthlyTemperature = Array.from({ length: 12 }, () => new Float32Array(cellCount));
+  const monthlyPrecipitation = Array.from({ length: 12 }, () => new Float32Array(cellCount));
+  const annualTemperature = new Float32Array(cellCount);
+  const annualPrecipitation = new Float32Array(cellCount);
+  const landness = new Float32Array(cellCount);
+  const elevation = new Float32Array(cellCount);
+  const koppenCodes = new Array(cellCount);
+
+  for (let latIndex = 0; latIndex < LATITUDES.length; latIndex += 1) {
+      const latitude = LATITUDES[latIndex];
+      for (let lonIndex = 0; lonIndex < LONGITUDES.length; lonIndex += 1) {
+        const longitude = LONGITUDES[lonIndex];
+        const cellIndex = latIndex * LONGITUDES.length + lonIndex;
+        const profile = buildExperimentalSiteProfile(latitude, longitude, scenario);
+        const temperatures = new Float32Array(12);
+        const precipitations = new Float32Array(12);
+        let annualTempSum = 0;
+      let annualPrecipSum = 0;
+
+      landness[cellIndex] = profile.landness;
+      elevation[cellIndex] = profile.elevation;
+
+      for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+        const month = analyzeMonthFromProfile(profile, monthIndex + 1, scenario);
+        temperatures[monthIndex] = month.temperature;
+        precipitations[monthIndex] = month.precipitation;
+        monthlyTemperature[monthIndex][cellIndex] = month.temperature;
+        monthlyPrecipitation[monthIndex][cellIndex] = month.precipitation;
+        annualTempSum += month.temperature;
+        annualPrecipSum += month.precipitation;
+      }
+
+      annualTemperature[cellIndex] = annualTempSum / 12;
+      annualPrecipitation[cellIndex] = annualPrecipSum;
+      koppenCodes[cellIndex] = classifyKoppen(temperatures, precipitations, latitude, profile.landness).code;
+    }
+  }
+
+  const world = {
+    scenario,
+    latitudes: LATITUDES,
+    longitudes: LONGITUDES,
+    cellCount,
+    monthlyTemperature,
+    monthlyPrecipitation,
+    annualTemperature,
+    annualPrecipitation,
+    landness,
+    elevation,
+    koppenCodes,
+    itczLatitude: itczLatitude(scenario.month, scenario.tilt),
+    dataSource: {
+      mode: "experimental",
+      dataset: "Observed land mask + classroom levers",
+      period: "current lever state",
+      resolution: `${OBSERVED_LAT_STEP.toFixed(0)}°`,
+    },
+  };
+
+  syntheticWorldCache = {
+    key: cacheKey,
+    world,
+  };
+  return world;
+}
+
 export function buildWorld(rawScenario) {
+  if (resolveClimateMode(rawScenario) === "experimental") {
+    return buildSyntheticWorld(rawScenario);
+  }
+
   const scenario = getObservedScenario(rawScenario);
   const cached = getObservedWorldCache();
 
@@ -888,7 +1109,10 @@ export function buildWorld(rawScenario) {
 }
 
 export function sampleTransect(latitude, month, rawScenario) {
-  const scenario = createScenario(rawScenario);
+  const climateMode = resolveClimateMode(rawScenario);
+  const scenario = climateMode === "experimental"
+    ? createScenario({ ...rawScenario, climateMode })
+    : getObservedScenario(rawScenario);
   const safeLat = clamp(Number(latitude), -90, 90);
   return LONGITUDES.map((longitude) => {
     const series = analyzeLocation(safeLat, longitude, { ...scenario, month });

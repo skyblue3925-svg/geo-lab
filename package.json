@@ -2,10 +2,17 @@
   "name": "geo-lab-e2e",
   "private": true,
   "scripts": {
+    "test:koppen": "node tests/koppen-climate-model.test.mjs && node tests/koppen-exam-spots.test.mjs",
     "test:e2e": "playwright test --config=playwright.config.js --project=chromium"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "geotiff": "^3.0.5"
+    "geotiff": "^3.0.5",
+    "h5wasm": "^0.10.1",
+    "netcdfjs": "^4.0.0"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "proj4": "^2.20.6"
   }
 }
