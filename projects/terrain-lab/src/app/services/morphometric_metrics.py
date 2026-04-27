@@ -160,6 +160,9 @@ def compute_morphometric_metrics(
     transport = _field(fields, "transport", shape)
     tectonic = _field(fields, "tectonic", shape)
     glacial = _field(fields, "glacial", shape)
+    moraine = _field(fields, "moraine", shape)
+    ice_thickness = _field(fields, "ice_thickness", shape)
+    glacial_velocity = _field(fields, "glacial_velocity", shape)
     marine = _field(fields, "marine", shape)
     wave_energy = _field(fields, "wave_energy", shape)
     shoreline_retreat = _field(fields, "shoreline_retreat", shape)
@@ -200,6 +203,16 @@ def compute_morphometric_metrics(
         "construction_erosion_ratio": _safe_ratio(construction_total, erosion_total),
         "diffusion_share": _safe_ratio(float(np.sum(np.abs(diffusion))), erosion_total + deposition_total + construction_total),
         "centerline_process_focus": _centerline_concentration(erosion + transport + glacial),
+        "ice_accumulation_focus": _centerline_concentration(ice_thickness),
+        "glacial_velocity_index": float(np.max(np.abs(glacial_velocity))),
+        "moraine_deposition_ratio": _safe_ratio(
+            float(np.sum(np.abs(moraine))),
+            float(np.sum(np.abs(glacial)) + np.sum(np.abs(ice_thickness))),
+        ),
+        "glacial_erosion_efficiency": _safe_ratio(
+            float(np.sum(np.abs(glacial))),
+            float(np.sum(np.abs(ice_thickness)) + np.sum(np.abs(glacial_velocity))),
+        ),
         "downstream_deposition_focus": _lower_half_fraction(deposition),
         "shoreline_process_focus": _shoreline_concentration(marine),
         "wave_refraction_focus": _shoreline_concentration(wave_refraction),
@@ -274,7 +287,11 @@ def diagnose_metrics(landform_id: str, metrics: dict[str, float | str]) -> str:
         if val("downstream_deposition_focus") >= 0.6 and val("deposition_erosion_ratio") >= 0.8:
             return "하구부 퇴적 우세가 나타나 삼각주 성장 조건이 형성됩니다."
         return "삼각주 전면 퇴적이 약합니다. 퇴적물 공급과 해수면 안정성을 조정하세요."
-    if landform_id == "u_valley":
+    if landform_id in {"u_valley", "moraine", "drumlin", "esker", "kettle_lake", "outwash_plain", "thermokarst"}:
+        if landform_id in {"moraine", "drumlin", "esker", "outwash_plain"} and val("moraine_deposition_ratio") > 0.0:
+            return "빙하 침식 산물과 퇴적이 함께 나타나 모레인·빙하 퇴적 지형 형성 조건이 보입니다."
+        if landform_id in {"kettle_lake", "thermokarst"} and val("glacial_velocity_index") > 0.0:
+            return "빙하 두께와 융빙수 조건이 결합되어 케틀호·열카르스트 계열 변화 조건이 보입니다."
         if val("centerline_process_focus") >= 0.35:
             return "빙하 침식이 계곡 축에 집중되어 U자곡 발달 방향이 보입니다."
         return "빙하 축 방향 침식이 분산되어 있습니다. 빙하 침식력이나 두께를 높여 보세요."
@@ -491,6 +508,14 @@ def validation_cards(landform_id: str, metrics: dict[str, float | str]) -> tuple
             ("파식 효율", ratio("wave_cut_efficiency"), "파랑 에너지가 파식대 평탄화로 전환되는 비율"),
         )
         return coastal_cards + common
+    if landform_id in {"u_valley", "moraine", "drumlin", "esker", "kettle_lake", "outwash_plain", "thermokarst"}:
+        glacial_cards = (
+            ("U자 바닥 폭", pct("u_floor_width_index"), "넓고 편평한 계곡 바닥이 형성된 정도"),
+            ("빙하 두께 집중", pct("ice_accumulation_focus"), "빙하 두께장이 계곡 축에 모인 정도"),
+            ("빙하 속도", ratio("glacial_velocity_index"), "두께와 경사로 계산한 상대 속도 최대값"),
+            ("모레인 퇴적 비율", ratio("moraine_deposition_ratio"), "빙하 침식·두께 대비 말단 퇴적의 상대 크기"),
+        )
+        return glacial_cards + common
     if landform_id in {"lava_dome", "shield_volcano", "stratovolcano", "lava_plateau", "maar", "cinder_cone"}:
         volcanic_cards = (
             ("돔 대칭성", pct("dome_symmetry_index"), "중앙 분출 지형이 방사상으로 균형적인 정도"),

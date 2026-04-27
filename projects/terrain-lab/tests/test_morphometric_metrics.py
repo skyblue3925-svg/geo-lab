@@ -104,6 +104,22 @@ def test_karst_metrics_expose_groundwater_drainage_and_collapse():
         assert "붕괴 위험" in labels
 
 
+def test_glacial_metrics_expose_ice_velocity_and_moraine_balance():
+    for landform_id in ["u_valley", "moraine", "drumlin", "esker", "kettle_lake", "outwash_plain", "thermokarst"]:
+        result = run_physics_lab_simulation(landform_id, 66, 62, 35, 35, 5_000, 32)
+        metrics = result["metrics"]
+
+        assert metrics["ice_accumulation_focus"] >= 0.0
+        assert metrics["glacial_velocity_index"] >= 0.0
+        assert metrics["moraine_deposition_ratio"] >= 0.0
+        assert metrics["glacial_erosion_efficiency"] >= 0.0
+        assert "빙하" in metrics["diagnosis"] or "모레인" in metrics["diagnosis"] or "융빙수" in metrics["diagnosis"]
+
+        labels = [card[0] for card in validation_cards(landform_id, metrics)]
+        assert "빙하 두께 집중" in labels
+        assert "모레인 퇴적 비율" in labels
+
+
 def test_process_field_cards_expose_active_engine_fields_for_lab_ui():
     expectations = {
         "coastal_cliff": "파랑 에너지",
