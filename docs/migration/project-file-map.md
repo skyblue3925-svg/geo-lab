@@ -69,8 +69,8 @@ Primary source:
 
 - `projects/koppen-climate/app/`
 - `projects/koppen-climate/static/`
-- `tests/koppen-climate-model.test.mjs`
-- `tests/koppen-exam-spots.test.mjs`
+- `projects/koppen-climate/tests/`
+- `projects/koppen-climate/package.json`
 
 Raw source datasets remain excluded from Git:
 
@@ -86,6 +86,7 @@ Owns the school-neighborhood GIS app.
 Primary source:
 
 - `projects/school-gis/app/`
+- `projects/school-gis/app/package.json`
 - `docs/SGIS_LOCAL_SETUP.md`
 - `docs/CLOUDFLARE_PAGES_SCHOOL_GIS.md`
 - `docs/SUPABASE_SCHOOL_GIS_SETUP.md`
@@ -137,10 +138,24 @@ Koppen Climate:
 npm.cmd run test:koppen
 ```
 
+or:
+
+```powershell
+cd projects\koppen-climate
+npm.cmd test
+```
+
 School GIS:
 
 ```powershell
 npm.cmd run test:gis:syntax
+```
+
+or:
+
+```powershell
+cd projects\school-gis\app
+npm.cmd run test:syntax
 ```
 
 ## Deployment Paths
@@ -167,7 +182,7 @@ School GIS:
 
 1. Update `.deploy/` mirrors after local verification.
 2. Decide whether terrain `assets/`, `scripts/`, and `tests/` should move under `projects/terrain-lab/`.
-3. Add project-specific CI once deployment mirrors are stable.
-4. Keep root wrappers until a deployment cutover confirms direct project-local execution is enough.
-5. Document raw Koppen data regeneration/download flow.
-
+3. Move or intentionally retain root-level terrain tests/assets/scripts.
+4. Add project-specific CI once deployment mirrors are stable.
+5. Keep root wrappers until a deployment cutover confirms direct project-local execution is enough.
+6. Document raw Koppen data regeneration/download flow.

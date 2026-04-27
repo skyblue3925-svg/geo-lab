@@ -22,7 +22,8 @@ Path: `projects/koppen-climate/`
 - Source: `projects/koppen-climate/app/`
 - Static deploy copy: `projects/koppen-climate/static/`
 - Run: `cd projects\koppen-climate\app; python -m http.server 8765`
-- Verify: `npm.cmd run test:koppen`
+- Verify from root: `npm.cmd run test:koppen`
+- Verify from project: `cd projects\koppen-climate; npm.cmd test`
 - Deploy root: `projects/koppen-climate/static`
 
 ## 3. School GIS
@@ -33,7 +34,8 @@ Path: `projects/school-gis/`
 
 - Source: `projects/school-gis/app/`
 - Run: `cd projects\school-gis\app; python -m http.server 8787`
-- Verify: `npm.cmd run test:gis:syntax`
+- Verify from root: `npm.cmd run test:gis:syntax`
+- Verify from project: `cd projects\school-gis\app; npm.cmd run test:syntax`
 - Deploy root: `projects/school-gis/app`
 
 ## Shared Repository Areas
@@ -46,4 +48,3 @@ Path: `projects/school-gis/`
 ## Migration Status
 
 The primary project boundaries are in place. The remaining migration work is deployment mirror cleanup, optional movement of terrain assets/scripts/tests, and project-specific CI/deploy documentation.
-

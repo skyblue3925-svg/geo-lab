@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 
-import { EXAM_CLIMATE_SPOTS } from "../projects/koppen-climate/app/data/exam-climate-spots.mjs";
+import { EXAM_CLIMATE_SPOTS } from "../app/data/exam-climate-spots.mjs";
 import {
   getClimateComparisonNote,
   getGraphClimateCode,
   getGraphClimateDisplayCode,
-} from "../projects/koppen-climate/app/climate-interpretation.mjs";
+} from "../app/climate-interpretation.mjs";
 
 function run() {
   const capeTown = EXAM_CLIMATE_SPOTS.find((spot) => spot.displayName === "케이프타운");

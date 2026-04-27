@@ -53,6 +53,13 @@ cd "C:\Users\HANSOL\OneDrive\Desktop\Geo-lab"
 npm.cmd run test:koppen
 ```
 
+프로젝트 폴더에서 직접 실행할 때:
+
+```powershell
+cd "C:\Users\HANSOL\OneDrive\Desktop\Geo-lab\projects\koppen-climate"
+npm.cmd test
+```
+
 ## Cloudflare Pages
 
 권장 설정:

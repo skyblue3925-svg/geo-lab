@@ -1,0 +1,12 @@
+{
+  "name": "@geo-lab/school-gis",
+  "private": true,
+  "scripts": {
+    "serve": "python -m http.server 8787",
+    "test:syntax": "node --check app.js && node --check sgis-adapter.js && node --check store.js",
+    "test:e2e": "playwright test --config=playwright.local.config.js --project=chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

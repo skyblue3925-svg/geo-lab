@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { LATITUDES, LONGITUDES, analyzeLocation, buildWorld, classifyKoppen } from "../projects/koppen-climate/app/climate-model.mjs";
+import { LATITUDES, LONGITUDES, analyzeLocation, buildWorld, classifyKoppen } from "../app/climate-model.mjs";
 
 function run() {
   const tropical = classifyKoppen(Array.from({ length: 12 }, () => 26), Array.from({ length: 12 }, () => 180), 4, 1);
