@@ -66,6 +66,7 @@ test-results/
 .playwright-mcp/
 .tmp-edge-profile/
 .pytest_cache/
+pytest-cache-files-*/
 .tmp_*
 tmp/
 apps/school-neighborhood-gis/scripts/sgis-local-env.ps1
