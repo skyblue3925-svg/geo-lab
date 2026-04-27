@@ -44,7 +44,7 @@ def test_landform_specific_validation_metrics_are_present():
         "alluvial_fan": ("fan_lateral_spread_index", "downstream_deposition_focus"),
         "delta": ("delta_front_spread_index", "deposition_erosion_ratio"),
         "u_valley": ("u_floor_width_index", "centerline_process_focus"),
-        "coastal_cliff": ("shoreline_gradient_index", "shoreline_process_focus"),
+        "coastal_cliff": ("shoreline_gradient_index", "shoreline_process_focus", "wave_cut_efficiency"),
         "barchan": ("dune_migration_index", "dune_transport_focus"),
         "lava_dome": ("dome_symmetry_index", "volcanic_core_focus"),
         "karst_doline": ("closed_depression_index", "karst_sink_focus"),
@@ -57,6 +57,51 @@ def test_landform_specific_validation_metrics_are_present():
         for key in keys:
             assert key in metrics
             assert float(metrics[key]) >= 0.0
+
+
+def test_coastal_metrics_expose_longshore_budget_and_refraction():
+    for landform_id in ["coastal_cliff", "wave_cut_platform", "spit_lagoon", "tombolo", "marine_terrace"]:
+        result = run_physics_lab_simulation(landform_id, 66, 62, 35, 35, 5_000, 32)
+        metrics = result["metrics"]
+
+        assert metrics["wave_refraction_focus"] >= 0.0
+        assert metrics["longshore_transport_ratio"] > 0.0
+        assert metrics["wave_cut_efficiency"] >= 0.0
+        assert "해안" in metrics["diagnosis"] or "파랑" in metrics["diagnosis"] or "표사" in metrics["diagnosis"]
+
+        labels = [card[0] for card in validation_cards(landform_id, metrics)]
+        assert "표사 이동 비율" in labels
+        assert "파식 효율" in labels
+
+
+def test_volcanic_metrics_distinguish_lava_and_explosive_processes():
+    for landform_id in ["lava_dome", "shield_volcano", "stratovolcano", "lava_plateau", "maar", "cinder_cone"]:
+        result = run_physics_lab_simulation(landform_id, 66, 62, 35, 35, 5_000, 32)
+        metrics = result["metrics"]
+
+        assert metrics["lava_spread_efficiency"] >= 0.0
+        assert metrics["viscosity_constraint_index"] >= 0.0
+        assert metrics["explosive_excavation_ratio"] >= 0.0
+        assert "화산" in metrics["diagnosis"] or "용암" in metrics["diagnosis"] or "분출" in metrics["diagnosis"]
+
+        labels = [card[0] for card in validation_cards(landform_id, metrics)]
+        assert "용암 확산 효율" in labels
+        assert "점성 제약" in labels
+
+
+def test_karst_metrics_expose_groundwater_drainage_and_collapse():
+    for landform_id in ["karst_doline", "uvala", "polje", "karren", "tower_karst"]:
+        result = run_physics_lab_simulation(landform_id, 66, 62, 35, 35, 5_000, 32)
+        metrics = result["metrics"]
+
+        assert metrics["groundwater_concentration_index"] >= 0.0
+        assert metrics["subsurface_drainage_ratio"] >= 0.0
+        assert metrics["collapse_risk_index"] >= 0.0
+        assert "카르스트" in metrics["diagnosis"] or "용식" in metrics["diagnosis"] or "지하수" in metrics["diagnosis"]
+
+        labels = [card[0] for card in validation_cards(landform_id, metrics)]
+        assert "지하수 집중" in labels
+        assert "붕괴 위험" in labels
 
 
 def test_process_field_cards_expose_active_engine_fields_for_lab_ui():

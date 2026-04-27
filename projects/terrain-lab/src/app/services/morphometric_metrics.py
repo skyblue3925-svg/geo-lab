@@ -161,10 +161,29 @@ def compute_morphometric_metrics(
     tectonic = _field(fields, "tectonic", shape)
     glacial = _field(fields, "glacial", shape)
     marine = _field(fields, "marine", shape)
+    wave_energy = _field(fields, "wave_energy", shape)
+    shoreline_retreat = _field(fields, "shoreline_retreat", shape)
+    wave_cut_platform = _field(fields, "wave_cut_platform", shape)
+    beach_deposition = _field(fields, "beach_deposition", shape)
+    longshore_transport = _field(fields, "longshore_transport", shape)
+    wave_refraction = _field(fields, "wave_refraction", shape)
+    coastal_sediment_budget = _field(fields, "coastal_sediment_budget", shape)
     aeolian = _field(fields, "aeolian", shape)
     volcanic = _field(fields, "volcanic", shape)
+    lava_flow = _field(fields, "lava_flow", shape)
+    viscosity_resistance = _field(fields, "viscosity_resistance", shape)
+    cooling_limited_spread = _field(fields, "cooling_limited_spread", shape)
+    crater_excavation = _field(fields, "crater_excavation", shape)
+    ejecta_deposition = _field(fields, "ejecta_deposition", shape)
+    pyroclastic_cone_growth = _field(fields, "pyroclastic_cone_growth", shape)
     karst = _field(fields, "karst", shape)
     groundwater = _field(fields, "groundwater", shape)
+    groundwater_flow = _field(fields, "groundwater_flow", shape)
+    subsurface_drainage = _field(fields, "subsurface_drainage", shape)
+    collapse_risk = _field(fields, "collapse_risk", shape)
+    ponor_drainage = _field(fields, "ponor_drainage", shape)
+    seasonal_flooding = _field(fields, "seasonal_flooding", shape)
+    polje_floor_aggradation = _field(fields, "polje_floor_aggradation", shape)
 
     erosion_total = float(np.sum(np.maximum(erosion, 0.0)))
     deposition_total = float(np.sum(np.maximum(deposition, 0.0)))
@@ -183,9 +202,48 @@ def compute_morphometric_metrics(
         "centerline_process_focus": _centerline_concentration(erosion + transport + glacial),
         "downstream_deposition_focus": _lower_half_fraction(deposition),
         "shoreline_process_focus": _shoreline_concentration(marine),
+        "wave_refraction_focus": _shoreline_concentration(wave_refraction),
+        "longshore_transport_ratio": _safe_ratio(
+            float(np.sum(np.abs(longshore_transport))),
+            float(np.sum(np.abs(beach_deposition)) + np.sum(np.abs(shoreline_retreat))),
+        ),
+        "wave_cut_efficiency": _safe_ratio(
+            float(np.sum(np.abs(wave_cut_platform))),
+            float(np.sum(np.abs(wave_energy))),
+        ),
+        "coastal_budget_balance": _safe_ratio(
+            float(np.sum(coastal_sediment_budget)),
+            float(np.sum(np.abs(beach_deposition)) + np.sum(np.abs(longshore_transport)) + np.sum(np.abs(shoreline_retreat))),
+        ),
         "dune_transport_focus": _lower_half_fraction(aeolian),
         "volcanic_core_focus": _radial_concentration(volcanic, 0.18),
+        "lava_spread_efficiency": _safe_ratio(
+            float(np.sum(np.abs(lava_flow)) + np.sum(np.abs(cooling_limited_spread))),
+            float(np.sum(np.abs(volcanic)) + np.sum(np.abs(viscosity_resistance))),
+        ),
+        "viscosity_constraint_index": _safe_ratio(
+            float(np.sum(np.abs(viscosity_resistance))),
+            float(np.sum(np.abs(volcanic)) + np.sum(np.abs(lava_flow))),
+        ),
+        "explosive_excavation_ratio": _safe_ratio(
+            float(np.sum(np.abs(crater_excavation))),
+            float(np.sum(np.abs(volcanic)) + np.sum(np.abs(ejecta_deposition)) + np.sum(np.abs(pyroclastic_cone_growth))),
+        ),
+        "pyroclastic_growth_ratio": _safe_ratio(
+            float(np.sum(np.abs(ejecta_deposition)) + np.sum(np.abs(pyroclastic_cone_growth))),
+            float(np.sum(np.abs(volcanic)) + np.sum(np.abs(lava_flow))),
+        ),
         "karst_sink_focus": _radial_concentration(karst + groundwater, 0.24),
+        "groundwater_concentration_index": _radial_concentration(groundwater_flow + subsurface_drainage, 0.30),
+        "subsurface_drainage_ratio": _safe_ratio(
+            float(np.sum(np.abs(subsurface_drainage)) + np.sum(np.abs(ponor_drainage))),
+            float(np.sum(np.abs(karst)) + np.sum(np.abs(groundwater_flow))),
+        ),
+        "collapse_risk_index": float(np.max(np.abs(collapse_risk))),
+        "karst_flood_aggradation_ratio": _safe_ratio(
+            float(np.sum(np.abs(seasonal_flooding)) + np.sum(np.abs(polje_floor_aggradation))),
+            float(np.sum(np.abs(karst)) + np.sum(np.abs(subsurface_drainage))),
+        ),
         "valley_depth_index": _valley_depth_index(final),
         "u_floor_width_index": _u_floor_width_index(final),
         "fan_lateral_spread_index": _weighted_lateral_spread(deposition, 0.32),
@@ -220,7 +278,11 @@ def diagnose_metrics(landform_id: str, metrics: dict[str, float | str]) -> str:
         if val("centerline_process_focus") >= 0.35:
             return "빙하 침식이 계곡 축에 집중되어 U자곡 발달 방향이 보입니다."
         return "빙하 축 방향 침식이 분산되어 있습니다. 빙하 침식력이나 두께를 높여 보세요."
-    if landform_id == "coastal_cliff":
+    if landform_id in {"coastal_cliff", "wave_cut_platform", "spit_lagoon", "tombolo", "marine_terrace"}:
+        if landform_id in {"spit_lagoon", "tombolo"} and val("longshore_transport_ratio") >= 0.2:
+            return "연안 표사 이동과 해빈 퇴적이 함께 나타나 해안 퇴적 지형 성장 조건이 보입니다."
+        if landform_id in {"wave_cut_platform", "marine_terrace"} and val("wave_cut_efficiency") >= 0.1:
+            return "파랑 에너지가 해수면 부근 평탄화로 전환되어 파식대와 해안 단구 형성 조건이 보입니다."
         if val("shoreline_process_focus") >= 0.45:
             return "파랑 침식이 해안선 부근에 집중되어 해식애 후퇴 조건이 강합니다."
         return "해안선 집중 침식이 약합니다. 파랑 에너지나 해수면 위치를 조정하세요."
@@ -228,14 +290,22 @@ def diagnose_metrics(landform_id: str, metrics: dict[str, float | str]) -> str:
         if val("dune_transport_focus") >= 0.5:
             return "바람 이동과 퇴적이 하류 방향으로 집중되어 바르한 이동성이 큽니다."
         return "사구 이동 방향성이 약합니다. 풍속 조건을 높여 비교하세요."
-    if landform_id == "lava_dome":
+    if landform_id in {"lava_dome", "shield_volcano", "stratovolcano", "lava_plateau", "maar", "cinder_cone"}:
+        if landform_id in {"maar", "cinder_cone"} and val("explosive_excavation_ratio") >= 0.02:
+            return "폭발성 분출과 화산쇄설물 퇴적이 함께 나타나 화산 지형의 폭발성 형성 조건이 보입니다."
+        if landform_id in {"shield_volcano", "lava_plateau"} and val("lava_spread_efficiency") >= 0.3:
+            return "점성 제약보다 용암 확산이 커서 넓게 퍼지는 화산 지형 성장 조건이 보입니다."
         if val("volcanic_core_focus") >= 0.5 and val("construction_erosion_ratio") >= 1.0:
-            return "중앙 분출·성장 신호가 강해 용암돔 발달 조건이 뚜렷합니다."
-        return "분출 중심 성장이 약합니다. 분출률을 높이거나 확산을 낮춰 보세요."
-    if landform_id == "karst_doline":
+            return "중앙 분출과 화산체 성장이 강해 용암돔·성층화산 계열의 성장 조건이 보입니다."
+        return "화산체 성장 신호가 약합니다. 분출률, 점성, 냉각 조건을 조정해 비교하세요."
+    if landform_id in {"karst_doline", "uvala", "polje", "karren", "tower_karst"}:
+        if landform_id == "polje" and val("karst_flood_aggradation_ratio") > 0.0:
+            return "지하수 배수와 계절 범람이 함께 나타나 카르스트 폴리에 바닥 변화 조건이 보입니다."
+        if val("collapse_risk_index") > 0.0 and val("subsurface_drainage_ratio") > 0.0:
+            return "용식과 지하수 배수가 연결되어 카르스트 함몰·붕괴 위험 조건이 보입니다."
         if val("karst_sink_focus") >= 0.45:
-            return "중앙부 용식·지하수 작용이 집중되어 돌리네 발달 조건이 보입니다."
-        return "용식 집중이 약합니다. 용식 강도와 지하수 흐름을 높여 보세요."
+            return "중앙부 용식·지하수 작용이 집중되어 카르스트 함몰 지형 발달 조건이 보입니다."
+        return "카르스트 용식 집중이 약합니다. 용식 강도와 지하수 흐름을 높여 비교하세요."
     return "지형 변화량과 작용장 분포를 함께 비교하세요."
 
 
@@ -413,4 +483,28 @@ def validation_cards(landform_id: str, metrics: dict[str, float | str]) -> tuple
             ("용식 집중", pct("karst_sink_focus"), "용식·지하수 작용이 중심부에 모인 정도"),
         ),
     }
+    if landform_id in {"coastal_cliff", "wave_cut_platform", "spit_lagoon", "tombolo", "marine_terrace"}:
+        coastal_cards = (
+            ("해안 급경사 지수", ratio("shoreline_gradient_index"), "해안선 부근 경사가 전체보다 얼마나 큰지"),
+            ("파랑 집중", pct("shoreline_process_focus"), "파랑 침식이 해안선에 모인 정도"),
+            ("표사 이동 비율", ratio("longshore_transport_ratio"), "해빈 퇴적·해안 후퇴 대비 연안 표사 이동의 상대 크기"),
+            ("파식 효율", ratio("wave_cut_efficiency"), "파랑 에너지가 파식대 평탄화로 전환되는 비율"),
+        )
+        return coastal_cards + common
+    if landform_id in {"lava_dome", "shield_volcano", "stratovolcano", "lava_plateau", "maar", "cinder_cone"}:
+        volcanic_cards = (
+            ("돔 대칭성", pct("dome_symmetry_index"), "중앙 분출 지형이 방사상으로 균형적인 정도"),
+            ("분출 중심성", pct("volcanic_core_focus"), "성장이 중앙 분출구에 집중된 정도"),
+            ("용암 확산 효율", ratio("lava_spread_efficiency"), "화산체 성장 대비 용암류가 넓게 퍼지는 정도"),
+            ("점성 제약", ratio("viscosity_constraint_index"), "점성이 용암 확산을 제한하는 상대 강도"),
+        )
+        return volcanic_cards + common
+    if landform_id in {"karst_doline", "uvala", "polje", "karren", "tower_karst"}:
+        karst_cards = (
+            ("폐쇄 와지 지수", pct("closed_depression_index"), "주변부 대비 중앙부가 낮아진 정도"),
+            ("용식 집중", pct("karst_sink_focus"), "용식·지하수 작용이 중앙부에 모인 정도"),
+            ("지하수 집중", pct("groundwater_concentration_index"), "지하수 흐름과 지하 배수가 특정 함몰부에 모인 정도"),
+            ("붕괴 위험", ratio("collapse_risk_index"), "용식과 배수가 겹쳐 표면 붕괴 가능성이 커진 정도"),
+        )
+        return karst_cards + common
     return per_landform.get(landform_id, ()) + common
