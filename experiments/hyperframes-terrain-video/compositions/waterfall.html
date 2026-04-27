@@ -120,31 +120,31 @@
     </style>
   </head>
   <body>
-    <div id="root" data-composition-id="barchan" data-start="0" data-duration="10" data-width="1920" data-height="1080">
+    <div id="root" data-composition-id="waterfall" data-start="0" data-duration="10" data-width="1920" data-height="1080">
       <div class="clip creator" data-start="0" data-duration="10" data-track-index="1">제작자: 한백고등학교 김한솔</div>
       <section class="clip title" data-start="0" data-duration="10" data-track-index="2">
-        <h1>바르한 형성과정</h1>
-        <p>모래 공급이 제한된 건조 지역에서 바람이 만든 초승달 모양 사구입니다.</p>
+        <h1>폭포 형성과정</h1>
+        <p>단단한 암석층과 약한 암석층의 차이, 하천 침식이 만나 급경사 낙차를 만듭니다.</p>
       </section>
       <figure class="clip terrain-frame" data-start="0" data-duration="10" data-track-index="3">
-        <img src="assets/barchan_image_sequence.gif" alt="바르한 형성과정 GIF" />
+        <img src="assets/waterfall_image_sequence.gif" alt="폭포 형성과정 GIF" />
       </figure>
       <section class="clip stage" data-start="1" data-duration="8" data-track-index="4">
         <strong>관찰 포인트</strong>
-        <span>풍상면은 깎이고 풍하면에는 모래가 쌓이면서 사구가 바람 방향으로 이동합니다.</span>
+        <span>하천은 약한 암석을 더 빠르게 깎고, 후퇴 침식이 계속되면서 폭포와 협곡이 발달합니다.</span>
       </section>
       <section class="clip labels" data-start="2" data-duration="8" data-track-index="5">
         <div class="label">
-          <b>풍속</b>
-          <span>모래 이동량을 키우는 주 작용</span>
+          <b>차별 침식</b>
+          <span>약한 암석층이 더 빠르게 깎임</span>
         </div>
         <div class="label">
-          <b>모래 공급</b>
-          <span>사구의 크기와 연속성을 결정</span>
+          <b>낙차 형성</b>
+          <span>하상 고도 차이가 커짐</span>
         </div>
         <div class="label">
-          <b>풍하면 퇴적</b>
-          <span>초승달형 전진을 보여주는 핵심</span>
+          <b>후퇴 침식</b>
+          <span>폭포 위치가 상류 쪽으로 이동</span>
         </div>
       </section>
       <div class="clip bar" data-start="0" data-duration="10" data-track-index="6">
@@ -160,7 +160,7 @@
       tl.from(".stage", { opacity: 0, y: 36, duration: 0.7 }, 1.0);
       tl.from(".label", { opacity: 0, y: 28, stagger: 0.18, duration: 0.6 }, 2.0);
       tl.fromTo("#bar-fill", { scaleX: 0 }, { scaleX: 1, duration: 10, ease: "none" }, 0);
-      window.__timelines["barchan"] = tl;
+      window.__timelines["waterfall"] = tl;
     </script>
   </body>
 </html>
