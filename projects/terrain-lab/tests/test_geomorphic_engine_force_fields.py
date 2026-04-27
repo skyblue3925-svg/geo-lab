@@ -60,6 +60,38 @@ def test_aeolian_fields_follow_wind_direction_and_sand_supply():
     assert abs(float(np.mean(fields["wind_vector_y"]))) < 1e-9
 
 
+def test_aeolian_dune_migration_has_directional_components():
+    eastward = _final_fields(
+        GeomorphicEngineParameters(
+            "barchan",
+            grid_size=32,
+            total_time_years=5_000,
+            aeolian=1.0,
+            sediment=0.6,
+            wind_direction_degrees=0.0,
+            wind_speed=1.4,
+            sand_supply=1.0,
+        )
+    )
+    northward = _final_fields(
+        GeomorphicEngineParameters(
+            "barchan",
+            grid_size=32,
+            total_time_years=5_000,
+            aeolian=1.0,
+            sediment=0.6,
+            wind_direction_degrees=90.0,
+            wind_speed=1.4,
+            sand_supply=1.0,
+        )
+    )
+
+    assert _field_sum(eastward, "dune_migration_x") > 0.0
+    assert _field_sum(eastward, "dune_migration_y") < _field_sum(eastward, "dune_migration_x") * 0.05
+    assert _field_sum(northward, "dune_migration_y") > 0.0
+    assert _field_sum(northward, "dune_migration_x") < _field_sum(northward, "dune_migration_y") * 0.05
+
+
 def test_volcanic_viscosity_changes_lava_spread():
     low_viscosity = _final_fields(
         GeomorphicEngineParameters(

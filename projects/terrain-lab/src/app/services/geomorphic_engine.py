@@ -109,6 +109,8 @@ def _empty_process(z: np.ndarray) -> dict[str, np.ndarray]:
         "sand_availability": zero,
         "shelter_factor": zero,
         "dune_migration": zero,
+        "dune_migration_x": zero,
+        "dune_migration_y": zero,
         "volcanic_construction": zero,
         "lava_flow": zero,
         "explosion_energy": zero,
@@ -501,10 +503,23 @@ def _aeolian_process(
     z: np.ndarray,
     params: GeomorphicEngineParameters,
     masks: dict[str, np.ndarray],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
     if params.aeolian <= 0.0:
         zero = np.zeros_like(z)
-        return zero, zero, zero, zero, zero, zero, zero, zero, zero, zero
+        return zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero
     wind_speed = params.aeolian if params.wind_speed is None else max(float(params.wind_speed), 0.0)
     sand_supply = max(params.sediment if params.sand_supply is None else float(params.sand_supply), 0.15)
     angle = np.deg2rad(params.wind_direction_degrees)
@@ -525,6 +540,8 @@ def _aeolian_process(
     stoss_erosion = sand_flux * stoss_mask
     lee_deposition = params.dt_years * 0.018 * wind_speed * sand_supply * lee_mask
     dune_migration = lee_deposition - stoss_erosion
+    dune_migration_x = dune_migration * wind_x
+    dune_migration_y = dune_migration * wind_y
     return (
         sand_flux,
         stoss_erosion,
@@ -536,6 +553,8 @@ def _aeolian_process(
         sand_availability,
         shelter_factor,
         dune_migration,
+        dune_migration_x,
+        dune_migration_y,
     )
 
 
@@ -650,6 +669,8 @@ def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np
         sand_availability,
         shelter_factor,
         dune_migration,
+        dune_migration_x,
+        dune_migration_y,
     ) = _aeolian_process(z, params, masks)
     (
         volcanic,
@@ -715,6 +736,8 @@ def _step(z: np.ndarray, params: GeomorphicEngineParameters, masks: dict[str, np
             "sand_availability": sand_availability,
             "shelter_factor": shelter_factor,
             "dune_migration": dune_migration,
+            "dune_migration_x": dune_migration_x,
+            "dune_migration_y": dune_migration_y,
             "volcanic_construction": volcanic,
             "lava_flow": lava_apron,
             "explosion_energy": explosion_energy,
@@ -786,6 +809,8 @@ def _stats(z: np.ndarray, params: GeomorphicEngineParameters, fields: dict[str, 
         "total_lee_deposition": float(np.sum(fields["lee_deposition"])),
         "total_wind_shear_stress": float(np.sum(fields["wind_shear_stress"])),
         "total_dune_migration": float(np.sum(fields["dune_migration"])),
+        "total_dune_migration_x": float(np.sum(fields["dune_migration_x"])),
+        "total_dune_migration_y": float(np.sum(fields["dune_migration_y"])),
         "total_lava_flow": float(np.sum(fields["lava_flow"])),
         "total_volcanic_construction": float(np.sum(fields["volcanic_construction"])),
         "total_crater_excavation": float(np.sum(fields["crater_excavation"])),

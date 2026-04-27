@@ -227,6 +227,8 @@ MAIN_OVERLAY_KEYS = {
     "sand_flux",
     "stoss_erosion",
     "lee_deposition",
+    "dune_migration_x",
+    "dune_migration_y",
     "ice_thickness",
     "glacial_velocity",
     "volcanic_construction",
