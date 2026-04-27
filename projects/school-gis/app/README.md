@@ -1,48 +1,54 @@
-# Student GIS Layer Lab
+# School GIS
 
-학생이 일반 지도 위에 공공 레이어와 자기 조사 레이어를 겹쳐 보면서 GIS를 체험하는 교육용 webGIS MVP입니다.
+제작자: 한백고등학교 김한솔
+
+학생이 학교 주변 공개데이터와 직접 만든 조사 데이터를 지도 위에 겹쳐 보며 GIS를 체험하는 교육용 webGIS MVP입니다.
+
+## 앱 경로
+
+- 앱 소스: `projects/school-gis/app/`
+- 테스트 스크립트: 루트 `package.json`의 `test:gis:syntax`
+- 배포 문서: `docs/CLOUDFLARE_PAGES_SCHOOL_GIS.md`, `docs/SGIS_LOCAL_SETUP.md`, `docs/SUPABASE_SCHOOL_GIS_SETUP.md`
 
 ## 현재 구현 범위
 
-- `학교 주변` / `대한민국 통계` 화면 전환
-- 학교 주변 기본 공개 레이어
-- 대한민국 샘플 통계 + 시설 레이어
-- 학생 레이어 생성
+- 학교 주변 / 대한민국 통계 화면 전환
+- 기본 공개 레이어와 샘플 통계 레이어
+- 학생 데이터 생성
 - 지도 클릭으로 직접 포인트 추가
-- CSV / GeoJSON 포인트 업로드
-- 외부 GeoJSON / CSV URL 가져오기
-- `runtime-config.js` 기반 프리셋 공공 레이어 가져오기
-- 기본 실습용 프리셋 레이어 3종 내장
-- SGIS 실데이터 레이어 가져오기
-  - `hadmarea.geojson` 경계
-  - `population.json` 통계값
-  - 프론트에서 choropleth 스타일 적용
+- CSV / GeoJSON 업로드
+- 외부 GeoJSON / CSV URL 불러오기
+- `runtime-config.js` 기반 프리셋 공개 데이터 불러오기
+- SGIS 경계 및 인구 통계 프록시
 - 모바일 / 태블릿 대응
-- 현재 보이는 레이어 GeoJSON 내보내기
 
 ## 로컬 실행
 
 ```powershell
-cd "C:\Users\HANSOL\OneDrive\Desktop\Geo-lab\apps\school-neighborhood-gis"
+cd "C:\Users\HANSOL\OneDrive\Desktop\Geo-lab\projects\school-gis\app"
 python -m http.server 8787
 ```
 
-브라우저에서 `http://127.0.0.1:8787`를 열면 됩니다.
+브라우저에서 `http://127.0.0.1:8787`를 엽니다.
 
-## 라이브 주소
+## 검증
 
-- 기본: [https://geo-lab-school-gis.pages.dev/](https://geo-lab-school-gis.pages.dev/)
-- 대한민국 통계 바로가기: [https://geo-lab-school-gis.pages.dev/?view=korea](https://geo-lab-school-gis.pages.dev/?view=korea)
+```powershell
+cd "C:\Users\HANSOL\OneDrive\Desktop\Geo-lab"
+npm.cmd run test:gis:syntax
+```
 
-## SGIS 실데이터 연결 방식
+## Cloudflare Pages
 
-브라우저에서 SGIS 시크릿을 직접 들고 호출하면 안 되므로, Cloudflare Pages Functions를 프록시로 둡니다.
+권장 설정:
 
-- 프론트엔드: [app.js](C:/Users/HANSOL/OneDrive/Desktop/Geo-lab/apps/school-neighborhood-gis/app.js)
-- SGIS 어댑터: [sgis-adapter.js](C:/Users/HANSOL/OneDrive/Desktop/Geo-lab/apps/school-neighborhood-gis/sgis-adapter.js)
-- Cloudflare 워커: [_worker.js](C:/Users/HANSOL/OneDrive/Desktop/Geo-lab/apps/school-neighborhood-gis/_worker.js)
+- Framework preset: `None`
+- Root directory: `projects/school-gis/app`
+- Build command: 비움
+- Build output directory: `.`
+- Functions/Worker: `projects/school-gis/app/_worker.js`
 
-Cloudflare 환경변수:
+필요한 Cloudflare 환경변수:
 
 - `SGIS_CONSUMER_KEY`
 - `SGIS_CONSUMER_SECRET`
@@ -52,23 +58,7 @@ Cloudflare 환경변수:
 
 - `/api/sgis/population`
 
-## 배포 준비
+## 공개 주소
 
-배포용 정적 파일과 Functions는 아래 스크립트로 묶습니다.
-
-- [prepare-pages-deploy.ps1](C:/Users/HANSOL/OneDrive/Desktop/Geo-lab/apps/school-neighborhood-gis/scripts/prepare-pages-deploy.ps1)
-
-실행 예시:
-
-```powershell
-& "C:\Users\HANSOL\OneDrive\Desktop\Geo-lab\apps\school-neighborhood-gis\scripts\prepare-pages-deploy.ps1"
-```
-
-그 다음 `wrangler pages deploy`로 그대로 배포하면 `_worker.js`가 함께 올라갑니다.
-
-## 다음 단계
-
-1. SGIS 실계정 값을 Cloudflare 환경변수로 넣기
-2. 실제 배포 후 SGIS 레이어 호출 확인
-3. KOSIS 지표 1개를 SGIS 경계와 조인해 추가하기
-4. 학생 레이어를 반/팀 단위 공유 저장소로 확장하기
+- 기본: [https://geo-lab-school-gis.pages.dev/](https://geo-lab-school-gis.pages.dev/)
+- 대한민국 통계: [https://geo-lab-school-gis.pages.dev/?view=korea](https://geo-lab-school-gis.pages.dev/?view=korea)

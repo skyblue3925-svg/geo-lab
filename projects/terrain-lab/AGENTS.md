@@ -5,25 +5,40 @@
 This project owns the terrain and landform learning product:
 
 - Streamlit public app shell for Geo-Lab terrain pages
-- Animation Studio, GIF gallery, high-school geography pages
+- Animation Studio, GIF Gallery, and high-school geography pages
 - Geomorphic Lab physical modeling engine
 - Terrain image, storyboard, frame, and GIF assets
 - Terrain-specific Python tests and import scripts
 
 ## Current Source Locations
 
-During migration, source still lives mostly at repository root:
+Primary source now lives under this project:
+
+- `projects/terrain-lab/src/app/`
+- `projects/terrain-lab/src/pages/`
+- `projects/terrain-lab/src/engine/`
+
+The repository root still keeps compatibility wrappers for Streamlit and deployment:
 
 - `app/`
 - `pages/`
 - `engine/`
+- `app.py`
+
+Terrain assets, scripts, and tests still live at repository root for now:
+
 - `assets/cinematic/`
 - `assets/frames/`
 - `scripts/*terrain*`, `scripts/*filmstrip*`, `scripts/*storyboard*`
-- `tests/test_geomorphic_*`, `tests/test_physics_lab_*`, `tests/test_animation_*`, `tests/test_high_school_*`, `tests/test_image_sequence_*`
-- `app.py`, `app_high_school.py`, `requirements.txt`, `pyproject.toml`
+- `tests/test_geomorphic_*`
+- `tests/test_physics_lab_*`
+- `tests/test_animation_*`
+- `tests/test_high_school_*`
+- `tests/test_image_sequence_*`
+- `requirements.txt`
+- `pyproject.toml`
 
-Do not assume all files have already moved under `projects/terrain-lab/`.
+Do not assume `assets/`, `scripts/`, or `tests/` have already moved under `projects/terrain-lab/`.
 
 ## Invariants
 
@@ -44,7 +59,7 @@ Do not assume all files have already moved under `projects/terrain-lab/`.
 For terrain work, prefer targeted checks first:
 
 ```powershell
-.\.venv\Scripts\python.exe -m py_compile app\services\geomorphic_engine.py app\services\terrain_physics_lab.py "pages\3_🧪_Lab.py"
+.\.venv\Scripts\python.exe -m py_compile projects\terrain-lab\src\app\services\geomorphic_engine.py projects\terrain-lab\src\app\services\terrain_physics_lab.py "projects\terrain-lab\src\pages\3_🧪_Lab.py"
 .\.venv\Scripts\python.exe -m pytest tests\test_geomorphic_engine_force_fields.py tests\test_geomorphic_engine_presets.py tests\test_physics_lab_metadata.py -q
 ```
 

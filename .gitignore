@@ -71,4 +71,8 @@ apps/koppen-climate-lab/data/worldclim/raw/
 apps/koppen-climate-lab/data/koppen-official/
 apps/koppen-climate-lab/data/beck-v2/
 apps/koppen-climate-lab/data/etopo/raw/
+projects/koppen-climate/app/data/worldclim/
+projects/koppen-climate/app/data/koppen-official/
+projects/koppen-climate/app/data/beck-v2/
+projects/koppen-climate/app/data/etopo/
 
