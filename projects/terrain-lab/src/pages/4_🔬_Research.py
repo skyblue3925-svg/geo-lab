@@ -37,7 +37,9 @@ from app.components.renderer import render_terrain_plotly
 from app.services.dem_research import (
     DEM_LAYER_LABELS,
     analyze_dem_surface,
+    compare_observed_modeled_dem,
     dem_research_cards,
+    estimate_process_mix_from_dem,
     normalize_dem_layer,
     process_hints_from_dem,
 )
@@ -532,6 +534,7 @@ with tab5:
             reference_elevation_raw, reference_meta = load_uploaded_dem_file(compare_upload)
             reference_cell_size = reference_meta.get('cellsize', cell_size)
             reference_elevation = align_reference_dem(elevation, reference_elevation_raw)
+            st.session_state['research_reference_elevation'] = reference_elevation
 
             if elevation.shape != reference_elevation_raw.shape:
                 st.warning("현재 DEM과 기준 DEM의 격자 크기가 달라 shape 기준 bilinear 보간 후 비교합니다. extent/CRS 정합은 자동 처리하지 않습니다.")
@@ -812,12 +815,44 @@ with tab5:
 
 with tab6:
     st.subheader("Lab 물리모델 입력 진단")
-    st.caption("현재 DEM을 Lab의 초기 지형으로 넘기기 전에 경사, 곡률, 배수 집중을 빠르게 확인합니다.")
+    st.caption("현재 DEM을 Lab의 초기 지형으로 넘기기 전에 경사, 곡률, 배수 집중, 우세 형성과정 후보를 빠르게 확인합니다.")
 
     dem_analysis = analyze_dem_surface(elevation)
+    process_estimate = estimate_process_mix_from_dem(dem_analysis)
     card_cols = st.columns(4)
     for card_col, (label, value, help_text) in zip(card_cols, dem_research_cards(dem_analysis), strict=False):
         card_col.metric(label, value, help=help_text)
+
+    score_map = process_estimate["scores"]
+    ranked_processes = process_estimate["ranked_processes"]
+    recommended_preset = process_estimate["recommended_preset"]
+
+    st.markdown("#### 형성과정 역산 후보")
+    estimate_col1, estimate_col2 = st.columns([1, 2])
+    with estimate_col1:
+        st.metric("추천 Lab 프리셋", str(recommended_preset))
+        st.caption("현재는 DEM의 경사, 곡률, 배수 집중 패턴으로 추정한 1차 후보입니다.")
+        st.write(str(process_estimate["interpretation"]))
+        if ranked_processes:
+            st.write("우선순위: " + " > ".join(str(process) for process in ranked_processes[:4]))
+    with estimate_col2:
+        score_fig = go.Figure()
+        score_fig.add_trace(
+            go.Bar(
+                x=list(score_map.keys()),
+                y=[float(value) for value in score_map.values()],
+                marker_color="#2563eb",
+            )
+        )
+        score_fig.update_layout(
+            title="작용별 적합도 점수",
+            xaxis_title="작용 모듈",
+            yaxis_title="0-1 score",
+            yaxis=dict(range=[0, 1]),
+            height=320,
+            template="plotly_dark",
+        )
+        st.plotly_chart(score_fig, width="stretch")
 
     layer_key = st.selectbox(
         "진단 레이어",
@@ -850,6 +885,28 @@ with tab6:
     st.markdown("#### 형성과정 후보 해석")
     for hint in process_hints_from_dem(dem_analysis):
         st.write(f"- {hint}")
+
+    if comparison_summary:
+        st.markdown("#### 마지막 DEM 비교를 Lab 기준으로 재요약")
+        try:
+            reference_elevation = st.session_state.get('research_reference_elevation')
+            if reference_elevation is None:
+                raise ValueError("기준 DEM 배열이 세션에 남아 있지 않습니다. DEM Compare 탭에서 기준 DEM을 다시 업로드하세요.")
+            reference_name = comparison_summary.get("reference_name", "기준 DEM")
+            observed_model_cmp = compare_observed_modeled_dem(
+                reference_elevation,
+                elevation,
+                target_size=64,
+            )
+            observed_summary = observed_model_cmp["summary"]
+            fit_col1, fit_col2, fit_col3 = st.columns(3)
+            fit_col1.metric("정규화 RMSE", f"{observed_summary['rmse']:.3f}")
+            fit_col2.metric("정규화 MAE", f"{observed_summary['mae']:.3f}")
+            fit_col3.metric("형상 적합도", f"{observed_summary['fit_score']*100:.1f}%")
+            st.caption(f"기준 DEM: {reference_name}. 이 값은 연구자용 역산 모델에서 관측 DEM과 모델 DEM의 차이를 읽는 최소 지표입니다.")
+        except Exception as e:
+            st.warning(f"마지막 DEM 비교 재요약을 만들 수 없습니다: {e}")
+
     st.info("다음 단계에서는 이 진단값을 Lab 엔진의 초기 표면, 물 공급, 침식 강도, 퇴적 조건 추정값으로 연결합니다.")
 
 with tab7:

@@ -67,6 +67,8 @@ def test_dem_research_cards_and_hints_are_ui_safe():
 
     assert len(cards) == 4
     assert all(card[0] and card[1] and card[2] for card in cards)
+    assert cards[0][0] == "기복"
+    assert any("하천" in hint or "사면" in hint for hint in hints)
     assert hints
     assert normalized_slope.shape == dem.shape
     assert 0.0 <= float(normalized_slope.min()) <= float(normalized_slope.max()) <= 1.0
@@ -114,3 +116,4 @@ def test_estimate_process_mix_from_dem_returns_ranked_processes():
     assert estimate["scores"]["hillslope"] >= 0.0
     assert estimate["recommended_preset"]
     assert estimate["interpretation"]
+    assert "우선 후보" in estimate["interpretation"]
