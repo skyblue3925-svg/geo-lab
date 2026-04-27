@@ -415,6 +415,80 @@ def force_module_rows_for_scenario(landform_id: str) -> tuple[dict[str, str], ..
     )
 
 
+def _force_module_payload(module: ForceModuleSpec) -> dict[str, Any]:
+    return {
+        "module_id": module.module_id,
+        "label_ko": module.label_ko,
+        "force_type": module.force_type,
+        "equation": module.equation,
+        "classroom_meaning": module.classroom_meaning,
+        "output_fields": tuple(module.output_fields),
+        "scenario_groups": tuple(module.scenario_groups),
+        "scenario_ids": tuple(module.scenario_ids),
+    }
+
+
+def _field_activity(process_fields: dict[str, Any], field_name: str) -> float:
+    value = process_fields.get(field_name)
+    if value is None:
+        return 0.0
+    array = np.nan_to_num(np.asarray(value, dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+    return float(np.sum(np.abs(array)))
+
+
+def _active_force_field_rows(process_fields: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    rows = []
+    for field_name in sorted(process_fields):
+        activity = _field_activity(process_fields, field_name)
+        if activity <= 0.0:
+            continue
+        rows.append({"field": field_name, "activity": activity})
+    rows.sort(key=lambda row: float(row["activity"]), reverse=True)
+    return tuple(rows)
+
+
+def _force_module_diagnostics(
+    landform_id: str,
+    process_history: list[dict[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    final_fields = process_history[-1] if process_history else {}
+    diagnostics = []
+    for module in force_module_specs_for_scenario(landform_id):
+        field_activities = {
+            field_name: _field_activity(final_fields, field_name)
+            for field_name in module.output_fields
+        }
+        active_fields = tuple(
+            field_name
+            for field_name, activity in field_activities.items()
+            if activity > 0.0
+        )
+        diagnostics.append(
+            {
+                "module_id": module.module_id,
+                "label_ko": module.label_ko,
+                "force_type": module.force_type,
+                "equation": module.equation,
+                "output_fields": tuple(module.output_fields),
+                "active_fields": active_fields,
+                "activity": float(sum(field_activities.values())),
+                "status": "active" if active_fields else "available",
+            }
+        )
+    return tuple(diagnostics)
+
+
+def _attach_force_module_runtime(result: dict[str, Any], landform_id: str) -> dict[str, Any]:
+    process_history = list(result.get("process_history") or [])
+    result["force_modules"] = tuple(
+        _force_module_payload(module)
+        for module in force_module_specs_for_scenario(landform_id)
+    )
+    result["active_force_fields"] = _active_force_field_rows(process_history[-1] if process_history else {})
+    result["module_diagnostics"] = _force_module_diagnostics(landform_id, process_history)
+    return result
+
+
 def get_physics_lab_theory(landform_id: str) -> PhysicsLabTheory:
     if landform_id in THEORY_NOTES:
         return THEORY_NOTES[landform_id]
@@ -501,6 +575,9 @@ def validate_lab_result_contract(result: dict[str, Any]) -> tuple[str, ...]:
             issues.append(f"missing:{key}")
     if "config" not in result and "parameters" not in result:
         issues.append("missing:config_or_parameters")
+    for key in ("force_modules", "active_force_fields", "module_diagnostics"):
+        if key in result and not isinstance(result[key], tuple):
+            issues.append(f"{key}:not_tuple")
 
     history = result.get("history")
     times = result.get("times")
@@ -548,6 +625,17 @@ def validate_lab_result_contract(result: dict[str, Any]) -> tuple[str, ...]:
                     issues.append(f"process_field:{key}:shape_mismatch")
                 if not bool(np.isfinite(array).all()):
                     issues.append(f"process_field:{key}:nonfinite")
+
+    diagnostics = result.get("module_diagnostics")
+    if isinstance(diagnostics, tuple):
+        process_fields = process_history[-1] if isinstance(process_history, list) and process_history else {}
+        for idx, diagnostic in enumerate(diagnostics):
+            if not isinstance(diagnostic, dict):
+                issues.append(f"module_diagnostic:{idx}:not_dict")
+                continue
+            for field_name in diagnostic.get("active_fields", ()):
+                if field_name not in process_fields:
+                    issues.append(f"module_diagnostic:{idx}:unknown_field:{field_name}")
 
     return tuple(issues)
 
@@ -856,7 +944,7 @@ def _run_common_engine_scenario(
         stats_history[-1] if stats_history else None,
         process_fields=process_history[-1] if process_history else None,
     )
-    return {
+    return _attach_force_module_runtime({
         "scenario": scenario,
         "config": params,
         "history": history,
@@ -873,7 +961,7 @@ def _run_common_engine_scenario(
             "공통 지형물리 엔진 v2입니다. 지형별 전용 식이 아니라 하천·해안·빙하·바람·화산·"
             "카르스트·구조운동·사면확산 작용장을 같은 시간 적분 루프에서 합산합니다."
         ),
-    }
+    }, scenario.landform_id)
 
 
 def _apply_user_factors(
@@ -961,7 +1049,7 @@ def run_physics_lab_simulation(
         process_fields=lem.process_history[-1] if lem.process_history else None,
     )
 
-    return {
+    return _attach_force_module_runtime({
         "scenario": scenario,
         "config": config,
         "history": [_normalize_surface(frame) for frame in history],
@@ -975,4 +1063,4 @@ def run_physics_lab_simulation(
         "dominant_process": format_process_summary(lem.stats_history[-1] if lem.stats_history else None),
         "kernel": "simple_lem",
         "kernel_notes": "기존 SimpleLEM 기반 실험 경로입니다. 계열별 전용 커널로 순차 교체할 예정입니다.",
-    }
+    }, scenario.landform_id)

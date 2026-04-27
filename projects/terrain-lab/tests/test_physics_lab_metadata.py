@@ -100,6 +100,22 @@ def test_lab_result_contract_validator_accepts_common_engine_runs():
     assert validate_lab_result_contract(result) == ()
 
 
+def test_lab_result_exposes_runtime_force_module_diagnostics():
+    result = run_physics_lab_simulation("coastal_cliff", 65, 60, 35, 35, 5_000, 32)
+
+    assert result["force_modules"]
+    assert result["active_force_fields"]
+    assert result["module_diagnostics"]
+    assert validate_lab_result_contract(result) == ()
+
+    diagnostics = {row["module_id"]: row for row in result["module_diagnostics"]}
+    assert diagnostics["marine"]["status"] == "active"
+    assert diagnostics["marine"]["activity"] > 0.0
+    assert {"wave_energy", "shoreline_retreat", "wave_cut_platform"} <= set(diagnostics["marine"]["active_fields"])
+    assert diagnostics["hillslope_diffusion"]["status"] == "active"
+    assert result["active_force_fields"][0]["activity"] >= result["active_force_fields"][-1]["activity"]
+
+
 def test_force_module_registry_covers_core_internal_and_external_processes():
     modules = list_force_module_specs()
     module_ids = {module.module_id for module in modules}

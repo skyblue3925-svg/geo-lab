@@ -389,9 +389,19 @@ with st.expander("공통 물리엔진 작용 모듈", expanded=lab_mode != "학�
         "지형별로 별도 코드를 계속 늘리는 방식이 아니라, 아래 내적·외적 작용 모듈을 조합하고 "
         "지형은 초기 지형과 프리셋으로 다룹니다."
     )
-    st.dataframe(force_module_rows_for_scenario(selected_id), hide_index=True, use_container_width=True)
-    active_fields = sorted(result["process_history"][-1].keys())
-    st.caption("현재 계산 결과에 포함된 주요 출력 필드")
+    diagnostic_rows = [
+        {
+            "작용 모듈": row["label_ko"],
+            "상태": "활성" if row["status"] == "active" else "대기",
+            "활성도": f"{float(row['activity']):.2f}",
+            "대표식": row["equation"],
+            "활성 필드": ", ".join(row["active_fields"]) or "-",
+        }
+        for row in result.get("module_diagnostics", ())
+    ]
+    st.dataframe(diagnostic_rows or force_module_rows_for_scenario(selected_id), hide_index=True, use_container_width=True)
+    active_fields = [row["field"] for row in result.get("active_force_fields", ())]
+    st.caption("현재 계산 결과에서 실제로 값이 발생한 주요 출력 필드")
     st.code(", ".join(active_fields[:80]), language="text")
 
 if lab_mode == "교사용":

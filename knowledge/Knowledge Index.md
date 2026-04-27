@@ -49,6 +49,7 @@ aliases:
 | [[Multi-Vault Wiki Pattern]] | synthesis | `knowledge/wiki/syntheses/Multi-Vault Wiki Pattern.md` | 다른 repo로 이식할 공용 운영 패턴 |
 | [[Geo-Lab Lab Physical Model Series]] | synthesis | `knowledge/wiki/syntheses/Geo-Lab Lab Physical Model Series.md` | Lab 물리모델 시리즈의 공통 작용 모듈 구조와 다음 구현 단위 |
 | [[HyperFrames Terrain Video Assessment]] | synthesis | `knowledge/wiki/syntheses/HyperFrames Terrain Video Assessment.md` | HyperFrames 기반 지형 설명 영상 생성 가능성 평가 |
+| [[Terrain Lab Session Handoff 2026-04-27]] | handoff | `knowledge/wiki/syntheses/Terrain Lab Session Handoff 2026-04-27.md` | Lab 작용 모듈 런타임 노출 작업과 다음 세션 우선순위 |
 
 ## Entities
 
