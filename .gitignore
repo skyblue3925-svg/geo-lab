@@ -29,17 +29,21 @@ Thumbs.db
 # Local outputs
 output/playwright/
 output/terrain-gif-collection/
+output/*.pptx
 
 # Local deployment/build mirrors
 .deploy/
 
 # Local agent/runtime config
 .codex/
+.agents/
 .tools/
 
 # Local temporary files
 .tmp-*
 tmp-snapshot.md
+GEO-LAB/
+tests/growth-hacker/
 
 # Binary assets (too large for Cloud)
 assets/reference/
