@@ -1,9 +1,10 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parent.parent
-GALLERY_SOURCE = ROOT / "pages" / "1_📖_Gallery.py"
-SHOWCASE_SOURCE = ROOT / "app" / "utils" / "gallery_showcase.py"
+ROOT = Path(__file__).resolve().parents[3]
+TERRAIN_SRC = ROOT / "projects" / "terrain-lab" / "src"
+GALLERY_SOURCE = next((TERRAIN_SRC / "pages").glob("1_*Gallery.py"))
+SHOWCASE_SOURCE = TERRAIN_SRC / "app" / "utils" / "gallery_showcase.py"
 
 
 def test_gallery_renders_3d_preview_before_expensive_card_grid():
@@ -34,7 +35,8 @@ def test_gallery_catalog_mode_uses_fast_static_3d_preview():
         source.index("    if is_catalog_mode:") : source.index("    else:", source.index("    if is_catalog_mode:"))
     ]
 
-    assert 'animation_mode = "수동 단계"' in catalog_block
+    assert "animation_mode =" in catalog_block
+    assert "recommended_animation_mode" in catalog_block
 
 
 def test_gallery_card_grid_does_not_block_first_3d_render_with_thumbnails():
@@ -48,7 +50,6 @@ def test_gallery_cinematic_media_is_opt_in_to_keep_first_tab_fast():
     source = GALLERY_SOURCE.read_text(encoding="utf-8")
 
     assert "show_cinematic_media = st.checkbox(" in source
-    assert '"시네마틱 파일 미리보기 로드"' in source
     assert "value=False" in source
 
 

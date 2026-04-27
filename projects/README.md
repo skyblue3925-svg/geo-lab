@@ -11,7 +11,7 @@ Path: `projects/terrain-lab/`
 - Source: `projects/terrain-lab/src/`
 - Root compatibility wrappers: `app/`, `engine/`, `pages/`, `app.py`
 - Run: `.\run_geo_lab.ps1`
-- Verify: terrain pytest suite in root `tests/`
+- Verify: `powershell -ExecutionPolicy Bypass -File .\projects\terrain-lab\test.ps1`
 
 ## 2. Koppen Climate
 
@@ -43,7 +43,7 @@ Path: `projects/school-gis/`
 - `knowledge/`: Obsidian/LLM wiki layer
 - `docs/`: cross-project planning and deployment documents
 - `.deploy/`: local deployment mirrors
-- `assets/`, `scripts/`, `tests/`: still partially shared, especially for Terrain Lab
+- `assets/`, `scripts/`: still partially shared, especially for Terrain Lab
 
 ## Migration Status
 

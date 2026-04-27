@@ -19,7 +19,7 @@ from app.services.geomorphic_process_kernels import (
     ProcessKernelParameters,
     run_process_morphology_model,
 )
-from app.services.animation_assets import KOREAN_TITLES, LANDFORM_GROUP_BY_ID, LANDFORM_GROUP_LABELS
+from app.services.animation_assets import KOREAN_TITLES, LANDFORM_GROUP_BY_ID, LANDFORM_GROUP_LABELS, PROJECT_ROOT
 from app.services.geomorphic_engine import GeomorphicEngineParameters, run_geomorphic_engine
 from app.services.morphometric_metrics import compute_morphometric_metrics
 from app.services.terrain_lab_catalog import (
@@ -307,7 +307,7 @@ def active_physics_lab_rows() -> tuple[dict[str, str], ...]:
 def planned_physics_lab_rows() -> tuple[dict[str, str], ...]:
     active_ids = {scenario.landform_id for scenario in SCENARIOS}
     rows = []
-    image_sequence_root = Path(__file__).resolve().parents[2] / "assets" / "cinematic" / "image_sequence"
+    image_sequence_root = PROJECT_ROOT / "assets" / "cinematic" / "image_sequence"
     if not image_sequence_root.exists():
         return ()
     for path in sorted(item for item in image_sequence_root.iterdir() if item.is_dir()):

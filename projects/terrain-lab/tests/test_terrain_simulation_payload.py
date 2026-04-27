@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.services.animation_assets import KOREAN_TITLES
 from app.services.terrain_simulation_payload import (
     build_simulation_terrain_3d_payload,
@@ -6,9 +8,8 @@ from app.services.terrain_simulation_payload import (
 
 
 def test_terrain_simulation_payload_has_no_unshipped_lab_model_dependency():
-    source = "app/services/terrain_simulation_payload.py"
-    with open(source, encoding="utf-8") as handle:
-        module_source = handle.read()
+    source = Path(__file__).resolve().parents[1] / "src" / "app" / "services" / "terrain_simulation_payload.py"
+    module_source = source.read_text(encoding="utf-8")
 
     assert "app.utils.lab_model" not in module_source
     assert "engine.simple_lem" not in module_source

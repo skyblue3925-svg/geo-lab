@@ -25,20 +25,16 @@ The repository root still keeps compatibility wrappers for Streamlit and deploym
 - `engine/`
 - `app.py`
 
-Terrain assets, scripts, and tests still live at repository root for now:
+Terrain assets and scripts still live at repository root for now:
 
 - `assets/cinematic/`
 - `assets/frames/`
 - `scripts/*terrain*`, `scripts/*filmstrip*`, `scripts/*storyboard*`
-- `tests/test_geomorphic_*`
-- `tests/test_physics_lab_*`
-- `tests/test_animation_*`
-- `tests/test_high_school_*`
-- `tests/test_image_sequence_*`
 - `requirements.txt`
 - `pyproject.toml`
 
-Do not assume `assets/`, `scripts/`, or `tests/` have already moved under `projects/terrain-lab/`.
+Terrain tests now live in `projects/terrain-lab/tests/`.
+Do not assume `assets/` or `scripts/` have already moved under `projects/terrain-lab/`.
 
 ## Invariants
 
@@ -60,13 +56,13 @@ For terrain work, prefer targeted checks first:
 
 ```powershell
 .\.venv\Scripts\python.exe -m py_compile projects\terrain-lab\src\app\services\geomorphic_engine.py projects\terrain-lab\src\app\services\terrain_physics_lab.py "projects\terrain-lab\src\pages\3_🧪_Lab.py"
-.\.venv\Scripts\python.exe -m pytest tests\test_geomorphic_engine_force_fields.py tests\test_geomorphic_engine_presets.py tests\test_physics_lab_metadata.py -q
+powershell -ExecutionPolicy Bypass -File .\projects\terrain-lab\test.ps1 -Fast
 ```
 
 For broader terrain regression:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_geomorphic_engine_force_fields.py tests\test_geomorphic_engine_presets.py tests\test_physics_lab_metadata.py tests\test_geomorphic_engine.py tests\test_morphometric_metrics.py tests\test_geomorphic_process_kernels.py tests\test_river_morphology_kernel.py tests\test_terrain_lab_catalog.py tests\test_page_syntax.py -q
+powershell -ExecutionPolicy Bypass -File .\projects\terrain-lab\test.ps1
 ```
 
 If Streamlit is running locally, verify:
@@ -74,4 +70,3 @@ If Streamlit is running locally, verify:
 ```powershell
 Invoke-WebRequest -Uri http://127.0.0.1:8501/Lab -UseBasicParsing -TimeoutSec 20
 ```
-

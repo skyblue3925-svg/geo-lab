@@ -10,7 +10,7 @@ Terrain Lab은 지형 애니메이션, GIF 갤러리, 고등학교 세계지리 
 - Streamlit 호환 진입점: 루트 `app.py`
 - 루트 wrapper: `app/`, `engine/`, `pages/`
 - 지형 이미지/GIF 자산: 루트 `assets/cinematic/`
-- 지형 관련 테스트: 루트 `tests/test_geomorphic_*`, `tests/test_physics_lab_*`, `tests/test_page_syntax.py`
+- 지형 관련 테스트: `projects/terrain-lab/tests/`
 
 ## 로컬 실행
 
@@ -28,7 +28,13 @@ Streamlit을 직접 실행할 때:
 ## 검증
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_geomorphic_engine_presets.py tests\test_geomorphic_engine_force_fields.py tests\test_physics_lab_metadata.py tests\test_geomorphic_engine.py tests\test_morphometric_metrics.py tests\test_geomorphic_process_kernels.py tests\test_river_morphology_kernel.py tests\test_terrain_lab_catalog.py tests\test_page_syntax.py -q
+powershell -ExecutionPolicy Bypass -File .\projects\terrain-lab\test.ps1
+```
+
+빠른 핵심 검증:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\projects\terrain-lab\test.ps1 -Fast
 ```
 
 ## 배포

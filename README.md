@@ -58,7 +58,13 @@ python -m http.server 8787
 ### Terrain Lab
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_geomorphic_engine_presets.py tests\test_geomorphic_engine_force_fields.py tests\test_physics_lab_metadata.py tests\test_geomorphic_engine.py tests\test_morphometric_metrics.py tests\test_geomorphic_process_kernels.py tests\test_river_morphology_kernel.py tests\test_terrain_lab_catalog.py tests\test_page_syntax.py -q
+.\.venv\Scripts\python.exe -m pytest projects\terrain-lab\tests\test_geomorphic_engine_presets.py projects\terrain-lab\tests\test_geomorphic_engine_force_fields.py projects\terrain-lab\tests\test_physics_lab_metadata.py projects\terrain-lab\tests\test_geomorphic_engine.py projects\terrain-lab\tests\test_morphometric_metrics.py projects\terrain-lab\tests\test_geomorphic_process_kernels.py projects\terrain-lab\tests\test_river_morphology_kernel.py projects\terrain-lab\tests\test_terrain_lab_catalog.py projects\terrain-lab\tests\test_page_syntax.py -q
+```
+
+프로젝트 스크립트로 실행할 때:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\projects\terrain-lab\test.ps1
 ```
 
 ### Koppen Climate

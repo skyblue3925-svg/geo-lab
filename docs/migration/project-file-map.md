@@ -20,7 +20,6 @@ Geo-lab/
   pages/     # Streamlit page wrappers
   assets/    # still shared, terrain-heavy
   scripts/   # still shared
-  tests/     # still shared
   knowledge/
   docs/
   .deploy/
@@ -55,11 +54,7 @@ Still root-level for now:
 - `scripts/build_storyboard_*`
 - `scripts/import_filmstrip_sequence.py`
 - `scripts/build_mobile_gif_gallery.py`
-- `tests/test_geomorphic_*`
-- `tests/test_physics_lab_*`
-- `tests/test_animation_*`
-- `tests/test_high_school_*`
-- `tests/test_image_sequence_*`
+- `projects/terrain-lab/tests/`
 
 ### Koppen Climate
 
@@ -129,7 +124,13 @@ python -m http.server 8787
 Terrain Lab:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\test_geomorphic_engine_force_fields.py tests\test_geomorphic_engine_presets.py tests\test_physics_lab_metadata.py tests\test_geomorphic_engine.py tests\test_morphometric_metrics.py tests\test_geomorphic_process_kernels.py tests\test_river_morphology_kernel.py tests\test_terrain_lab_catalog.py tests\test_page_syntax.py -q
+.\.venv\Scripts\python.exe -m pytest projects\terrain-lab\tests\test_geomorphic_engine_force_fields.py projects\terrain-lab\tests\test_geomorphic_engine_presets.py projects\terrain-lab\tests\test_physics_lab_metadata.py projects\terrain-lab\tests\test_geomorphic_engine.py projects\terrain-lab\tests\test_morphometric_metrics.py projects\terrain-lab\tests\test_geomorphic_process_kernels.py projects\terrain-lab\tests\test_river_morphology_kernel.py projects\terrain-lab\tests\test_terrain_lab_catalog.py projects\terrain-lab\tests\test_page_syntax.py -q
+```
+
+or:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\projects\terrain-lab\test.ps1
 ```
 
 Koppen Climate:
@@ -181,8 +182,8 @@ School GIS:
 ## Remaining Migration Work
 
 1. Update `.deploy/` mirrors after local verification.
-2. Decide whether terrain `assets/`, `scripts/`, and `tests/` should move under `projects/terrain-lab/`.
-3. Move or intentionally retain root-level terrain tests/assets/scripts.
+2. Decide whether terrain `assets/` and `scripts/` should move under `projects/terrain-lab/`.
+3. Clean up root-level test/deploy references that still assume `tests/`.
 4. Add project-specific CI once deployment mirrors are stable.
 5. Keep root wrappers until a deployment cutover confirms direct project-local execution is enough.
 6. Document raw Koppen data regeneration/download flow.

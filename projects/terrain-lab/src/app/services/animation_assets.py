@@ -18,7 +18,14 @@ import numpy as np
 from PIL import Image
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+def _find_project_root(start: Path) -> Path:
+    for candidate in (start, *start.parents):
+        if (candidate / "assets" / "cinematic").exists():
+            return candidate
+    return start.parents[2]
+
+
+PROJECT_ROOT = _find_project_root(Path(__file__).resolve())
 GENERATED_ASSET_ROOT = PROJECT_ROOT / "output" / "terrain-animation-assets"
 CINEMATIC_ROOT = PROJECT_ROOT / "assets" / "cinematic"
 STORYBOARD_SMOOTH_ROOT = CINEMATIC_ROOT / "storyboard_smooth"
