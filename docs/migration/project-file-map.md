@@ -55,6 +55,7 @@ Still root-level for now:
 - `scripts/import_filmstrip_sequence.py`
 - `scripts/build_mobile_gif_gallery.py`
 - `projects/terrain-lab/tests/`
+- `projects/terrain-lab/tests/e2e/`
 
 ### Koppen Climate
 

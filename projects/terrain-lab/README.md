@@ -37,6 +37,12 @@ powershell -ExecutionPolicy Bypass -File .\projects\terrain-lab\test.ps1
 powershell -ExecutionPolicy Bypass -File .\projects\terrain-lab\test.ps1 -Fast
 ```
 
+브라우저 E2E 검증:
+
+```powershell
+npm.cmd run test:e2e
+```
+
 ## 배포
 
 - 현재 배포 호환 진입점은 루트 `app.py`입니다.
