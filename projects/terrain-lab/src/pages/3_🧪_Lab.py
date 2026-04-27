@@ -16,6 +16,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from app.beta_navigation import render_beta_sidebar
 from app.services.terrain_physics_lab import (
     active_physics_lab_rows,
+    force_module_rows_for_scenario,
     get_physics_lab_scenario,
     get_physics_lab_theory,
     list_physics_lab_scenarios,
@@ -363,6 +364,16 @@ with st.expander("현재 적용 중인 물리식과 이론", expanded=False):
     for assumption in theory.assumptions:
         st.write(f"- {assumption}")
     st.info("이 식들은 연구용 수치모델로 확장할 때 검증 가능한 작용장과 파라미터로 분리해 나갈 기준입니다.")
+
+with st.expander("공통 물리엔진 작용 모듈", expanded=True):
+    st.caption(
+        "지형별로 별도 코드를 계속 늘리는 방식이 아니라, 아래 내적·외적 작용 모듈을 조합하고 "
+        "지형은 초기 지형과 프리셋으로 다룹니다."
+    )
+    st.dataframe(force_module_rows_for_scenario(selected_id), hide_index=True, use_container_width=True)
+    active_fields = sorted(result["process_history"][-1].keys())
+    st.caption("현재 계산 결과에 포함된 주요 출력 필드")
+    st.code(", ".join(active_fields[:80]), language="text")
 
 view_col, note_col = st.columns([1.35, 0.85])
 with view_col:

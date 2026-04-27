@@ -1,6 +1,9 @@
 from app.services.terrain_physics_lab import (
     active_physics_lab_rows,
+    force_module_rows_for_scenario,
+    force_module_specs_for_scenario,
     get_physics_lab_theory,
+    list_force_module_specs,
     list_physics_lab_scenarios,
     planned_physics_lab_rows,
     run_physics_lab_simulation,
@@ -88,3 +91,30 @@ def test_lab_common_engine_exposes_process_force_fields():
         for field_name in field_names:
             assert field_name in process_fields
             assert float(abs(process_fields[field_name]).sum()) > 0.0
+
+
+def test_force_module_registry_covers_core_internal_and_external_processes():
+    modules = list_force_module_specs()
+    module_ids = {module.module_id for module in modules}
+
+    assert {"fluvial", "marine", "glacial", "aeolian", "volcanic", "karst_groundwater", "tectonic_boundary"} <= module_ids
+    assert any(module.force_type == "내적 작용" for module in modules)
+    assert any(module.force_type == "외적 작용" for module in modules)
+    assert all(module.equation for module in modules)
+    assert all(module.output_fields for module in modules)
+
+
+def test_force_modules_are_filtered_by_selected_landform():
+    expectations = {
+        "v_valley": {"fluvial", "hillslope_diffusion", "tectonic_boundary"},
+        "coastal_cliff": {"marine", "hillslope_diffusion", "tectonic_boundary"},
+        "barchan": {"aeolian", "hillslope_diffusion", "tectonic_boundary"},
+        "lava_dome": {"volcanic", "hillslope_diffusion", "tectonic_boundary"},
+        "karst_doline": {"karst_groundwater", "hillslope_diffusion", "tectonic_boundary"},
+    }
+
+    for landform_id, expected_module_ids in expectations.items():
+        module_ids = {module.module_id for module in force_module_specs_for_scenario(landform_id)}
+
+        assert expected_module_ids <= module_ids
+        assert force_module_rows_for_scenario(landform_id)

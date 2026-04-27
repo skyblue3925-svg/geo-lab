@@ -78,3 +78,4 @@ aliases:
 | 2026-04-12 | update | `scripts/publish_daily_brief.py` | shared env fallback과 multi-vault Telegram 설정 지원 추가 |
 | 2026-04-12 | update | [[LLM Wiki Home]] | Multi-Vault 재사용 패턴 note를 홈에서 바로 찾게 갱신 |
 | 2026-04-12 | update | [[Knowledge Index]] | Multi-Vault 재사용 패턴 note를 인덱스에 반영 |
+| 2026-04-27 | create | [[Geo-Lab Lab Physical Model Series]] | Lab 물리모델 시리즈의 공통 작용 모듈 구조와 다음 구현 단위 기록 |

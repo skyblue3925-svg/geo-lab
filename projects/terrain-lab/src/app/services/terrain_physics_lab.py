@@ -52,6 +52,110 @@ class PhysicsLabTheory:
     classroom_note: str
 
 
+@dataclass(frozen=True)
+class ForceModuleSpec:
+    module_id: str
+    label_ko: str
+    force_type: str
+    equation: str
+    classroom_meaning: str
+    output_fields: tuple[str, ...]
+    scenario_groups: tuple[str, ...]
+    scenario_ids: tuple[str, ...] = ()
+
+
+FORCE_MODULE_SPECS: tuple[ForceModuleSpec, ...] = (
+    ForceModuleSpec(
+        "fluvial",
+        "하천 침식·운반",
+        "외적 작용",
+        "E = K A^m S^n,  Qc = f(Q, S)",
+        "유량, 집수면적, 경사가 커질수록 하천이 하방 침식과 운반을 강화합니다.",
+        ("fluvial_erosion", "drainage_area", "transport_capacity", "deposition"),
+        ("river", "delta"),
+        ("waterfall", "v_valley", "alluvial_fan", "oxbow_lake", "river_terrace"),
+    ),
+    ForceModuleSpec(
+        "hillslope_diffusion",
+        "사면 확산",
+        "외적 작용",
+        "∂z/∂t = D∇²z",
+        "급경사면은 무너지고 낮은 곳은 메워지면서 표면이 완만해집니다.",
+        ("diffusion",),
+        ("river", "delta", "glacial", "coastal", "arid", "volcanic", "karst"),
+    ),
+    ForceModuleSpec(
+        "marine",
+        "파랑·해안 작용",
+        "외적 작용",
+        "R = f(W, sea level, sediment budget)",
+        "해수면 근처에서 파랑 에너지가 집중되면 해식애 후퇴, 파식대, 해빈 퇴적이 분리되어 나타납니다.",
+        ("wave_energy", "shoreline_retreat", "wave_cut_platform", "beach_deposition", "longshore_transport"),
+        ("coastal", "delta"),
+        ("coastal_cliff", "wave_cut_platform", "marine_terrace", "sea_cave_stack", "spit_lagoon", "tombolo", "ria_coast", "estuary"),
+    ),
+    ForceModuleSpec(
+        "glacial",
+        "빙하 침식·퇴적",
+        "외적 작용",
+        "Eg ∝ Hi Ui |∇z|",
+        "빙하 두께와 흐름이 커질수록 바닥 침식이 강해지고, 후퇴 지점에는 모레인 퇴적이 남습니다.",
+        ("ice_thickness", "glacial_velocity", "glacial", "moraine"),
+        ("glacial",),
+        ("u_valley", "moraine", "drumlin", "esker", "kettle_lake", "outwash_plain", "thermokarst"),
+    ),
+    ForceModuleSpec(
+        "aeolian",
+        "바람·모래 이동",
+        "외적 작용",
+        "qs ∝ u*³,  Δz = lee deposition - stoss erosion",
+        "풍상면은 깎이고 풍하면에는 모래가 쌓여 사구 이동 방향이 드러납니다.",
+        ("wind_vector_x", "wind_vector_y", "sand_flux", "stoss_erosion", "lee_deposition", "dune_migration"),
+        ("arid",),
+        ("barchan", "transverse_dune", "star_dune", "coastal_dune"),
+    ),
+    ForceModuleSpec(
+        "volcanic",
+        "화산체 성장",
+        "내적 작용",
+        "C = eruption rate,  spread ∝ 1 / viscosity",
+        "분출률, 용암 점성, 냉각 조건에 따라 용암돔·순상화산·성층화산의 성장 방식이 달라집니다.",
+        ("volcanic_construction", "lava_flow", "viscosity_resistance", "cooling_limited_spread"),
+        ("volcanic",),
+        ("lava_dome", "shield_volcano", "stratovolcano", "lava_plateau", "caldera", "crater_lake"),
+    ),
+    ForceModuleSpec(
+        "explosive_volcanism",
+        "폭발성 화산 작용",
+        "내적 작용",
+        "Cr = f(explosion energy, magma-water contact)",
+        "마그마와 지하수 접촉 또는 화산쇄설물 공급이 커지면 화구 굴착과 분석구 성장이 강화됩니다.",
+        ("explosion_energy", "crater_excavation", "ejecta_deposition", "pyroclastic_cone_growth", "magma_water_contact"),
+        ("volcanic",),
+        ("maar", "cinder_cone", "caldera", "crater_lake", "stratovolcano"),
+    ),
+    ForceModuleSpec(
+        "karst_groundwater",
+        "카르스트·지하수",
+        "외적 작용",
+        "Sr ∝ water supply × rock solubility × fracture density",
+        "석회암 용식, 균열 밀도, 지하수 집중이 커질수록 돌리네·우발라·폴리에 발달 조건이 강해집니다.",
+        ("groundwater_flow", "solution_rate", "subsurface_drainage", "collapse_risk", "sinkhole_density"),
+        ("karst",),
+        ("karst_doline", "uvala", "polje", "karren", "tower_karst"),
+    ),
+    ForceModuleSpec(
+        "tectonic_boundary",
+        "융기·침강 기준면",
+        "내적/경계 조건",
+        "U = dz/dt,  base level = sea level or outlet level",
+        "지반이 오르거나 기준면이 낮아지면 침식 여력이 커지고, 반대 조건에서는 퇴적 공간이 커집니다.",
+        ("tectonic",),
+        ("river", "delta", "glacial", "coastal", "arid", "volcanic", "karst"),
+    ),
+)
+
+
 BASE_SCENARIOS: tuple[PhysicsLabScenario, ...] = (
     PhysicsLabScenario("v_valley", "V자곡", "하천 지형", "V자곡", "하천 침식력", "강수량", 60, 45, 25, 45_000),
     PhysicsLabScenario("alluvial_fan", "선상지", "하천 지형", "선상지", "퇴적물 공급", "경사 완화", 55, 35, 40, 35_000),
@@ -276,6 +380,39 @@ FAMILY_THEORY_NOTES: dict[str, PhysicsLabTheory] = {
 
 def list_physics_lab_scenarios() -> tuple[PhysicsLabScenario, ...]:
     return SCENARIOS
+
+
+def list_force_module_specs() -> tuple[ForceModuleSpec, ...]:
+    return FORCE_MODULE_SPECS
+
+
+def _scenario_group_key(landform_id: str) -> str:
+    catalog = next((scenario for scenario in list_additional_lab_scenarios() if scenario.landform_id == landform_id), None)
+    if catalog is not None:
+        return catalog.group
+    return LANDFORM_GROUP_BY_ID.get(landform_id, "")
+
+
+def force_module_specs_for_scenario(landform_id: str) -> tuple[ForceModuleSpec, ...]:
+    group = _scenario_group_key(landform_id)
+    active = []
+    for module in FORCE_MODULE_SPECS:
+        if landform_id in module.scenario_ids or group in module.scenario_groups:
+            active.append(module)
+    return tuple(active)
+
+
+def force_module_rows_for_scenario(landform_id: str) -> tuple[dict[str, str], ...]:
+    return tuple(
+        {
+            "작용 모듈": module.label_ko,
+            "구분": module.force_type,
+            "대표식": module.equation,
+            "교육적 의미": module.classroom_meaning,
+            "출력 필드": ", ".join(module.output_fields),
+        }
+        for module in force_module_specs_for_scenario(landform_id)
+    )
 
 
 def get_physics_lab_theory(landform_id: str) -> PhysicsLabTheory:
