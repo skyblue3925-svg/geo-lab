@@ -1,4 +1,4 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,6 +6,8 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
+.tmp-venv/
 .env
 
 # Streamlit
@@ -24,8 +26,62 @@ Thumbs.db
 # Logs
 *.log
 
-# Binary assets (too large for HuggingFace)
+# Local outputs
+output/playwright/
+output/terrain-gif-collection/
+output/terrain-animation-assets/
+output/*.pptx
+
+# Local deployment/build mirrors
+.deploy/
+
+# Local agent/runtime config
+.codex/
+.agents/
+.tools/
+
+# Local Obsidian session state
+.obsidian/workspace.json
+
+# Local temporary files
+.tmp-*
+tmp-snapshot.md
+GEO-LAB/
+tests/growth-hacker/
+
+# Binary assets (too large for Cloud)
 assets/reference/
+assets/frames/
+assets/cinematic/*.gif
+assets/cinematic/storyboard_smooth/
+assets/cinematic/storyboard_cinematic/
+assets/cinematic/image_sequence/**/prompts/
+assets/cinematic/image_sequence/**/run_ai_inbetween.ps1
 *.png
+!assets/cinematic/image_sequence/**/filmstrip/*.png
 *.jpg
 *.jpeg
+
+# Node
+node_modules/
+playwright-report/
+test-results/
+.playwright-cli/
+.playwright-mcp/
+.tmp-edge-profile/
+.pytest_cache/
+pytest-cache-files-*/
+.tmp_*
+tmp/
+apps/school-neighborhood-gis/scripts/sgis-local-env.ps1
+
+# Koppen app raw source datasets
+apps/koppen-climate-lab/data/worldclim/raw/
+apps/koppen-climate-lab/data/koppen-official/
+apps/koppen-climate-lab/data/beck-v2/
+apps/koppen-climate-lab/data/etopo/raw/
+projects/koppen-climate/app/data/worldclim/
+projects/koppen-climate/app/data/koppen-official/
+projects/koppen-climate/app/data/beck-v2/
+projects/koppen-climate/app/data/etopo/
+

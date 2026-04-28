@@ -6,3 +6,7 @@ scipy>=1.11.0
 Pillow>=10.0.0
 kaleido>=0.2.1
 supabase>=2.0.0
+pytest>=8.0.0
+
+# Optional PyVista/stpyvista stack is intentionally excluded from the beta deploy.
+# The beta Animation Studio uses a browser-native Three.js viewer instead.

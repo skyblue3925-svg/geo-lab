@@ -1,0 +1,304 @@
+{
+  "landform_id": "waterfall",
+  "model": "gpt-image-1.5",
+  "frames": [
+    {
+      "frame": 0,
+      "stage": 0.0,
+      "type": "keyframe",
+      "source": "assets/cinematic/image_sequence/waterfall/keyframes/keyframe_00.png",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_000.png"
+    },
+    {
+      "frame": 1,
+      "stage": 0.03333333333333333,
+      "type": "ai_inbetween",
+      "from_keyframe": 0,
+      "to_keyframe": 1,
+      "transition_progress": 0.1,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_001.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_001.png"
+    },
+    {
+      "frame": 2,
+      "stage": 0.06666666666666667,
+      "type": "ai_inbetween",
+      "from_keyframe": 0,
+      "to_keyframe": 1,
+      "transition_progress": 0.2,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_002.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_002.png"
+    },
+    {
+      "frame": 3,
+      "stage": 0.1,
+      "type": "ai_inbetween",
+      "from_keyframe": 0,
+      "to_keyframe": 1,
+      "transition_progress": 0.30000000000000004,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_003.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_003.png"
+    },
+    {
+      "frame": 4,
+      "stage": 0.13333333333333333,
+      "type": "ai_inbetween",
+      "from_keyframe": 0,
+      "to_keyframe": 1,
+      "transition_progress": 0.4,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_004.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_004.png"
+    },
+    {
+      "frame": 5,
+      "stage": 0.16666666666666666,
+      "type": "ai_inbetween",
+      "from_keyframe": 0,
+      "to_keyframe": 1,
+      "transition_progress": 0.5,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_005.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_005.png"
+    },
+    {
+      "frame": 6,
+      "stage": 0.2,
+      "type": "ai_inbetween",
+      "from_keyframe": 0,
+      "to_keyframe": 1,
+      "transition_progress": 0.6000000000000001,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_006.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_006.png"
+    },
+    {
+      "frame": 7,
+      "stage": 0.23333333333333334,
+      "type": "ai_inbetween",
+      "from_keyframe": 0,
+      "to_keyframe": 1,
+      "transition_progress": 0.7,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_007.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_007.png"
+    },
+    {
+      "frame": 8,
+      "stage": 0.26666666666666666,
+      "type": "ai_inbetween",
+      "from_keyframe": 0,
+      "to_keyframe": 1,
+      "transition_progress": 0.8,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_008.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_008.png"
+    },
+    {
+      "frame": 9,
+      "stage": 0.3,
+      "type": "ai_inbetween",
+      "from_keyframe": 0,
+      "to_keyframe": 1,
+      "transition_progress": 0.8999999999999999,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_009.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_009.png"
+    },
+    {
+      "frame": 10,
+      "stage": 0.3333333333333333,
+      "type": "keyframe",
+      "source": "assets/cinematic/image_sequence/waterfall/keyframes/keyframe_01.png",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_010.png"
+    },
+    {
+      "frame": 11,
+      "stage": 0.36666666666666664,
+      "type": "ai_inbetween",
+      "from_keyframe": 1,
+      "to_keyframe": 2,
+      "transition_progress": 0.09999999999999987,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_011.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_011.png"
+    },
+    {
+      "frame": 12,
+      "stage": 0.4,
+      "type": "ai_inbetween",
+      "from_keyframe": 1,
+      "to_keyframe": 2,
+      "transition_progress": 0.20000000000000018,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_012.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_012.png"
+    },
+    {
+      "frame": 13,
+      "stage": 0.43333333333333335,
+      "type": "ai_inbetween",
+      "from_keyframe": 1,
+      "to_keyframe": 2,
+      "transition_progress": 0.30000000000000004,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_013.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_013.png"
+    },
+    {
+      "frame": 14,
+      "stage": 0.4666666666666667,
+      "type": "ai_inbetween",
+      "from_keyframe": 1,
+      "to_keyframe": 2,
+      "transition_progress": 0.3999999999999999,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_014.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_014.png"
+    },
+    {
+      "frame": 15,
+      "stage": 0.5,
+      "type": "ai_inbetween",
+      "from_keyframe": 1,
+      "to_keyframe": 2,
+      "transition_progress": 0.5,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_015.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_015.png"
+    },
+    {
+      "frame": 16,
+      "stage": 0.5333333333333333,
+      "type": "ai_inbetween",
+      "from_keyframe": 1,
+      "to_keyframe": 2,
+      "transition_progress": 0.6000000000000001,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_016.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_016.png"
+    },
+    {
+      "frame": 17,
+      "stage": 0.5666666666666667,
+      "type": "ai_inbetween",
+      "from_keyframe": 1,
+      "to_keyframe": 2,
+      "transition_progress": 0.7,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_017.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_017.png"
+    },
+    {
+      "frame": 18,
+      "stage": 0.6,
+      "type": "ai_inbetween",
+      "from_keyframe": 1,
+      "to_keyframe": 2,
+      "transition_progress": 0.7999999999999998,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_018.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_018.png"
+    },
+    {
+      "frame": 19,
+      "stage": 0.6333333333333333,
+      "type": "ai_inbetween",
+      "from_keyframe": 1,
+      "to_keyframe": 2,
+      "transition_progress": 0.8999999999999999,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_019.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_019.png"
+    },
+    {
+      "frame": 20,
+      "stage": 0.6666666666666666,
+      "type": "keyframe",
+      "source": "assets/cinematic/image_sequence/waterfall/keyframes/keyframe_02.png",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_020.png"
+    },
+    {
+      "frame": 21,
+      "stage": 0.7,
+      "type": "ai_inbetween",
+      "from_keyframe": 2,
+      "to_keyframe": 3,
+      "transition_progress": 0.09999999999999964,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_021.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_021.png"
+    },
+    {
+      "frame": 22,
+      "stage": 0.7333333333333333,
+      "type": "ai_inbetween",
+      "from_keyframe": 2,
+      "to_keyframe": 3,
+      "transition_progress": 0.19999999999999973,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_022.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_022.png"
+    },
+    {
+      "frame": 23,
+      "stage": 0.7666666666666667,
+      "type": "ai_inbetween",
+      "from_keyframe": 2,
+      "to_keyframe": 3,
+      "transition_progress": 0.30000000000000027,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_023.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_023.png"
+    },
+    {
+      "frame": 24,
+      "stage": 0.8,
+      "type": "ai_inbetween",
+      "from_keyframe": 2,
+      "to_keyframe": 3,
+      "transition_progress": 0.40000000000000036,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_024.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_024.png"
+    },
+    {
+      "frame": 25,
+      "stage": 0.8333333333333334,
+      "type": "ai_inbetween",
+      "from_keyframe": 2,
+      "to_keyframe": 3,
+      "transition_progress": 0.5,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_025.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_025.png"
+    },
+    {
+      "frame": 26,
+      "stage": 0.8666666666666667,
+      "type": "ai_inbetween",
+      "from_keyframe": 2,
+      "to_keyframe": 3,
+      "transition_progress": 0.6000000000000001,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_026.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_026.png"
+    },
+    {
+      "frame": 27,
+      "stage": 0.9,
+      "type": "ai_inbetween",
+      "from_keyframe": 2,
+      "to_keyframe": 3,
+      "transition_progress": 0.7000000000000002,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_027.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_027.png"
+    },
+    {
+      "frame": 28,
+      "stage": 0.9333333333333333,
+      "type": "ai_inbetween",
+      "from_keyframe": 2,
+      "to_keyframe": 3,
+      "transition_progress": 0.7999999999999998,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_028.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_028.png"
+    },
+    {
+      "frame": 29,
+      "stage": 0.9666666666666667,
+      "type": "ai_inbetween",
+      "from_keyframe": 2,
+      "to_keyframe": 3,
+      "transition_progress": 0.8999999999999999,
+      "prompt": "assets/cinematic/image_sequence/waterfall/prompts/frame_029.md",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_029.png"
+    },
+    {
+      "frame": 30,
+      "stage": 1.0,
+      "type": "keyframe",
+      "source": "assets/cinematic/image_sequence/waterfall/keyframes/keyframe_03.png",
+      "output": "assets/cinematic/image_sequence/waterfall/frames/frame_030.png"
+    }
+  ]
+}

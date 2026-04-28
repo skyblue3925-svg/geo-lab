@@ -1,0 +1,14 @@
+{
+  "name": "@geo-lab/koppen-climate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "python -m http.server 8765 --directory app",
+    "test": "node tests/koppen-climate-model.test.mjs && node tests/koppen-exam-spots.test.mjs"
+  },
+  "dependencies": {
+    "geotiff": "^3.0.5",
+    "h5wasm": "^0.10.1",
+    "netcdfjs": "^4.0.0"
+  }
+}

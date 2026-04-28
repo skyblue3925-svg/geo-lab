@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Geo-Lab HyperFrames 지형 영상 예시</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #f5f1e7; color: #151515; font-family: "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif; }
+      header { padding: 30px clamp(18px, 4vw, 54px); border-bottom: 1px solid rgba(21,21,21,.12); }
+      h1 { margin: 0 0 8px; font-size: clamp(30px, 5vw, 56px); letter-spacing: 0; }
+      .sub { margin: 0; color: #4b5563; font-size: 20px; line-height: 1.45; }
+      main { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; padding: 28px clamp(18px, 4vw, 54px) 54px; }
+      .card { background: rgba(255,255,255,.78); border: 1px solid rgba(21,21,21,.14); overflow: hidden; }
+      .card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #111827; }
+      .card div { padding: 18px 20px 22px; }
+      h2 { margin: 0 0 8px; font-size: 24px; }
+      p { margin: 0 0 14px; color: #374151; font-size: 17px; line-height: 1.5; }
+      a { color: #0369a1; font-weight: 800; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>HyperFrames 지형 영상 예시</h1>
+      <p class="sub">바르한, 폭포, 삼각주 GIF를 수업용 MP4로 렌더링하기 위한 HTML composition 시안입니다. 제작자: 한백고등학교 김한솔</p>
+    </header>
+    <main>
+      <article class="card">
+        <img src="assets/barchan_image_sequence.gif" alt="바르한 형성과정" />
+        <div>
+          <h2>바르한 형성과정</h2>
+          <p>풍상면은 깎이고 풍하면에는 모래가 쌓이면서 사구가 바람 방향으로 이동합니다.</p>
+          <a href="compositions/barchan.html">HyperFrames composition 열기</a>
+        </div>
+      </article>
+      <article class="card">
+        <img src="assets/waterfall_image_sequence.gif" alt="폭포 형성과정" />
+        <div>
+          <h2>폭포 형성과정</h2>
+          <p>하천은 약한 암석을 더 빠르게 깎고, 후퇴 침식이 계속되면서 폭포와 협곡이 발달합니다.</p>
+          <a href="compositions/waterfall.html">HyperFrames composition 열기</a>
+        </div>
+      </article>
+      <article class="card">
+        <img src="assets/delta_image_sequence.gif" alt="삼각주 형성과정" />
+        <div>
+          <h2>삼각주 형성과정</h2>
+          <p>유속이 느려지는 하구에서 모래와 실트가 쌓이고, 분류 하천이 갈라지며 삼각주 전면이 성장합니다.</p>
+          <a href="compositions/delta.html">HyperFrames composition 열기</a>
+        </div>
+      </article>
+    </main>
+  </body>
+</html>

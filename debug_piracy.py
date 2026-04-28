@@ -1,6 +1,6 @@
 
 import numpy as np
-import plotly.graph_objects as go
+from app.utils.plotly_compat import go, plotly_error_message
 
 # Mock functions from main.py
 def simulate_stream_piracy(time_years: int, params: dict, grid_size: int = 100):

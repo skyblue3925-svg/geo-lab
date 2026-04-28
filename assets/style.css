@@ -1,0 +1,1091 @@
+/* ================================================
+   GEO-LAB UI - Shadcn/ui Inspired Design
+   Clean, Minimal, Modern
+   v8.0 - January 2026
+   ================================================ */
+
+/* Inter 폰트 (Shadcn 표준) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ================================================
+   CSS Variables - Shadcn Color Palette
+   ================================================ */
+:root {
+    /* Background */
+    --background: #FFFFFF;
+    --foreground: #0A0A0A;
+
+    /* Card */
+    --card: #FFFFFF;
+    --card-foreground: #0A0A0A;
+
+    /* Primary */
+    --primary: #171717;
+    --primary-foreground: #FAFAFA;
+
+    /* Secondary */
+    --secondary: #F5F5F5;
+    --secondary-foreground: #171717;
+
+    /* Muted */
+    --muted: #F5F5F5;
+    --muted-foreground: #737373;
+
+    /* Accent */
+    --accent: #F5F5F5;
+    --accent-foreground: #171717;
+
+    /* Border & Input */
+    --border: #E5E5E5;
+    --input: #E5E5E5;
+    --ring: #0A0A0A;
+
+    /* Sidebar (Dark) */
+    --sidebar-bg: #0A0A0A;
+    --sidebar-foreground: #FAFAFA;
+    --sidebar-muted: #A3A3A3;
+    --sidebar-border: #262626;
+    --sidebar-accent: #262626;
+
+    /* Radius */
+    --radius: 0.5rem;
+}
+
+/* ================================================
+   Global Reset & Base
+   ================================================ */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body,
+[class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.stApp {
+    background: var(--background) !important;
+}
+
+/* Main Content Area */
+.main .block-container {
+    padding: 2rem !important;
+    max-width: 1200px !important;
+}
+
+/* ================================================
+   Sidebar - Dark Theme (Shadcn Style)
+   ================================================ */
+[data-testid="stSidebar"] {
+    background: var(--sidebar-bg) !important;
+    background-color: var(--sidebar-bg) !important;
+    background-image: none !important;
+    border-right: 1px solid var(--sidebar-border) !important;
+}
+
+[data-testid="stSidebar"]>div {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    padding: 1.5rem 1rem !important;
+}
+
+/* Sidebar Text */
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] h4,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] div {
+    color: var(--sidebar-foreground) !important;
+}
+
+/* Sidebar Muted Text */
+[data-testid="stSidebar"] .stCaption,
+[data-testid="stSidebar"] small {
+    color: var(--sidebar-muted) !important;
+}
+
+/* Sidebar Metrics - White Text */
+[data-testid="stSidebar"] [data-testid="stMetricValue"],
+[data-testid="stSidebar"] [data-testid="stMetricLabel"],
+[data-testid="stSidebar"] [data-testid="stMetric"] div,
+[data-testid="stSidebar"] [data-testid="stMetric"] p {
+    color: #FFFFFF !important;
+}
+
+/* Sidebar Divider */
+[data-testid="stSidebar"] hr {
+    border-color: var(--sidebar-border) !important;
+    opacity: 0.5;
+}
+
+/* Sidebar Navigation */
+[data-testid="stSidebarNav"] a {
+    border-radius: var(--radius) !important;
+    padding: 0.625rem 0.75rem !important;
+    margin: 0.125rem 0 !important;
+    color: var(--sidebar-muted) !important;
+    transition: all 0.15s ease !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+}
+
+[data-testid="stSidebarNav"] a:hover {
+    background: var(--sidebar-accent) !important;
+    color: var(--sidebar-foreground) !important;
+}
+
+[data-testid="stSidebarNav"] a[aria-selected="true"] {
+    background: var(--sidebar-accent) !important;
+    color: var(--sidebar-foreground) !important;
+}
+
+/* Sidebar Radio Buttons */
+[data-testid="stSidebar"] .stRadio>div {
+    background: var(--sidebar-accent) !important;
+    border-radius: var(--radius) !important;
+    padding: 0.25rem !important;
+}
+
+[data-testid="stSidebar"] .stRadio label {
+    color: var(--sidebar-muted) !important;
+    padding: 0.5rem 0.75rem !important;
+    border-radius: calc(var(--radius) - 2px) !important;
+    font-size: 0.95rem !important;
+}
+
+[data-testid="stSidebar"] .stRadio label:hover {
+    color: var(--sidebar-foreground) !important;
+}
+
+/* ================================================
+   Typography
+   ================================================ */
+h1 {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.025em !important;
+    color: var(--foreground) !important;
+}
+
+h2 {
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.02em !important;
+    color: var(--foreground) !important;
+}
+
+h3 {
+    font-size: 1.125rem !important;
+    font-weight: 600 !important;
+    color: var(--foreground) !important;
+}
+
+p,
+span,
+label {
+    color: var(--foreground) !important;
+    font-size: 0.98rem !important;
+    line-height: 1.5 !important;
+}
+
+/* Muted Text */
+.stCaption,
+small {
+    color: var(--muted-foreground) !important;
+    font-size: 0.88rem !important;
+}
+
+/* ================================================
+   Buttons - Shadcn Style
+   ================================================ */
+.stButton>button {
+    background: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    border: none !important;
+    border-radius: var(--radius) !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    transition: opacity 0.15s ease !important;
+    box-shadow: none !important;
+}
+
+.stButton>button:hover {
+    opacity: 0.9 !important;
+}
+
+.stButton>button:active {
+    opacity: 0.8 !important;
+}
+
+/* Secondary Button */
+.stButton>button[kind="secondary"] {
+    background: var(--secondary) !important;
+    color: var(--secondary-foreground) !important;
+    border: 1px solid var(--border) !important;
+}
+
+/* Sidebar Buttons */
+[data-testid="stSidebar"] .stButton>button {
+    background: var(--sidebar-accent) !important;
+    color: var(--sidebar-foreground) !important;
+    border: 1px solid var(--sidebar-border) !important;
+}
+
+[data-testid="stSidebar"] .stButton>button:hover {
+    background: #333333 !important;
+}
+
+/* ================================================
+   Inputs - Shadcn Style
+   ================================================ */
+.stTextInput>div>div>input,
+.stNumberInput>div>div>input,
+.stTextArea>div>div>textarea {
+    background: var(--background) !important;
+    border: 1px solid var(--input) !important;
+    border-radius: var(--radius) !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.95rem !important;
+    color: var(--foreground) !important;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.stTextInput>div>div>input:focus,
+.stNumberInput>div>div>input:focus,
+.stTextArea>div>div>textarea:focus {
+    border-color: var(--ring) !important;
+    box-shadow: 0 0 0 2px rgba(10, 10, 10, 0.1) !important;
+    outline: none !important;
+}
+
+/* Select Box */
+.stSelectbox>div>div {
+    background: var(--background) !important;
+    border: 1px solid var(--input) !important;
+    border-radius: var(--radius) !important;
+}
+
+/* Sidebar Inputs */
+[data-testid="stSidebar"] .stTextInput>div>div>input,
+[data-testid="stSidebar"] .stNumberInput>div>div>input,
+[data-testid="stSidebar"] .stSelectbox>div>div {
+    background: var(--sidebar-accent) !important;
+    border: 1px solid var(--sidebar-border) !important;
+    color: var(--sidebar-foreground) !important;
+}
+
+/* ================================================
+   Sliders - Shadcn Style
+   ================================================ */
+.stSlider>div>div>div>div {
+    background: var(--muted) !important;
+    border-radius: 9999px !important;
+}
+
+.stSlider>div>div>div>div>div {
+    background: var(--primary) !important;
+}
+
+.stSlider>div>div>div>div>div>div {
+    background: var(--primary) !important;
+    border: 2px solid var(--background) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Sidebar Sliders */
+[data-testid="stSidebar"] .stSlider>div>div>div>div {
+    background: var(--sidebar-border) !important;
+}
+
+[data-testid="stSidebar"] .stSlider>div>div>div>div>div {
+    background: var(--sidebar-foreground) !important;
+}
+
+/* ================================================
+   Cards & Containers - Shadcn Style
+   ================================================ */
+.stExpander {
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: none !important;
+}
+
+.stExpander>div:first-child {
+    background: transparent !important;
+    padding: 0.75rem 1rem !important;
+}
+
+/* Info/Success/Warning/Error Boxes */
+.stAlert {
+    border-radius: var(--radius) !important;
+    border-left-width: 4px !important;
+}
+
+/* ================================================
+   Tabs - Shadcn Style
+   ================================================ */
+.stTabs [data-baseweb="tab-list"] {
+    background: var(--muted) !important;
+    border-radius: var(--radius) !important;
+    padding: 0.25rem !important;
+    gap: 0.25rem !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    background: transparent !important;
+    border-radius: calc(var(--radius) - 2px) !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    color: var(--muted-foreground) !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    color: var(--foreground) !important;
+}
+
+.stTabs [aria-selected="true"] {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* ================================================
+   Metrics - Shadcn Style
+   ================================================ */
+[data-testid="stMetric"] {
+    background: var(--card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    padding: 1rem !important;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--muted-foreground) !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+[data-testid="stMetricValue"] {
+    color: var(--foreground) !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+}
+
+/* ================================================
+   Checkbox & Toggle - Shadcn Style
+   ================================================ */
+.stCheckbox label span {
+    font-size: 0.875rem !important;
+}
+
+/* Toggle Switch */
+[data-testid="stSidebar"] .stCheckbox,
+.stCheckbox {
+    accent-color: var(--primary) !important;
+}
+
+/* ================================================
+   Scrollbar - Minimal Style
+   ================================================ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+}
+
+/* ================================================
+   Plotly Charts - Clean Style
+   ================================================ */
+.js-plotly-plot .plotly .modebar {
+    background: transparent !important;
+}
+
+.js-plotly-plot .plotly .modebar-btn {
+    color: var(--muted-foreground) !important;
+}
+
+/* ================================================
+   Spinner
+   ================================================ */
+.stSpinner>div {
+    border-color: var(--primary) transparent transparent transparent !important;
+}
+
+/* ================================================
+   Mode Banner - Student vs Teacher
+   ================================================ */
+.mode-banner {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    margin: 0.25rem 0 0.9rem 0;
+}
+
+.mode-student {
+    background: #f1fbf4;
+    border-color: #9bd4aa;
+}
+
+.mode-teacher {
+    background: #eff4ff;
+    border-color: #9eb9f5;
+}
+
+.mode-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+    color: #0a0a0a;
+}
+
+.mode-copy {
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: #334155;
+}
+
+/* ================================================
+   Hide Streamlit Branding
+   ================================================ */
+#MainMenu,
+footer,
+header {
+    visibility: hidden !important;
+}
+
+.stDeployButton {
+    display: none !important;
+}
+
+.mode-research {
+    background: #f4f7fb;
+    border-color: #94a3b8;
+}
+
+.provenance-panel {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.96) 100%);
+    border: 1px solid #d8e2ec;
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin: 0.25rem 0 1rem 0;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.provenance-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.35rem;
+}
+
+.provenance-summary {
+    font-size: 0.94rem;
+    line-height: 1.6;
+    color: #334155;
+    margin-bottom: 0.75rem;
+}
+
+.provenance-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-bottom: 0.75rem;
+}
+
+.provenance-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.35rem 0.72rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.badge-education {
+    background: #e7f7ed;
+    color: #166534;
+}
+
+.badge-research {
+    background: #e8f0ff;
+    color: #1d4ed8;
+}
+
+.badge-observed {
+    background: #e6f6f3;
+    color: #0f766e;
+}
+
+.badge-model {
+    background: #fff7e8;
+    color: #b45309;
+}
+
+.badge-hybrid {
+    background: #f3e8ff;
+    color: #7c3aed;
+}
+
+.badge-warning {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.provenance-notes {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #475569;
+    line-height: 1.55;
+    font-size: 0.88rem;
+}
+
+/* ================================================
+   Gallery Showcase
+   ================================================ */
+.gallery-showcase-hero {
+    background: radial-gradient(circle at top left, rgba(14, 165, 233, 0.15), transparent 38%), linear-gradient(135deg, #0f172a 0%, #111827 55%, #1f2937 100%);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 22px;
+    padding: 1.3rem 1.4rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 24px 50px rgba(15, 23, 42, 0.12);
+}
+
+.gallery-showcase-eyebrow {
+    color: #93c5fd;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.45rem;
+}
+
+.gallery-showcase-hero-title {
+    color: #f8fafc;
+    font-size: 1.7rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.35rem;
+}
+
+.gallery-showcase-hero-copy {
+    color: rgba(226, 232, 240, 0.88);
+    font-size: 0.98rem;
+    line-height: 1.6;
+    margin-bottom: 0.85rem;
+}
+
+.gallery-showcase-focus-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.9rem;
+    margin-bottom: 0.9rem;
+}
+
+.gallery-showcase-focus-label {
+    color: #0369a1;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+}
+
+.gallery-showcase-focus-label.inverted {
+    color: #7dd3fc;
+}
+
+.gallery-showcase-hero-focus {
+    color: #e2e8f0;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    max-width: 36rem;
+}
+
+.gallery-showcase-difficulty-pill {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    border-radius: 999px;
+    padding: 0.4rem 0.8rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.gallery-showcase-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 22px;
+    padding: 0.9rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.gallery-showcase-card.is-active {
+    transform: translateY(-2px);
+    border-color: rgba(14, 165, 233, 0.45);
+    box-shadow: 0 24px 44px rgba(14, 165, 233, 0.14);
+}
+
+.gallery-showcase-thumb-wrap {
+    border-radius: 16px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+    border: 1px solid rgba(191, 219, 254, 0.9);
+    margin-bottom: 0.8rem;
+}
+
+.gallery-showcase-thumb {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    display: block;
+}
+
+.gallery-showcase-thumb.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+    color: #475569;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.gallery-showcase-kicker {
+    color: #0284c7;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+}
+
+.gallery-showcase-title {
+    color: #0f172a;
+    font-size: 1.12rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 0.4rem;
+}
+
+.gallery-showcase-copy {
+    color: #475569;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    min-height: 3.1rem;
+    margin-bottom: 0.7rem;
+}
+
+.gallery-showcase-focus {
+    color: #0f172a;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    margin-bottom: 0.75rem;
+}
+
+.gallery-showcase-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.gallery-showcase-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.34rem 0.68rem;
+    background: #eef2ff;
+    color: #334155;
+    font-size: 0.76rem;
+    font-weight: 700;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.gallery-showcase-chip.strong {
+    background: rgba(14, 165, 233, 0.18);
+    color: #e0f2fe;
+    border-color: rgba(125, 211, 252, 0.28);
+}
+
+.gallery-showcase-lesson-panel {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 245, 249, 0.98) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 20px;
+    padding: 1rem;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.06);
+    margin-bottom: 0.75rem;
+}
+
+.gallery-showcase-lesson-copy {
+    color: #334155;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    margin-bottom: 0.85rem;
+}
+
+.gallery-world-case {
+    border-radius: 18px;
+    padding: 0.9rem 1rem;
+    border: 1px solid rgba(125, 211, 252, 0.24);
+    background: linear-gradient(180deg, rgba(224, 242, 254, 0.75) 0%, rgba(240, 249, 255, 0.95) 100%);
+    margin-bottom: 0.8rem;
+}
+
+.gallery-world-case.compact {
+    padding: 0.75rem 0.85rem;
+}
+
+.gallery-world-case.inverted {
+    background: rgba(15, 23, 42, 0.32);
+    border-color: rgba(125, 211, 252, 0.24);
+    margin-top: 0.95rem;
+}
+
+.gallery-world-case-label {
+    color: #0369a1;
+    font-size: 0.73rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.28rem;
+}
+
+.gallery-world-case-label.inverted {
+    color: #7dd3fc;
+}
+
+.gallery-world-case-title {
+    color: #082f49;
+    font-size: 0.98rem;
+    font-weight: 800;
+    margin-bottom: 0.24rem;
+}
+
+.gallery-world-case-title.inverted {
+    color: #f8fafc;
+}
+
+.gallery-world-case-copy {
+    color: #334155;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    margin-bottom: 0.3rem;
+}
+
+.gallery-world-case-copy.secondary {
+    color: #475569;
+    margin-bottom: 0;
+}
+
+.gallery-world-case-copy.inverted {
+    color: rgba(226, 232, 240, 0.92);
+}
+
+.gallery-world-case-copy.inverted.secondary {
+    color: rgba(226, 232, 240, 0.74);
+}
+
+.gallery-world-case-atlas {
+    border-radius: 20px;
+    padding: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 245, 249, 0.98) 100%);
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.06);
+    margin-bottom: 0.75rem;
+}
+
+.gallery-world-case-atlas.is-active {
+    border-color: rgba(14, 165, 233, 0.42);
+    box-shadow: 0 22px 40px rgba(14, 165, 233, 0.12);
+}
+
+/* ================================================
+   Home + Overview Shell
+   ================================================ */
+.home-hero,
+.overview-banner {
+    background: radial-gradient(circle at top left, rgba(14, 165, 233, 0.14), transparent 34%), linear-gradient(135deg, #0f172a 0%, #111827 55%, #1f2937 100%);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 24px;
+    padding: 1.45rem 1.55rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 24px 50px rgba(15, 23, 42, 0.12);
+}
+
+.home-hero-eyebrow,
+.overview-banner-eyebrow {
+    color: #93c5fd !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase;
+    margin-bottom: 0.45rem;
+}
+
+.home-hero-title,
+.overview-banner-title {
+    color: #f8fafc !important;
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.03em !important;
+    margin: 0 0 0.45rem 0;
+}
+
+.home-hero-copy,
+.overview-banner-copy {
+    color: rgba(226, 232, 240, 0.88) !important;
+    font-size: 1rem !important;
+    line-height: 1.65 !important;
+    margin: 0;
+}
+
+.home-destination-card,
+.home-persona-card,
+.home-spotlight-card,
+.overview-flow-card,
+.overview-category-card,
+.home-flow-card,
+.overview-route-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 22px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    min-height: 180px;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
+.home-card-badge {
+    color: #0284c7 !important;
+    font-size: 0.74rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+}
+
+.home-flow-step {
+    color: #0f172a !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase;
+    margin-bottom: 0.45rem;
+}
+
+.home-flow-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.3rem 0.68rem;
+    margin-bottom: 0.55rem;
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 0.74rem;
+    font-weight: 800;
+}
+
+.home-flow-title {
+    color: #0f172a !important;
+    font-size: 1.02rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    margin-bottom: 0.45rem;
+}
+
+.home-flow-copy {
+    color: #475569 !important;
+    font-size: 0.92rem !important;
+    line-height: 1.55 !important;
+}
+
+.home-card-title,
+.home-persona-title,
+.home-spotlight-title,
+.overview-flow-title,
+.overview-category-title,
+.overview-route-title {
+    color: #0f172a !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    margin-bottom: 0.45rem;
+}
+
+.home-card-copy,
+.home-persona-copy,
+.home-spotlight-copy,
+.overview-flow-copy,
+.overview-category-copy,
+.overview-category-use,
+.home-persona-recommended,
+.overview-route-copy,
+.overview-route-next {
+    color: #475569 !important;
+    font-size: 0.92rem !important;
+    line-height: 1.55 !important;
+}
+
+.overview-route-next {
+    margin-top: 0.65rem;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+}
+
+.overview-category-use,
+.home-persona-recommended {
+    margin-top: 0.6rem;
+    font-weight: 700 !important;
+}
+
+/* ================================================
+   High School Home / Academic Split
+   ================================================ */
+.classroom-hero,
+.academic-portal-hero {
+    background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 32%), linear-gradient(135deg, #0f172a 0%, #111827 50%, #1e293b 100%);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 26px;
+    padding: 1.6rem 1.7rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 24px 50px rgba(15, 23, 42, 0.12);
+}
+
+.classroom-hero-eyebrow,
+.academic-portal-eyebrow,
+.academic-gateway-eyebrow {
+    color: #93c5fd !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase;
+    margin-bottom: 0.45rem;
+}
+
+.classroom-hero-title,
+.academic-portal-title,
+.academic-gateway-title {
+    color: #f8fafc !important;
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.03em !important;
+    margin: 0 0 0.45rem 0;
+}
+
+.classroom-hero-copy,
+.academic-portal-copy,
+.academic-gateway-copy {
+    color: rgba(226, 232, 240, 0.9) !important;
+    font-size: 1rem !important;
+    line-height: 1.65 !important;
+    margin: 0;
+}
+
+.classroom-primary-card,
+.classroom-flow-card,
+.classroom-benefit-card,
+.classroom-persona-card,
+.academic-portal-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(248, 250, 252, 0.98) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 22px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    min-height: 180px;
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+}
+
+.classroom-card-badge,
+.classroom-flow-step {
+    color: #0369a1 !important;
+    font-size: 0.75rem !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+}
+
+.classroom-flow-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.3rem 0.68rem;
+    margin-bottom: 0.55rem;
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 0.74rem;
+    font-weight: 800;
+}
+
+.classroom-card-title,
+.classroom-flow-title,
+.classroom-benefit-title,
+.classroom-persona-title,
+.academic-portal-card-title {
+    color: #0f172a !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+    line-height: 1.2 !important;
+    margin-bottom: 0.45rem;
+}
+
+.classroom-card-copy,
+.classroom-flow-copy,
+.classroom-benefit-copy,
+.classroom-persona-copy,
+.classroom-persona-recommended,
+.academic-portal-card-copy {
+    color: #475569 !important;
+    font-size: 0.92rem !important;
+    line-height: 1.55 !important;
+}
+
+.classroom-persona-recommended {
+    margin-top: 0.6rem;
+    font-weight: 700 !important;
+}
+
+.academic-gateway-card {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+    border: 1px solid rgba(125, 211, 252, 0.22);
+    border-radius: 24px;
+    padding: 1.35rem 1.45rem;
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 22px 40px rgba(15, 23, 42, 0.14);
+}

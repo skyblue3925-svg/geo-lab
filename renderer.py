@@ -3,7 +3,7 @@
 분리된 모듈로 HuggingFace Spaces 호환성 향상
 """
 import numpy as np
-import plotly.graph_objects as go
+from app.utils.plotly_compat import go, plotly_error_message
 import os
 try:
     from PIL import Image
@@ -15,6 +15,8 @@ def render_terrain_plotly(elevation, title, add_water=True, water_level=0,
                           texture_path=None, force_camera=True, 
                           water_depth_grid=None, sediment_grid=None, 
                           landform_type=None):
+    if go is None:
+        return None
     """Plotly 인터랙티브 3D Surface - 사실적 텍스처(Biome) 적용
     
     Args:

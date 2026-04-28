@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #f7f3e8;
+        color: #151515;
+        font-family: "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background:
+          linear-gradient(90deg, rgba(247, 243, 232, 0.9), rgba(247, 243, 232, 0.48)),
+          radial-gradient(circle at 76% 20%, rgba(240, 178, 93, 0.28), transparent 32%),
+          #f7f3e8;
+      }
+      .clip { position: absolute; }
+      .creator {
+        left: 72px;
+        top: 46px;
+        font-size: 34px;
+        font-weight: 700;
+        color: #5c4a2d;
+      }
+      .title { left: 72px; top: 132px; width: 680px; }
+      .title h1 {
+        font-size: 88px;
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+      .title p {
+        margin-top: 24px;
+        font-size: 35px;
+        line-height: 1.35;
+        color: #4b5563;
+      }
+      .terrain-frame {
+        right: 80px;
+        top: 86px;
+        width: 980px;
+        height: 740px;
+        border: 8px solid #161616;
+        background: #0f172a;
+        overflow: hidden;
+      }
+      .terrain-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .stage {
+        left: 72px;
+        bottom: 126px;
+        width: 620px;
+        padding: 36px 42px;
+        background: rgba(255, 255, 255, 0.78);
+        border: 2px solid rgba(22, 22, 22, 0.16);
+      }
+      .stage strong {
+        display: block;
+        font-size: 42px;
+        margin-bottom: 18px;
+      }
+      .stage span {
+        display: block;
+        font-size: 31px;
+        line-height: 1.42;
+        color: #374151;
+      }
+      .labels {
+        right: 80px;
+        bottom: 116px;
+        width: 980px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+      .label {
+        padding: 24px 28px;
+        min-height: 112px;
+        background: #151515;
+        color: #fff;
+      }
+      .label b {
+        display: block;
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
+      .label span {
+        color: #d1d5db;
+        font-size: 23px;
+        line-height: 1.34;
+      }
+      .bar {
+        left: 72px;
+        right: 80px;
+        bottom: 52px;
+        height: 14px;
+        background: rgba(21, 21, 21, 0.16);
+        overflow: hidden;
+      }
+      .bar-fill {
+        width: 100%;
+        height: 100%;
+        background: #0f766e;
+        transform-origin: left center;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="delta" data-start="0" data-duration="10" data-width="1920" data-height="1080">
+      <div class="clip creator" data-start="0" data-duration="10" data-track-index="1">제작자: 한백고등학교 김한솔</div>
+      <section class="clip title" data-start="0" data-duration="10" data-track-index="2">
+        <h1>삼각주 형성과정</h1>
+        <p>하천이 운반하던 퇴적물이 하구에서 쌓이며 바다 쪽으로 평야를 확장합니다.</p>
+      </section>
+      <figure class="clip terrain-frame" data-start="0" data-duration="10" data-track-index="3">
+        <img src="assets/delta_image_sequence.gif" alt="삼각주 형성과정 GIF" />
+      </figure>
+      <section class="clip stage" data-start="1" data-duration="8" data-track-index="4">
+        <strong>관찰 포인트</strong>
+        <span>유속이 느려지는 하구에서 모래와 실트가 쌓이고, 분류 하천이 갈라지며 삼각주 전면이 성장합니다.</span>
+      </section>
+      <section class="clip labels" data-start="2" data-duration="8" data-track-index="5">
+        <div class="label">
+          <b>퇴적물 공급</b>
+          <span>하천이 운반한 물질이 쌓임</span>
+        </div>
+        <div class="label">
+          <b>유속 감소</b>
+          <span>하구에서 운반력이 약해짐</span>
+        </div>
+        <div class="label">
+          <b>분류 하천</b>
+          <span>퇴적체 위로 물길이 갈라짐</span>
+        </div>
+      </section>
+      <div class="clip bar" data-start="0" data-duration="10" data-track-index="6">
+        <div id="bar-fill" class="bar-fill"></div>
+      </div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      tl.from(".creator", { opacity: 0, y: -24, duration: 0.6 }, 0);
+      tl.from(".title", { opacity: 0, x: -40, duration: 0.8 }, 0.2);
+      tl.from(".terrain-frame", { opacity: 0, scale: 0.97, duration: 0.9 }, 0.4);
+      tl.from(".stage", { opacity: 0, y: 36, duration: 0.7 }, 1.0);
+      tl.from(".label", { opacity: 0, y: 28, stagger: 0.18, duration: 0.6 }, 2.0);
+      tl.fromTo("#bar-fill", { scaleX: 0 }, { scaleX: 1, duration: 10, ease: "none" }, 0);
+      window.__timelines["delta"] = tl;
+    </script>
+  </body>
+</html>

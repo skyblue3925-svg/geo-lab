@@ -1,0 +1,19 @@
+{
+  "name": "geo-lab-e2e",
+  "private": true,
+  "scripts": {
+    "test:koppen": "npm --prefix projects/koppen-climate test",
+    "test:gis:syntax": "npm --prefix projects/school-gis/app run test:syntax",
+    "test:e2e": "playwright test --config=playwright.config.js --project=chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "geotiff": "^3.0.5",
+    "h5wasm": "^0.10.1",
+    "netcdfjs": "^4.0.0"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "proj4": "^2.20.6"
+  }
+}
