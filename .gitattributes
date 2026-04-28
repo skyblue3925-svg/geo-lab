@@ -3,3 +3,4 @@ assets/cinematic/image_sequence/**/*.gif filter=lfs diff=lfs merge=lfs -text
 assets/cinematic/image_sequence/**/filmstrip/*.png filter=lfs diff=lfs merge=lfs -text
 static/koppen-climate-lab/data/*.bin filter=lfs diff=lfs merge=lfs -text
 apps/koppen-climate-lab/data/*.bin filter=lfs diff=lfs merge=lfs -text
+projects/koppen-climate/**/data/*.bin filter=lfs diff=lfs merge=lfs -text

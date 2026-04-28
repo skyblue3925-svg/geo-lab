@@ -29,6 +29,7 @@ Thumbs.db
 # Local outputs
 output/playwright/
 output/terrain-gif-collection/
+output/terrain-animation-assets/
 output/*.pptx
 
 # Local deployment/build mirrors
@@ -38,6 +39,9 @@ output/*.pptx
 .codex/
 .agents/
 .tools/
+
+# Local Obsidian session state
+.obsidian/workspace.json
 
 # Local temporary files
 .tmp-*
