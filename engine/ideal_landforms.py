@@ -712,8 +712,15 @@ def create_alluvial_fan_animated(grid_size: int, stage: float,
                     zone_mask[r, c] = current_zone
     
     if return_metadata:
+        plain = zone_mask[apex_y:, :]  # 산지 아래 평지 영역
         return elevation, {
             'zone_mask': zone_mask,
+            # 선상지가 산지 아래 평지 중 얼마나 뻗었나 (0~1)
+            'fan_reach_ratio': max_reach / max(1, h - apex_y),
+            # 선상지가 산지 아래 평지 중 얼마나 덮었나 (0~1)
+            'fan_area_ratio': float((plain > 0).mean()) if plain.size else 0.0,
+            # 선단(3) 존이 차지하는 비율. 선단이 생겨야 용천대가 나타난다.
+            'toe_area_ratio': float((plain == 3).mean()) if plain.size else 0.0,
             'apex_boundary': apex_end,
             'mid_boundary': mid_end,
             'stage_description': _get_fan_stage_desc(stage),
@@ -3696,7 +3703,8 @@ def create_karst_doline(grid_size: int = 100, stage: float = 1.0,
     return elevation
 
 
-def create_ria_coast(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
+def create_ria_coast(grid_size: int = 100, stage: float = 1.0,
+                     return_metadata: bool = False) -> np.ndarray:
     """리아스식 해안 (Ria Coast) - 침수된 하곡
     
     해수면 상승으로 V자곡이 침수되어 형성
@@ -3713,8 +3721,10 @@ def create_ria_coast(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
     num_valleys = 5
     valley_spacing = w // (num_valleys + 1)
     
+    valley_centers = []
     for i in range(num_valleys):
         valley_x = valley_spacing * (i + 1)
+        valley_centers.append(valley_x)
         valley_width = 12 + (i % 2) * 4  # 약간의 변화
         valley_depth = 40.0 + (i % 3) * 10
         
@@ -3739,8 +3749,31 @@ def create_ria_coast(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
             if elevation[r, c] < sea_level:
                 # 해수면 아래 = 바다 (리아)
                 elevation[r, c] = -10.0 - (sea_level - elevation[r, c]) * 0.3
-                
+
+    if return_metadata:
+        water = elevation < 0
+        # 하곡 중심선에 바닷물이 들어왔으면 '침수된 하곡'. 깊은 골짜기부터 차례로 잠긴다.
+        flooded = sum(1 for x in valley_centers if 0 <= x < w and water[:, x].any())
+        return elevation, {
+            'sea_level': sea_level,
+            'flooded_valleys': int(flooded),
+            'num_valleys': num_valleys,
+            'stage_description': _get_ria_stage_desc(stage),
+        }
+
     return elevation
+
+
+def _get_ria_stage_desc(stage: float) -> str:
+    """리아스 해안 단계별 설명"""
+    if stage < 0.2:
+        return "⛰️ 빙기: 해수면이 낮아 하천이 V자곡을 깊게 파 둠"
+    elif stage < 0.5:
+        return "🌊 후빙기 해수면 상승 시작: 가장 깊은 골짜기부터 바닷물 유입"
+    elif stage < 0.8:
+        return "🦷 톱니 해안 발달: 여러 하곡이 좁고 긴 만(리아)으로 변함"
+    else:
+        return "🏝️ 리아스 해안 완성: 곶과 만이 반복되는 복잡한 해안선"
 
 
 def create_tombolo(grid_size: int = 100, stage: float = 1.0,
@@ -4175,7 +4208,8 @@ def create_lava_plateau(grid_size: int = 100, stage: float = 1.0,
                     lava_mask[r, c] = True
                 else:
                     # 가장자리 경사
-                    edge_t = (dx - 25) / (w // 2 - 25)
+                    # w == 50 이면 분모가 0 → 최소 1 로 보정
+                    edge_t = min(1.0, (dx - 25) / max(1, w // 2 - 25))
                     elevation[r, c] = (plateau_base + 5.0) * (1 - edge_t ** 0.7)
                     
     else:
@@ -4193,7 +4227,8 @@ def create_lava_plateau(grid_size: int = 100, stage: float = 1.0,
                     elevation[r, c] = plateau_base + 5.0
                     lava_mask[r, c] = True
                 else:
-                    edge_t = (dx - 25) / (w // 2 - 25)
+                    # w == 50 이면 분모가 0 → 최소 1 로 보정
+                    edge_t = min(1.0, (dx - 25) / max(1, w // 2 - 25))
                     elevation[r, c] = (plateau_base + 5.0) * (1 - edge_t ** 0.7)
                 
                 # 새로운 협곡 (하천 재침식)
@@ -4358,7 +4393,8 @@ def create_karren(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
     elevation[:, :] = 20.0  # 석회암 표면
     
     # 용식 홈 (Rillenkarren) - 평행한 홈
-    groove_spacing = max(3, w // 20)
+    # 4 미만이면 아래 groove_spacing // 4 가 0 이 되어 ZeroDivisionError (해상도 < 80)
+    groove_spacing = max(4, w // 20)
     groove_depth = 3.0 * stage
     
     for c in range(w):
@@ -4993,6 +5029,135 @@ def create_estuary(grid_size: int = 100, stage: float = 1.0):
 
 # 애니메이션 생성기 매핑
 
+# ============================================
+# 자연재해: 산사태 댐 붕괴 홍수 (Landslide-dam outburst flood)
+# ============================================
+
+# 단계 경계 (0~1)
+_LDF_COLLAPSE = (0.20, 0.35)   # 암석·빙하 붕괴 → 계곡 막음
+_LDF_LAKE = (0.35, 0.65)       # 폐색호(산사태 댐 호수) 확대
+_LDF_BREACH = (0.65, 0.75)     # 월류·둑 붕괴
+_LDF_RUNOUT = (0.75, 1.00)     # 토석류 하류 도달
+
+
+def _ldf_progress(stage: float, window) -> float:
+    lo, hi = window
+    return float(np.clip((stage - lo) / (hi - lo), 0.0, 1.0))
+
+
+def create_landslide_dam_flood(grid_size: int = 100, stage: float = 1.0,
+                               return_metadata: bool = False) -> np.ndarray:
+    """산사태 댐 붕괴 홍수 - 고산 빙하·암벽 붕괴형 (예: 2026년 8월 네팔 랑탕 사례)
+
+    화면 위쪽이 상류, 아래쪽이 하류. 계곡은 화면 가운데를 세로로 흐른다.
+    왼쪽의 높은 암벽 위에 현수 빙하(hanging glacier)가 붙어 있다.
+
+    Stage 0~0.20 : 평상시. 급경사 암벽 위 빙하, 계곡 바닥의 하천
+    Stage 0.20~0.35 : 암석·빙하 붕괴 → 사태 물질이 계곡을 가로막음 (산사태 댐)
+    Stage 0.35~0.65 : 상류에 폐색호가 차오름, 하류 하천은 말라 감
+    Stage 0.65~0.75 : 물이 둑을 넘으며(월류) 느슨한 둑을 깎아 붕괴
+    Stage 0.75~1.00 : 물·암석·얼음이 섞인 토석류가 하류 계곡을 휩씀
+
+    모든 크기는 화면 비율로 잡아 해상도와 무관하게 같은 모양이 된다.
+    물(하천·호수)은 이 모듈의 관례대로 고도 0 미만으로 나타낸다.
+    """
+    h, w = grid_size, grid_size
+    stage = float(np.clip(stage, 0.0, 1.0))
+    y = (np.arange(h) / max(1, h - 1))[:, None] * np.ones((1, w))   # 0 상류 → 1 하류
+    x = np.ones((h, 1)) * (np.arange(w) / max(1, w - 1))[None, :]   # 0 왼쪽 → 1 오른쪽
+    dx = x - 0.5
+
+    p_collapse = _ldf_progress(stage, _LDF_COLLAPSE)
+    p_lake = _ldf_progress(stage, _LDF_LAKE)
+    p_breach = _ldf_progress(stage, _LDF_BREACH)
+    p_runout = _ldf_progress(stage, _LDF_RUNOUT)
+
+    # 1) 기반 지형: V자 계곡. 왼쪽 벽이 더 높고 가파르다.
+    floor = 12.0 * (1.0 - y)                               # 하류로 갈수록 낮아지는 계곡 바닥
+    wall = np.where(dx < 0, 300.0 * (-dx), 160.0 * dx)     # 왼쪽 최고 약 150m, 오른쪽 약 80m
+    terrain = floor + wall
+
+    # 2) 현수 빙하와 붕괴 원지(scar)
+    gx, gy, grx, gry = 0.20, 0.28, 0.11, 0.12
+    glacier_mask = ((x - gx) / grx) ** 2 + ((y - gy) / gry) ** 2 < 1.0
+    scar_mask = ((x - gx) / (grx * 0.9)) ** 2 + ((y - gy) / (gry * 0.9)) ** 2 < 1.0
+    ice_thickness = 12.0 * (1.0 - p_collapse)
+    terrain = terrain - 30.0 * p_collapse * scar_mask      # 무너져 나간 암벽
+    elevation = terrain + ice_thickness * glacier_mask
+
+    # 3) 산사태 댐: 계곡을 가로지르는 사태 퇴적물 둔덕
+    y_dam = 0.45
+    dam_crest = 28.0 * p_collapse                          # 계곡 바닥 위 둑 높이 (m)
+    notch_depth = dam_crest * p_breach                     # 월류로 깎인 깊이
+    dam_profile = np.exp(-((y - y_dam) / 0.045) ** 2)
+    dam_surface = floor + dam_crest * dam_profile
+    in_valley = np.abs(dx) < 0.30
+    elevation = np.where(in_valley, np.maximum(elevation, dam_surface), elevation)
+    notch = (np.abs(dx) < 0.03 + 0.05 * p_breach) & (np.abs(y - y_dam) < 0.09)
+    elevation = np.where(notch, np.minimum(elevation, dam_surface - notch_depth * dam_profile), elevation)
+
+    # 4) 토석류 퇴적: 둑 아래부터 하류로 뻗는다
+    runout_end = y_dam + (1.0 - y_dam) * p_runout
+    debris_mask = (y > y_dam + 0.05) & (y <= runout_end) & (np.abs(dx) < 0.14)
+    debris_thickness = 5.0 * (1.0 - np.abs(dx) / 0.14)
+    elevation = np.where(debris_mask, np.maximum(elevation, floor + debris_thickness), elevation)
+
+    # 5) 물: 호수 수위, 하천 흐름
+    if stage < _LDF_LAKE[0]:
+        lake_rise = 0.0
+    elif stage < _LDF_BREACH[0]:
+        lake_rise = 0.8 * dam_crest * p_lake              # 둑 높이의 80% 까지 차오름
+    else:
+        lake_rise = 0.8 * dam_crest * (1.0 - p_breach)     # 둑이 깎이며 빠져나감
+    lake_level = 12.0 * (1.0 - y_dam) + lake_rise         # 둑 위치의 계곡 바닥 기준 수위 (m)
+    lake_mask = (y < y_dam - 0.03) & (terrain < lake_level) & (lake_rise > 0.5)
+    lake_depth = np.where(lake_mask, lake_level - terrain, 0.0)
+    elevation = np.where(lake_mask, -(1.0 + 0.3 * lake_depth), elevation)
+
+    # 하천: 상류 / 둑 구간 / 하류로 나눠 물이 흐르는지 정한다
+    channel_half = 0.02 + (0.03 if 0.0 < p_runout < 1.0 else 0.0)   # 토석류 중에는 넓게 범람
+    channel = (np.abs(dx) < channel_half) & ~lake_mask
+    up_zone = y < y_dam - 0.05
+    dam_zone = np.abs(y - y_dam) <= 0.05
+    down_zone = y > y_dam + 0.05
+    dam_open = p_collapse == 0.0 or p_breach >= 0.5        # 둑이 없거나 충분히 깎여 물길이 뚫림
+    down_wet = p_collapse < 0.5 or p_breach > 0.0          # 둑이 닫히면 하류가 마르고, 터지면 다시 흐름
+    wet = channel & (up_zone | (dam_zone & dam_open) | (down_zone & down_wet))
+    elevation = np.where(wet, np.minimum(elevation, -1.0), elevation)
+
+    if return_metadata:
+        lake_area_ratio = float(lake_mask.mean())
+        downstream = (y > y_dam + 0.05) & (np.abs(dx) < 0.02)
+        return elevation, {
+            'glacier_intact': bool(p_collapse == 0.0),
+            'river_blocked': bool(p_collapse >= 0.5 and p_breach == 0.0),  # 둑이 절반 이상 쌓여 하류가 마름
+            'dam_height': float(dam_crest - notch_depth),       # 계곡 바닥 위 남은 둑 높이 (m)
+            'dam_breached': bool(p_breach >= 1.0),
+            'lake_depth': float(lake_depth.max()) if lake_mask.any() else 0.0,
+            'lake_area_ratio': lake_area_ratio,
+            'downstream_river_flowing': bool((elevation[downstream] < 0).any()),
+            'runout_ratio': float(p_runout),                     # 토석류가 하류 계곡을 덮은 비율 (0~1)
+            'stage_description': _get_ldf_stage_desc(stage),
+        }
+    return elevation
+
+
+def _get_ldf_stage_desc(stage: float) -> str:
+    """산사태 댐 붕괴 홍수 단계별 설명"""
+    if stage < _LDF_COLLAPSE[0]:
+        return "🏔️ 평상시: 가파른 암벽 위에 빙하가 붙어 있고, 계곡 바닥에 하천이 흐름"
+    elif stage < _LDF_COLLAPSE[1]:
+        return "💥 붕괴: 암석과 빙하가 함께 무너져 사태가 계곡으로 쏟아짐"
+    elif stage < _LDF_LAKE[1]:
+        return "🌊 폐색호 형성: 사태 물질이 강을 막아 상류에 호수가 차오르고, 하류 하천은 말라 감"
+    elif stage < _LDF_BREACH[1]:
+        return "⚠️ 둑 붕괴: 물이 둑을 넘으며 다져지지 않은 사태 물질을 빠르게 깎아 냄"
+    elif stage < 1.0:
+        return "🟤 토석류: 물·암석·얼음이 섞인 흐름이 하류 계곡을 빠르게 휩씀"
+    else:
+        return "🏚️ 이후: 하류 계곡 바닥이 토석류 퇴적물로 덮이고 하천이 새 물길을 냄"
+
+
 ANIMATED_LANDFORM_GENERATORS = {
     'delta': create_delta_animated,
     'alluvial_fan': create_alluvial_fan_animated,
@@ -5041,6 +5206,8 @@ ANIMATED_LANDFORM_GENERATORS = {
     'pedestal_rock': create_pedestal_rock,
     'estuary': create_estuary,
     'pediment': create_pediment,  # 추가
+    # 자연재해
+    'landslide_dam_flood': create_landslide_dam_flood,
 }
 
 # 지형 생성 함수 매핑
@@ -5092,5 +5259,7 @@ IDEAL_LANDFORM_GENERATORS = {
     'pedestal_rock': lambda gs: create_pedestal_rock(gs, 1.0),
     'estuary': lambda gs: create_estuary(gs, 1.0),
     'pediment': lambda gs: create_pediment(gs, 1.0),  # 추가
+    # 자연재해
+    'landslide_dam_flood': lambda gs: create_landslide_dam_flood(gs, 1.0),
 }
 

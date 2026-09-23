@@ -31,7 +31,8 @@ category = st.sidebar.radio("카테고리 선택", [
     "🌋 화산 지형",
     "🦇 카르스트 지형",
     "🏜️ 건조 지형",
-    "🏖️ 해안 지형"
+    "🏖️ 해안 지형",
+    "⚠️ 자연재해"
 ], key="gallery_cat")
 
 # 카테고리 → landform_type 매핑
@@ -42,7 +43,8 @@ CATEGORY_TO_TYPE = {
     "🌋 화산 지형": "volcanic",
     "🦇 카르스트 지형": "karst",
     "🏜️ 건조 지형": "arid",
-    "🏖️ 해안 지형": "coastal"
+    "🏖️ 해안 지형": "coastal",
+    "⚠️ 자연재해": "glacial"
 }
 landform_type = CATEGORY_TO_TYPE.get(category, None)
 
@@ -99,6 +101,10 @@ elif category == "🏜️ 건조 지형":
         "🏜️ 와디 (Wadi)": "wadi",
         "🪶 플라야 (Playa)": "playa",
         "🍄 버섯바위 (Pedestal Rock)": "pedestal_rock",
+    }
+elif category == "⚠️ 자연재해":
+    landform_options = {
+        "🏔️ 산사태 댐 붕괴 홍수 (Landslide-dam Flood)": "landslide_dam_flood",
     }
 else:  # 해안 지형
     landform_options = {
@@ -237,6 +243,7 @@ with col_view:
         "karren": "**카렌**: 빗물에 의한 용식으로 석회암 표면에 형성된 홈과 릿지. 클린트/그라이크 포함.",
         "transverse_dune": "**횡사구**: 바람 방향에 수직으로 길게 형성된 사구열. 모래 공급이 풍부할 때 발달.",
         "star_dune": "**성사구**: 다방향 바람에 의해 별 모양으로 형성된 사구. 높이가 높고 이동이 적음.",
+        "landslide_dam_flood": "**산사태 댐 붕괴 홍수**: 고산의 빙하·암벽이 무너져 강을 막고, 그 뒤에 생긴 호수의 둑이 터지며 토석류가 하류를 휩쓰는 연쇄 재해. 🎓 학습 모드에 단계별 활동이 있습니다.",
     }
     st.info(descriptions.get(landform_key, "설명 준비 중입니다."))
 
@@ -288,6 +295,8 @@ if landform_key in ANIMATED_LANDFORM_GENERATORS:
         'transverse_dune',  # 횡사구
         'star_dune',  # 성사구
         'perched_river',  # 천정천
+        'ria_coast',  # 리아스 해안
+        'landslide_dam_flood',  # 산사태 댐 붕괴 홍수
     ]
     
     if landform_key in supported_metadata:
