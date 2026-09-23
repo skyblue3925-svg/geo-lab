@@ -18,11 +18,11 @@ LLM 은 학습 스펙(JSON)만 제안하고, 교사가 검수한 스펙을 기�
 |------|------|
 | 스펙 형식과 검증기 | 완료 (`learning/schema.py`) |
 | 엔진 연결과 판정기 | 완료 (`learning/bridge.py`, `learning/checks.py`) |
-| 스펙 4종 | 선상지, 자유곡류, 해안절벽, 리아스 해안 |
+| 스펙 5종 | 선상지, 자유곡류, 해안절벽, 리아스 해안, 산사태 댐 홍수(자연재해) |
 | 판정 키 | 모든 지형에 공통값 4개, 선상지·리아스 해안 전용 키 추가 |
 | 학습 페이지 | 학생 탭, 교사용 탭 (`pages/5_🎓_Learn.py`) |
 | 유닛 테스트 | 통과 (생성기 전체 스모크 테스트 포함) |
-| 페이지 흐름 테스트 | 통과 (`tests/apptest_learn_flow.py`) |
+| 페이지 흐름 테스트 | 통과 (`tests/apptest_learn_flow.py`, `tests/apptest_gallery_flow.py`) |
 | CI | `Cloudflare Pages` 만 실패. 이 PR 과 무관 (아래) |
 
 ## 검증 방법
@@ -31,6 +31,7 @@ LLM 은 학습 스펙(JSON)만 제안하고, 교사가 검수한 스펙을 기�
 pip install -r requirements.txt
 python -m unittest tests.test_learning_specs tests.test_script_engine tests.test_generators_smoke
 python tests/apptest_learn_flow.py      # 끝에 "ALL OK" 가 나와야 함
+python tests/apptest_gallery_flow.py    # 끝에 "GALLERY OK" 가 나와야 함
 streamlit run app.py                    # 사이드바 '🎓 Learn' 페이지
 ```
 
@@ -49,12 +50,11 @@ streamlit run app.py                    # 사이드바 '🎓 Learn' 페이지
    교사용 탭 3) 에서 지형을 고르면 쓸 수 있는 키와 단계별 값이 보인다.
 3. **스펙을 늘린다.** 교사용 탭 3) 의 프롬프트로 초안을 받고, 2) 에서 검증하고, 학습 탭에서 직접 풀어 본 뒤 `learning/specs/` 에 넣는다.
    `tests/test_learning_specs.py` 가 새 스펙도 자동으로 검사한다.
-4. **(예정) 자연재해 단원.** 사용자 요청: 네팔처럼 빙하가 녹아 생기는 산사태·홍수를 다뤄 보고 싶다.
-   후보는 빙하호 범람(GLOF)과 산사태 연쇄다. 빙하 후퇴 → 모레인이 막은 빙하호 확대 → 모레인 붕괴 → 홍수·토석류.
-   재료는 이미 엔진에 있다. `engine/glacier.py` 의 `GlacierKernel` (빙하 성장·후퇴·모레인 퇴적)과
-   `engine/mass_movement.py` 의 `MassMovementKernel` (임계 경사를 넘는 사면의 산사태)이다.
-   다만 둘 다 이상적 지형 갤러리나 학습 모드에 연결돼 있지 않다.
-   실제 사건을 수업 소재로 쓸 때는 날짜·피해 규모를 신뢰할 만한 보도로 먼저 확인한다.
+4. **자연재해 단원 넓히기.** 첫 활동으로 산사태 댐 붕괴 홍수(`landslide_dam_flood`)를 만들었다.
+   2026년 8월 네팔 랑탕 사례를 확인해 보니 빙하호 범람(GLOF)이 아니라 빙하·암벽 붕괴 → 강 막힘 → 둑 붕괴 → 토석류로 보는 해석이 우세해 이 흐름을 따랐다.
+   생성기는 다른 지형처럼 단계별 이상 모델이다. `engine/glacier.py`, `engine/mass_movement.py` 의 물리 커널은 아직 쓰지 않는다.
+   다음 후보는 빙하호 범람(모레인 둑) 생성기, 그리고 한국 사례와 이어지는 산사태·토석류(집중호우형)다.
+   실제 사건의 피해 규모는 보도마다 크게 다르니 수업 전에 공식 발표를 확인한다.
 5. **LLM 호출을 앱 안에 넣을지 결정한다.** 지금은 API 키가 필요 없도록 프롬프트 복사 방식이다.
 6. **학습 기록을 저장할지 결정한다.** 지금은 세션에만 남는다. 필요하면 방문자 카운터처럼 Supabase 에 붙일 수 있다.
 

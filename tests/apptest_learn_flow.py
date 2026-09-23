@@ -105,4 +105,21 @@ widget(at, "slider", f"learn_stage_{rid}_L2").set_value(0.72); run(at)
 assert any("목표 상태 도달" in s.value for s in at.success)
 assert any(w.key == f"learn_choice_{rid}_L2" for w in at.radio)
 print("ria ok")
+
+# 산사태 댐 홍수: 붕괴가 진행돼 강이 막혀야 L2 객관식이 열리고, 오답이면 경고 피드백
+labels = widget(at, "radio", "learn_choice").options
+widget(at, "radio", "learn_choice").set_value([l for l in labels if "산사태 댐" in l][0]); run(at)
+did = "landslide_dam_flood_basic"
+widget(at, "radio", f"learn_choice_{did}_L1").set_value(
+    "암석 틈을 얼음으로 붙잡고 있던 영구동토와 빙하가 녹아 붙잡는 힘이 약해지고, 녹은 물이 틈으로 스며들기 때문"); run(at)
+widget(at, "button", f"learn_check_{did}_L1").click(); run(at)
+widget(at, "button", f"learn_next_{did}").click(); run(at)
+assert not any(w.key == f"learn_choice_{did}_L2" for w in at.radio), "강이 막히기 전에 객관식이 열림"
+widget(at, "slider", f"learn_stage_{did}_L2").set_value(0.32); run(at)
+assert any("목표 상태 도달" in s.value for s in at.success)
+widget(at, "radio", f"learn_choice_{did}_L2").set_value(
+    "물이 줄었으니 안전해진 것이다. 강가에 내려가 상황을 살핀다"); run(at)
+widget(at, "button", f"learn_check_{did}_L2").click(); run(at)
+assert any("상류가 막혔기 때문" in e.value for e in at.error), [e.value for e in at.error]
+print("landslide dam ok")
 print("ALL OK")
