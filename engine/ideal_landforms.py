@@ -4175,7 +4175,8 @@ def create_lava_plateau(grid_size: int = 100, stage: float = 1.0,
                     lava_mask[r, c] = True
                 else:
                     # 가장자리 경사
-                    edge_t = (dx - 25) / (w // 2 - 25)
+                    # w == 50 이면 분모가 0 → 최소 1 로 보정
+                    edge_t = min(1.0, (dx - 25) / max(1, w // 2 - 25))
                     elevation[r, c] = (plateau_base + 5.0) * (1 - edge_t ** 0.7)
                     
     else:
@@ -4193,7 +4194,8 @@ def create_lava_plateau(grid_size: int = 100, stage: float = 1.0,
                     elevation[r, c] = plateau_base + 5.0
                     lava_mask[r, c] = True
                 else:
-                    edge_t = (dx - 25) / (w // 2 - 25)
+                    # w == 50 이면 분모가 0 → 최소 1 로 보정
+                    edge_t = min(1.0, (dx - 25) / max(1, w // 2 - 25))
                     elevation[r, c] = (plateau_base + 5.0) * (1 - edge_t ** 0.7)
                 
                 # 새로운 협곡 (하천 재침식)
@@ -4358,7 +4360,8 @@ def create_karren(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
     elevation[:, :] = 20.0  # 석회암 표면
     
     # 용식 홈 (Rillenkarren) - 평행한 홈
-    groove_spacing = max(3, w // 20)
+    # 4 미만이면 아래 groove_spacing // 4 가 0 이 되어 ZeroDivisionError (해상도 < 80)
+    groove_spacing = max(4, w // 20)
     groove_depth = 3.0 * stage
     
     for c in range(w):
