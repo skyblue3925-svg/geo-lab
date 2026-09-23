@@ -14,9 +14,12 @@ sys.path.insert(0, os.getcwd())
 
 from learning import (
     validate_spec, load_spec, list_specs, generate_stage, evaluate_check, available_landforms,
+    describe_check_keys,
 )
 
 GRID = 60
+# 학습 페이지 해상도 슬라이더(30~120) 범위에서 판정이 달라지면 안 된다.
+CHECK_GRIDS = (40, 60, 100)
 
 
 class TestLearningSpecs(unittest.TestCase):
@@ -47,12 +50,32 @@ class TestLearningSpecs(unittest.TestCase):
                 if task["type"] != "slider_target":
                     continue
                 lo, hi = level["stage_range"]
-                _, meta_lo = generate_stage(spec["landform"], GRID, lo, spec.get("generator"))
-                _, meta_hi = generate_stage(spec["landform"], GRID, hi, spec.get("generator"))
-                ok_lo, why_lo = evaluate_check(task["check"], meta_lo)
-                ok_hi, why_hi = evaluate_check(task["check"], meta_hi)
-                self.assertFalse(ok_lo, f"{sid}/{level['id']}: 범위 시작에서 이미 통과 ({why_lo})")
-                self.assertTrue(ok_hi, f"{sid}/{level['id']}: 범위 끝에서도 실패 ({why_hi})")
+                for grid in CHECK_GRIDS:
+                    where = f"{sid}/{level['id']} @ 해상도 {grid}"
+                    _, meta_lo = generate_stage(spec["landform"], grid, lo, spec.get("generator"))
+                    _, meta_hi = generate_stage(spec["landform"], grid, hi, spec.get("generator"))
+                    ok_lo, why_lo = evaluate_check(task["check"], meta_lo)
+                    ok_hi, why_hi = evaluate_check(task["check"], meta_hi)
+                    self.assertFalse(ok_lo, f"{where}: 범위 시작에서 이미 통과 ({why_lo})")
+                    self.assertTrue(ok_hi, f"{where}: 범위 끝에서도 실패 ({why_hi})")
+
+    def test_slider_pass_point_is_resolution_independent(self):
+        """같은 슬라이더 과제가 해상도에 따라 통과 시점이 크게 달라지면 안 된다."""
+        for sid, spec in self.specs.items():
+            for level in spec["levels"]:
+                if level["task"]["type"] != "slider_target":
+                    continue
+                lo, hi = level["stage_range"]
+                steps = [round(lo + i * 0.02, 2) for i in range(int(round((hi - lo) / 0.02)) + 1)]
+                first_pass = {}
+                for grid in CHECK_GRIDS:
+                    for s in steps:
+                        _, meta = generate_stage(spec["landform"], grid, s, spec.get("generator"))
+                        if evaluate_check(level["task"]["check"], meta)[0]:
+                            first_pass[grid] = s
+                            break
+                spread = max(first_pass.values()) - min(first_pass.values())
+                self.assertLessEqual(spread, 0.1, f"{sid}/{level['id']}: 해상도별 통과 시점 {first_pass}")
 
     def test_validator_catches_broken_spec(self):
         spec = load_spec(list_specs()["alluvial_fan_basic"])
@@ -61,6 +84,22 @@ class TestLearningSpecs(unittest.TestCase):
         errors = validate_spec(spec)
         self.assertTrue(any("answer" in e for e in errors))
         self.assertTrue(any("stage_range" in e for e in errors))
+
+    def test_terrain_metrics_available_everywhere(self):
+        """메타데이터가 없는 지형도 공통 판정값을 받는다."""
+        for lf in ("karren", "uvala", "tower_karst", "estuary"):
+            _, meta = generate_stage(lf, GRID, 1.0)
+            for key in ("relief", "max_elevation", "min_elevation", "water_fraction"):
+                self.assertIn(key, meta, f"{lf}: {key} 없음")
+
+    def test_describe_check_keys(self):
+        rows = {r["key"]: r for r in describe_check_keys("ria_coast")}
+        self.assertIn("flooded_valleys", rows)
+        self.assertEqual(rows["flooded_valleys"]["values"], [1.0, 3.0, 5.0])
+        self.assertFalse(rows["flooded_valleys"]["resolution_dependent"])
+        self.assertTrue(rows["water_fraction"]["resolution_dependent"])
+        self.assertNotIn("num_valleys", rows, "단계에 따라 변하지 않는 키는 빠져야 함")
+        self.assertNotIn("stage_description", rows)
 
     def test_check_ops(self):
         meta = {"flag": True, "n": 2.0, "arr": [1, 2, 3], "items": ["a"]}

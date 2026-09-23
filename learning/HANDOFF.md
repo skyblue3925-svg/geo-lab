@@ -18,9 +18,10 @@ LLM 은 학습 스펙(JSON)만 제안하고, 교사가 검수한 스펙을 기�
 |------|------|
 | 스펙 형식과 검증기 | 완료 (`learning/schema.py`) |
 | 엔진 연결과 판정기 | 완료 (`learning/bridge.py`, `learning/checks.py`) |
-| 스펙 3종 | 선상지, 자유곡류, 해안절벽 |
+| 스펙 4종 | 선상지, 자유곡류, 해안절벽, 리아스 해안 |
+| 판정 키 | 모든 지형에 공통값 4개, 선상지·리아스 해안 전용 키 추가 |
 | 학습 페이지 | 학생 탭, 교사용 탭 (`pages/5_🎓_Learn.py`) |
-| 유닛 테스트 | 통과 |
+| 유닛 테스트 | 통과 (생성기 전체 스모크 테스트 포함) |
 | 페이지 흐름 테스트 | 통과 (`tests/apptest_learn_flow.py`) |
 | CI | `Cloudflare Pages` 만 실패. 이 PR 과 무관 (아래) |
 
@@ -28,7 +29,7 @@ LLM 은 학습 스펙(JSON)만 제안하고, 교사가 검수한 스펙을 기�
 
 ```bash
 pip install -r requirements.txt
-python -m unittest tests.test_learning_specs tests.test_script_engine
+python -m unittest tests.test_learning_specs tests.test_script_engine tests.test_generators_smoke
 python tests/apptest_learn_flow.py      # 끝에 "ALL OK" 가 나와야 함
 streamlit run app.py                    # 사이드바 '🎓 Learn' 페이지
 ```
@@ -43,9 +44,9 @@ streamlit run app.py                    # 사이드바 '🎓 Learn' 페이지
 ## 다음 작업 (우선순위 순)
 
 1. **교사 1~2명과 선상지 활동을 실제로 돌려 본다.** 코드보다 스펙 내용과 난이도 피드백이 먼저 필요하다.
-2. **판정 키를 엔진에 추가한다.** 메타데이터를 지원하는 지형은 43종 중 28종뿐이다.
-   지형마다 `oxbow_formed` 같은 "학생이 도달할 상태" 키를 한두 개씩 붙이면 슬라이더 과제를 만들 수 있다.
-   선상지는 `zone_mask` 가 모든 단계에서 세 존을 다 포함해 판정 기준으로 쓸 수 없다. `fan_extent` 같은 0~1 값이 필요하다.
+2. **남은 지형에 전용 판정 키를 붙인다.** 공통값(`relief` 등)으로 대부분 판정할 수 있게 됐다.
+   곡류(`meander`), 버섯바위, 해식아치, 페디먼트처럼 공통값도 단계에 따라 거의 변하지 않는 지형이 남았다.
+   교사용 탭 3) 에서 지형을 고르면 쓸 수 있는 키와 단계별 값이 보인다.
 3. **스펙을 늘린다.** 교사용 탭 3) 의 프롬프트로 초안을 받고, 2) 에서 검증하고, 학습 탭에서 직접 풀어 본 뒤 `learning/specs/` 에 넣는다.
    `tests/test_learning_specs.py` 가 새 스펙도 자동으로 검사한다.
 4. **LLM 호출을 앱 안에 넣을지 결정한다.** 지금은 API 키가 필요 없도록 프롬프트 복사 방식이다.
@@ -54,5 +55,7 @@ streamlit run app.py                    # 사이드바 '🎓 Learn' 페이지
 ## 건드릴 때 주의할 점
 
 - 슬라이더 과제는 **범위 시작에서는 실패하고 끝에서는 통과해야** 한다. 테스트가 이것을 강제한다. 시작부터 통과하면 학생이 슬라이더를 움직일 이유가 없다.
+- 판정 키는 **해상도와 무관한 값**을 써야 한다. 일부 생성기는 폭을 격자 칸 수로 그려 `water_fraction` 이 해상도에 따라 달라진다.
+  테스트가 번들 스펙의 슬라이더 통과 시점을 해상도 40·60·100 에서 비교한다.
 - 해안절벽은 애니메이션 레지스트리의 함수가 메타데이터를 돌려주지 않는다. 그래서 스펙에 `"generator": "create_coastal_cliff"` 를 지정했다.
 - 교사용 탭의 검증 버튼은 `on_click` 콜백을 쓴다. 본문에서 처리하면 사이드바 목록이 한 번 늦게 갱신된다.

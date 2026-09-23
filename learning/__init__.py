@@ -14,7 +14,7 @@
 - specs/      : 교사 검수를 거친 스펙 JSON 모음
 """
 from .schema import SPEC_VERSION, validate_spec, load_spec, list_specs, spec_to_json
-from .bridge import generate_stage, available_landforms
+from .bridge import generate_stage, available_landforms, describe_check_keys, terrain_metrics
 from .checks import evaluate_check
 
 __all__ = [
@@ -25,5 +25,7 @@ __all__ = [
     "spec_to_json",
     "generate_stage",
     "available_landforms",
+    "describe_check_keys",
+    "terrain_metrics",
     "evaluate_check",
 ]

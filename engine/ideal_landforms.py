@@ -712,8 +712,15 @@ def create_alluvial_fan_animated(grid_size: int, stage: float,
                     zone_mask[r, c] = current_zone
     
     if return_metadata:
+        plain = zone_mask[apex_y:, :]  # 산지 아래 평지 영역
         return elevation, {
             'zone_mask': zone_mask,
+            # 선상지가 산지 아래 평지 중 얼마나 뻗었나 (0~1)
+            'fan_reach_ratio': max_reach / max(1, h - apex_y),
+            # 선상지가 산지 아래 평지 중 얼마나 덮었나 (0~1)
+            'fan_area_ratio': float((plain > 0).mean()) if plain.size else 0.0,
+            # 선단(3) 존이 차지하는 비율. 선단이 생겨야 용천대가 나타난다.
+            'toe_area_ratio': float((plain == 3).mean()) if plain.size else 0.0,
             'apex_boundary': apex_end,
             'mid_boundary': mid_end,
             'stage_description': _get_fan_stage_desc(stage),
@@ -3696,7 +3703,8 @@ def create_karst_doline(grid_size: int = 100, stage: float = 1.0,
     return elevation
 
 
-def create_ria_coast(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
+def create_ria_coast(grid_size: int = 100, stage: float = 1.0,
+                     return_metadata: bool = False) -> np.ndarray:
     """리아스식 해안 (Ria Coast) - 침수된 하곡
     
     해수면 상승으로 V자곡이 침수되어 형성
@@ -3713,8 +3721,10 @@ def create_ria_coast(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
     num_valleys = 5
     valley_spacing = w // (num_valleys + 1)
     
+    valley_centers = []
     for i in range(num_valleys):
         valley_x = valley_spacing * (i + 1)
+        valley_centers.append(valley_x)
         valley_width = 12 + (i % 2) * 4  # 약간의 변화
         valley_depth = 40.0 + (i % 3) * 10
         
@@ -3739,8 +3749,31 @@ def create_ria_coast(grid_size: int = 100, stage: float = 1.0) -> np.ndarray:
             if elevation[r, c] < sea_level:
                 # 해수면 아래 = 바다 (리아)
                 elevation[r, c] = -10.0 - (sea_level - elevation[r, c]) * 0.3
-                
+
+    if return_metadata:
+        water = elevation < 0
+        # 하곡 중심선에 바닷물이 들어왔으면 '침수된 하곡'. 깊은 골짜기부터 차례로 잠긴다.
+        flooded = sum(1 for x in valley_centers if 0 <= x < w and water[:, x].any())
+        return elevation, {
+            'sea_level': sea_level,
+            'flooded_valleys': int(flooded),
+            'num_valleys': num_valleys,
+            'stage_description': _get_ria_stage_desc(stage),
+        }
+
     return elevation
+
+
+def _get_ria_stage_desc(stage: float) -> str:
+    """리아스 해안 단계별 설명"""
+    if stage < 0.2:
+        return "⛰️ 빙기: 해수면이 낮아 하천이 V자곡을 깊게 파 둠"
+    elif stage < 0.5:
+        return "🌊 후빙기 해수면 상승 시작: 가장 깊은 골짜기부터 바닷물 유입"
+    elif stage < 0.8:
+        return "🦷 톱니 해안 발달: 여러 하곡이 좁고 긴 만(리아)으로 변함"
+    else:
+        return "🏝️ 리아스 해안 완성: 곶과 만이 반복되는 복잡한 해안선"
 
 
 def create_tombolo(grid_size: int = 100, stage: float = 1.0,

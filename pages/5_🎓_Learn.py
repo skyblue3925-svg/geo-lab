@@ -20,7 +20,7 @@ sys.path.insert(0, ROOT)
 
 from learning import (  # noqa: E402
     SPEC_VERSION, validate_spec, load_spec, list_specs, spec_to_json,
-    generate_stage, available_landforms, evaluate_check,
+    generate_stage, available_landforms, evaluate_check, describe_check_keys,
 )
 from app.components.renderer import render_terrain_plotly  # noqa: E402
 
@@ -319,8 +319,21 @@ with tab_teacher:
                                        index=available_landforms().index(spec["landform"])
                                        if spec["landform"] in available_landforms() else 0,
                                        key="learn_prompt_landform")
-    _, meta_keys_probe = generate_stage(landform_for_prompt, 40, 1.0)
-    usable_keys = sorted(k for k in meta_keys_probe.keys() if k != "stage_description")
+    key_rows = describe_check_keys(landform_for_prompt)
+
+    def _fmt(v):
+        return f"{v:g}" if abs(v) >= 1 or v == 0 else f"{v:.2f}"
+
+    key_lines = []
+    for row in key_rows:
+        path = " → ".join(f"{int(s * 100)}%: {_fmt(v)}" for s, v in zip(row["stages"], row["values"]))
+        note = " (목록 길이, len_gte 사용)" if row["measure"] == "len" else ""
+        if row["resolution_dependent"]:
+            note += " ⚠️ 해상도에 따라 값이 달라짐, 가급적 쓰지 말 것"
+        key_lines.append(f"- {row['key']}: {path}{note}")
+    usable_keys = "\n".join(key_lines)
+    with st.expander(f"🔑 '{landform_for_prompt}' 판정에 쓸 수 있는 키 ({len(key_rows)}개)"):
+        st.markdown(usable_keys.replace("\n", "  \n"))
     schema_doc = open(os.path.join(ROOT, "learning", "schema.py"), encoding="utf-8").read().split('"""')[1]
     example = spec_to_json(bundled[next(iter(bundled))])
     prompt = f"""당신은 고등학교 지리 교사를 돕는 교육 설계 보조입니다.
@@ -334,9 +347,12 @@ with tab_teacher:
 - 한국 교육과정 용어를 쓰고, 지형 형성 '원인 → 과정 → 결과' 순서를 지키세요.
 - JSON 만 출력하세요.
 
-사용 가능한 메타데이터 키 (slider_target 의 check.key): {usable_keys}
+사용 가능한 메타데이터 키 (slider_target 의 check.key). 형성 단계별 값을 보고 기준값(check.value)을 정하세요.
+stage_range 의 시작에서는 판정이 실패하고, 끝에서는 통과해야 합니다.
+{usable_keys}
+
 check.op: equals | gte | lte | contains | len_gte | truthy
-"_stage" 는 형성 단계(0~1)로 모든 지형에서 쓸 수 있습니다.
+"_stage" 는 형성 단계(0~1)로 모든 지형에서 쓸 수 있지만, 지형의 실제 상태를 나타내는 다른 키를 우선하세요.
 
 형식 설명:
 {schema_doc.strip()}

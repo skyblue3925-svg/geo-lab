@@ -90,4 +90,19 @@ print("teacher tab ok:", labels[-1])
 widget(at, "radio", "learn_choice").set_value([l for l in labels if "파도" in l][0]); run(at)
 assert any("L1" in w.key for w in at.radio)
 print("coastal ok")
+
+# 리아스 해안: 해수면을 올려 다섯 골짜기가 모두 잠겨야 L2 객관식이 열린다
+labels = widget(at, "radio", "learn_choice").options
+widget(at, "radio", "learn_choice").set_value([l for l in labels if "리아스" in l][0]); run(at)
+rid = "ria_coast_basic"
+widget(at, "radio", f"learn_choice_{rid}_L1").set_value("하천이 아래로 깎아 내린 작용"); run(at)
+widget(at, "button", f"learn_check_{rid}_L1").click(); run(at)
+widget(at, "button", f"learn_next_{rid}").click(); run(at)
+assert not any(w.key == f"learn_choice_{rid}_L2" for w in at.radio), "잠기기 전에 객관식이 열림"
+widget(at, "slider", f"learn_stage_{rid}_L2").set_value(0.5); run(at)
+assert not any(w.key == f"learn_choice_{rid}_L2" for w in at.radio), "골짜기 3개만 잠겼는데 열림"
+widget(at, "slider", f"learn_stage_{rid}_L2").set_value(0.72); run(at)
+assert any("목표 상태 도달" in s.value for s in at.success)
+assert any(w.key == f"learn_choice_{rid}_L2" for w in at.radio)
+print("ria ok")
 print("ALL OK")
