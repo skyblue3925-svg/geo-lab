@@ -1576,8 +1576,9 @@ def create_free_meander(grid_size: int = 100, stage: float = 1.0,
         theta = 2 * np.pi * r / wl
         meander_x = center_x + amplitude * np.sin(theta)
         
-        # 곡률 방향 (공격사면 결정용)
-        curvature = np.cos(theta)  # +: 오른쪽 공격사면, -: 왼쪽 공격사면
+        # 곡률 방향 (공격사면 결정용): 굽이 꼭짓점(sin θ = ±1)의 바깥쪽이 공격사면
+        # x'' ∝ -sin θ 이므로 sin θ > 0 이면 오른쪽(+x)이 바깥, < 0 이면 왼쪽이 바깥
+        curvature = np.sin(theta)
         
         for c in range(w):
             dist = c - meander_x
@@ -1608,25 +1609,46 @@ def create_free_meander(grid_size: int = 100, stage: float = 1.0,
                 # 배후습지 (Backswamp) - 자연제방보다 낮음
                 elevation[r, c] = base_height - 0.5
     
-    # 우각호 (Oxbow Lake) - Stage 0.7 이후
+    # 우각호 (Oxbow Lake) - Stage 0.7 이후: 목 절단(neck cutoff)
+    #   0.70~0.82 : 홍수 때 굽이의 목을 곧은 새 물길이 가로지름 (옛 고리도 아직 연결)
+    #   0.82~1.00 : 옛 고리 양 끝이 퇴적물로 막혀 초승달 모양 호수로 고립
     oxbow_formed = False
+    cutoff = None
     if stage > 0.7:
         oxbow_progress = (stage - 0.7) / 0.3
-        oxbow_y = h // 2
-        oxbow_amplitude = amplitude * 1.4
-        
-        for dy in range(-int(wl/4), int(wl/4)):
-            r = oxbow_y + dy
-            if 0 <= r < h:
-                theta = 2 * np.pi * dy / (wl/2)
-                ox_x = center_x + oxbow_amplitude * np.sin(theta)
-                
-                for dc in range(-channel_width-2, channel_width + 3):
-                    c = int(ox_x + dc)
-                    if 0 <= c < w:
-                        # 우각호 (고립된 호수)
-                        elevation[r, c] = 4.0
-                        oxbow_formed = True
+        R = np.arange(h)[:, None] * np.ones((1, w))
+        C = np.ones((h, 1)) * np.arange(w)[None, :]
+
+        def path_x(rr):
+            return center_x + amplitude * np.sin(2 * np.pi * rr / wl)
+
+        # 화면 가운데에 가장 가까운 굽이 꼭짓점 (sin θ = ±1)
+        apexes = [wl * (n + f) for n in range(num_bends + 1) for f in (0.25, 0.75)]
+        apexes = [a for a in apexes if wl * 0.4 <= a <= h - wl * 0.4] or [h / 2]
+        r_apex = min(apexes, key=lambda a: abs(a - h / 2))
+        half_neck = 0.2 * wl
+        r1, r2 = r_apex - half_neck, r_apex + half_neck
+        x_chord = path_x(r1)                              # 꼭짓점 대칭이라 r1, r2 에서 같은 x
+        cutoff = {'row_start': float(r1), 'row_end': float(r2), 'col': float(x_chord)}
+
+        old_channel = np.abs(C - path_x(R)) < channel_width
+        chord = (np.abs(C - x_chord) < channel_width) & (R >= r1) & (R <= r2)
+        # 옛 고리 = 새 물길보다 꼭짓점 쪽에 있는 옛 하도. 새 물길 가까운 부분이 먼저 메워진다.
+        side = np.sign(path_x(r_apex) - x_chord) or 1.0
+        beyond = (C - x_chord) * side
+        near_rows = (R > r1 - channel_width) & (R < r2 + channel_width)
+        loop = old_channel & ~chord & near_rows & (beyond > channel_width * 0.5)
+        plug_w = 0.12 * amplitude + 2
+        plug = loop & (beyond < channel_width + plug_w)
+
+        # 새 물길 (자른 목)
+        chord_depth = 5.0 - (channel_width - np.abs(C - x_chord)) * 0.2
+        elevation = np.where(chord, np.minimum(elevation, chord_depth), elevation)
+
+        if oxbow_progress >= 0.4:
+            elevation = np.where(plug, base_height - 0.3, elevation)          # 퇴적물로 막힌 양 끝
+            elevation = np.where(loop & ~plug, 4.0, elevation)                # 고립된 우각호
+            oxbow_formed = bool((loop & ~plug).any())
     
     if return_metadata:
         return elevation, {
@@ -1635,6 +1657,7 @@ def create_free_meander(grid_size: int = 100, stage: float = 1.0,
             'cutbank_positions': cutbank_positions[:5],  # 상위 5개
             'pointbar_positions': pointbar_positions[:5],
             'oxbow_formed': oxbow_formed,
+            'cutoff': cutoff,  # 목 절단 위치 (행 범위와 새 물길의 열), 절단 전에는 None
             'stage_description': _get_meander_stage_desc(stage)
         }
     
